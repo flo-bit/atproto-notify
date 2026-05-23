@@ -12,9 +12,12 @@
     "test": "pnpm -r test",
     "generate": "pnpm --filter @atmo/notifs-lexicons generate",
     "db:migrate": "pnpm --filter @atmo/notifs-relay db:migrate",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "icons": "node scripts/generate-icons.mjs"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "png-to-ico": "^2.1.8",
     "typescript": "^5.8.3"
   }
 }
