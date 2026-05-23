@@ -58,7 +58,14 @@ async function handleApprove(
     return;
   }
 
-  await q.upsertGrant(env.DB, pending.recipient_did, pending.sender_did, now());
+  await q.upsertGrant(env.DB, {
+    recipientDid: pending.recipient_did,
+    senderDid: pending.sender_did,
+    grantedAt: now(),
+    title: pending.title,
+    description: pending.description,
+    iconUrl: pending.icon_url,
+  });
   await q.deletePendingById(env.DB, requestId, recipientDid);
   if (messageId !== undefined) {
     await editMessageText(env, {

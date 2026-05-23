@@ -39,7 +39,14 @@ it('returns 403 when no grant exists', async () => {
 it('accepts but delivers to nobody when there is a grant but no channel', async () => {
   const sender = await makeIdentity('did:plc:sendnochannel');
   mockPlc(sender);
-  await q.upsertGrant(env.DB, RECIPIENT, sender.did, Date.now());
+  await q.upsertGrant(env.DB, {
+    recipientDid: RECIPIENT,
+    senderDid: sender.did,
+    grantedAt: Date.now(),
+    title: null,
+    description: null,
+    iconUrl: null
+  });
   const jwt = await makeJwt(sender, { lxm: SEND });
 
   const res = await call(send(jwt));
@@ -51,7 +58,14 @@ it('accepts but delivers to nobody when there is a grant but no channel', async 
 it('enqueues and reports delivered=1 with a linked channel', async () => {
   const sender = await makeIdentity('did:plc:sendchannel');
   mockPlc(sender);
-  await q.upsertGrant(env.DB, RECIPIENT, sender.did, Date.now());
+  await q.upsertGrant(env.DB, {
+    recipientDid: RECIPIENT,
+    senderDid: sender.did,
+    grantedAt: Date.now(),
+    title: null,
+    description: null,
+    iconUrl: null
+  });
   await q.upsertChannel(env.DB, {
     did: RECIPIENT,
     platform: 'telegram',
@@ -75,7 +89,14 @@ it('enqueues and reports delivered=1 with a linked channel', async () => {
 it('accepts silently with delivered=0 when the grant is muted', async () => {
   const sender = await makeIdentity('did:plc:sendmuted');
   mockPlc(sender);
-  await q.upsertGrant(env.DB, RECIPIENT, sender.did, Date.now());
+  await q.upsertGrant(env.DB, {
+    recipientDid: RECIPIENT,
+    senderDid: sender.did,
+    grantedAt: Date.now(),
+    title: null,
+    description: null,
+    iconUrl: null
+  });
   await q.setGrantMuted(env.DB, RECIPIENT, sender.did, true);
   await q.upsertChannel(env.DB, {
     did: RECIPIENT,

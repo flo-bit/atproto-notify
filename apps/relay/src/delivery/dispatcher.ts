@@ -60,14 +60,13 @@ async function dispatch(env: Env, job: DispatchJob): Promise<void> {
     return;
   }
 
-  // pendingRequest
-  const handle = `@${escapeMd(job.senderHandle)}`;
-  const name =
-    job.senderDisplayName !== undefined
-      ? `${escapeMd(job.senderDisplayName)} \\(${handle}\\)`
-      : handle;
-  const reasonLine = job.reason !== undefined ? `\n\n_${escapeMd(job.reason)}_` : '';
-  const text = `🔔 *${name}* wants to send you notifications${reasonLine}`;
+  // pendingRequest: title is the bold header, description the body line, and the
+  // sender DID is shown in small/monospace so the user can verify it.
+  const descriptionLine =
+    job.senderDescription !== undefined ? `\n\n_${escapeMd(job.senderDescription)}_` : '';
+  const text =
+    `🔔 *${escapeMd(job.senderTitle)}* wants to send you notifications${descriptionLine}` +
+    `\n\n\`${escapeMd(job.senderDid)}\``;
   const replyMarkup: InlineKeyboardMarkup = {
     inline_keyboard: [
       [

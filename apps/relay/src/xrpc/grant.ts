@@ -12,9 +12,26 @@ export function makeGrant(app: AppContext): ProcedureConfig<ToolsAtmoNotifsGrant
   return {
     handler: async ({ request, input }) => {
       const { userDid } = await verifyUserRequest(app.verifier, request, LXM);
-
       await q.ensureUser(app.env.DB, userDid, now());
-      await q.upsertGrant(app.env.DB, userDid, input.sender, now());
+
+      // When granting from a pending request, copy its display metadata onto the
+      // grant so listGrants can show it later. For a manual grant (no requestId)
+      // the metadata stays null and listGrants falls back to Bluesky-resolved info.
+      const pending =
+        input.requestId !== undefined
+          ? await q.getPendingById(app.env.DB, input.requestId)
+          : null;
+      const fromPending = pending !== null && pending.recipient_did === userDid ? pending : null;
+
+      await q.upsertGrant(app.env.DB, {
+        recipientDid: userDid,
+        senderDid: input.sender,
+        grantedAt: now(),
+        title: fromPending?.title ?? null,
+        description: fromPending?.description ?? null,
+        iconUrl: fromPending?.icon_url ?? null,
+      });
+
       if (input.requestId !== undefined) {
         await q.deletePendingById(app.env.DB, input.requestId, userDid);
       }

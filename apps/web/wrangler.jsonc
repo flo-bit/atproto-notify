@@ -1,0 +1,22 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	// Working default — pick a real subdomain and update this + the custom domain.
+	"name": "notifs-web",
+	"compatibility_date": "2026-04-01",
+	"compatibility_flags": ["nodejs_compat"],
+
+	// KV namespaces required by @svelte-atproto/oauth's `cloudflareKV` stores
+	// (see src/lib/atproto/index.ts). Create them and paste the ids:
+	//   pnpm exec wrangler kv namespace create OAUTH_SESSIONS
+	//   pnpm exec wrangler kv namespace create OAUTH_STATES
+	"kv_namespaces": [
+		{ "binding": "OAUTH_SESSIONS", "id": "REPLACE_ME" },
+		{ "binding": "OAUTH_STATES", "id": "REPLACE_ME" }
+	]
+
+	// Deploying to Cloudflare: install `@sveltejs/adapter-cloudflare` and use it in
+	// svelte.config.js (adapter-auto also selects it automatically on CF Pages).
+	// The adapter injects `main` and `assets`; this file supplies the bindings.
+	// Bind the custom domain (e.g. notifs-web.atmo.tools) in the CF dashboard, or:
+	//   "routes": [{ "pattern": "notifs-web.atmo.tools", "custom_domain": true }]
+}

@@ -4,17 +4,14 @@
   "defs": {
     "main": {
       "type": "permission-set",
-      "title": "Send notifications",
-      "detail": "Allow this app to request permission to send you notifications and to deliver them to your linked channels (like Telegram).",
+      "title": "Request notification permission",
+      "detail": "Allow this app to ask you for permission to send you notifications. (Sending itself is authenticated by the app's own identity, not this grant.)",
       "permissions": [
         {
           "type": "permission",
           "resource": "rpc",
           "inheritAud": true,
-          "lxm": [
-            "tools.atmo.notifs.requestPermission",
-            "tools.atmo.notifs.send"
-          ]
+          "lxm": ["tools.atmo.notifs.requestPermission"]
         }
       ]
     }

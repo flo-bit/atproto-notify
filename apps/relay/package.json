@@ -9,7 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -b",
-    "db:migrate": "wrangler d1 migrations apply notifs-relay"
+    "db:migrate": "wrangler d1 migrations apply notifs-relay --remote",
+    "db:migrate:local": "wrangler d1 migrations apply notifs-relay --local"
   },
   "dependencies": {
     "@atcute/client": "^5.0.0",

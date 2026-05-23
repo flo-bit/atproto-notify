@@ -21,14 +21,22 @@
     },
     "pendingView": {
       "type": "object",
-      "required": ["id", "sender", "createdAt", "expiresAt"],
+      "required": ["id", "sender", "title", "createdAt", "expiresAt"],
       "properties": {
         "id": { "type": "string" },
         "sender": { "type": "string", "format": "did" },
-        "senderHandle": { "type": "string" },
-        "senderDisplayName": { "type": "string" },
-        "senderAvatar": { "type": "string" },
-        "reason": { "type": "string" },
+        "title": {
+          "type": "string",
+          "description": "User-supplied display name from the request."
+        },
+        "description": { "type": "string" },
+        "iconUrl": { "type": "string" },
+        "senderHandle": {
+          "type": "string",
+          "description": "Best-effort Bluesky handle for the sender DID, if it has a profile."
+        },
+        "senderBskyDisplayName": { "type": "string" },
+        "senderBskyAvatar": { "type": "string" },
         "createdAt": { "type": "string", "format": "datetime" },
         "expiresAt": { "type": "string", "format": "datetime" }
       }

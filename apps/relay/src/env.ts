@@ -24,9 +24,10 @@ export type DispatchJob =
       kind: 'pendingRequest';
       channel: TelegramChannel;
       requestId: string;
-      senderHandle: string;
-      senderDisplayName?: string;
-      reason?: string;
+      senderTitle: string;
+      senderDescription?: string;
+      senderIconUrl?: string;
+      senderDid: string;
     };
 
 /** Cloudflare bindings + vars + secrets, as declared in `wrangler.toml`. */

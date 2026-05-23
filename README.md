@@ -33,9 +33,14 @@ re-home the relay, change them everywhere listed below.
 | Link token TTL | 10 minutes | `apps/relay/src/xrpc/linkChannel.ts` (`addMinutes(now(), 10)`) |
 | DID-doc cache TTL (KV) | 5 minutes | `apps/relay/src/identity/resolve.ts` (`DID_DOC_CACHE_TTL_SECONDS`) |
 | Profile cache TTL (`senders`) | 24 hours | `apps/relay/src/profile/fetch.ts` (`PROFILE_TTL_MS`) |
-| `requestPermission` rate limit | 100 / hour / sender | `apps/relay/src/xrpc/requestPermission.ts` (`REQ_LIMIT`, `REQ_WINDOW_SECONDS`) |
+| `requestPermission` rate limits | 50 / hour / recipient & 100 / hour / sender | `apps/relay/src/xrpc/requestPermission.ts` (`PER_RECIPIENT_LIMIT`, `PER_SENDER_LIMIT`, `WINDOW_SECONDS`) |
 | `send` rate limits | 1 / sec & 100 / day / pair | `apps/relay/src/xrpc/send.ts` (`PER_SECOND_*`, `PER_DAY_*`) |
 | Bot username | `REPLACE_ME` | `apps/relay/wrangler.toml` (`[vars].BOT_USERNAME`) → deep links in `linkChannel` |
+
+> **Auth model:** `requestPermission` is **user-authenticated** (the user OAuths
+> into the requesting app with the `tools.atmo.notifs.authSender` permission set);
+> the sender DID + display metadata are in the request body. `send` stays
+> **sender-authenticated** (the sender's own DID key). See "For sender developers".
 
 > **Note on `lex.config.js`** — the prompt's tree named this `lex.config.json`,
 > but `@atcute/lex-cli` loads its config via dynamic `import()`, which only
@@ -199,64 +204,72 @@ Then:
 
 ## For sender developers
 
-To send notifications from your own app you authenticate as **your app's DID**
-using atproto service-auth JWTs. There is no registration step — the relay
-verifies your signature against your DID document.
+**Two endpoints, two different auth mechanisms:**
 
-1. **Set up a `did:web` (or `did:plc`) for your app** with an atproto signing key.
-   For `did:web:yourapp.example`, host a DID document at
+- **`requestPermission`** proves *the user authorized this request* — it's
+  authenticated by the **user** (via OAuth into your app with the `authSender`
+  permission set). The sender DID and display info are passed in the body.
+- **`send`** proves *the sender identity* — it's authenticated by **your app's
+  DID** (a service-auth JWT signed with your app's key). Unchanged.
+
+1. **Set up a `did:web` (or `did:plc`) for your app** with an atproto signing key
+   (needed for `send`). For `did:web:yourapp.example`, host a DID document at
    `https://yourapp.example/.well-known/did.json` containing a
-   `verificationMethod` whose id ends in `#atproto` (a `Multikey` with your
-   public key in `publicKeyMultibase`). The relay resolves plc + web DIDs.
+   `verificationMethod` whose id ends in `#atproto` (a `Multikey` with your public
+   key in `publicKeyMultibase`). The relay resolves plc + web DIDs.
 
-2. **Mint a service-auth JWT** for each call. The `aud` must be the relay
-   (`did:web:notifs.atmo.tools` or `did:web:notifs.atmo.tools#notif_relay`) and
-   the `lxm` must match the method you're calling. Use atcute's
-   [`createServiceJwt`](https://www.npmjs.com/package/@atcute/xrpc-server):
+2. **Request permission** — the user signs into your app via atproto OAuth. Your
+   app's scope needs only `requestPermission` (`send` uses your app's own key, not
+   the user's session):
+
+   ```
+   atproto rpc?lxm=tools.atmo.notifs.requestPermission&aud=*
+   ```
+
+   (Once the `tools.atmo.notifs.authSender` permission set is published, the
+   tidier `include:tools.atmo.notifs.authSender?aud=did:web:notifs.atmo.tools%23notif_relay`
+   works too.) Then, on the user's PDS, mint a service-auth JWT via
+   `com.atproto.server.getServiceAuth` (`aud = did:web:notifs.atmo.tools`,
+   `lxm = tools.atmo.notifs.requestPermission`) and call:
+
+   ```ts
+   await fetch('https://notifs.atmo.tools/xrpc/tools.atmo.notifs.requestPermission', {
+     method: 'POST',
+     headers: {
+       authorization: `Bearer ${userServiceAuthJwt}`, // issued by the USER's PDS
+       'content-type': 'application/json',
+     },
+     body: JSON.stringify({
+       senderDid: 'did:web:yourapp.example', // what the user approves & what `send` uses
+       title: 'Bookhive',                    // shown to the user at approval
+       description: 'New comments on your books',
+       iconUrl: 'https://yourapp.example/icon.png',
+     }),
+   });
+   // -> { id, status: "pending" | "alreadyGranted" }
+   ```
+
+   The user approves it in the dashboard or Telegram.
+
+3. **Send a notification** once granted — authenticated with **your app's own
+   key** (`aud` = the relay, `lxm = tools.atmo.notifs.send`):
 
    ```ts
    import { P256PrivateKeyExportable } from '@atcute/crypto';
    import { createServiceJwt } from '@atcute/xrpc-server/auth';
 
    const keypair = await P256PrivateKeyExportable.importRaw(yourPrivateKeyBytes);
-
-   async function jwt(lxm: string) {
-     return createServiceJwt({
-       keypair,
-       issuer: 'did:web:yourapp.example',
-       audience: 'did:web:notifs.atmo.tools',
-       lxm,
-       expiresIn: 60,
-     });
-   }
-   ```
-
-3. **Request permission** (the user approves it in the dashboard or Telegram):
-
-   ```ts
-   await fetch('https://notifs.atmo.tools/xrpc/tools.atmo.notifs.requestPermission', {
-     method: 'POST',
-     headers: {
-       authorization: `Bearer ${await jwt('tools.atmo.notifs.requestPermission')}`,
-       'content-type': 'application/json',
-     },
-     body: JSON.stringify({
-       recipient: 'did:plc:therecipient',
-       reason: 'Get notified when someone replies to you',
-     }),
+   const jwt = await createServiceJwt({
+     keypair,
+     issuer: 'did:web:yourapp.example',
+     audience: 'did:web:notifs.atmo.tools',
+     lxm: 'tools.atmo.notifs.send',
+     expiresIn: 60,
    });
-   // -> { id, status: "pending" | "alreadyGranted" }
-   ```
 
-4. **Send a notification** once granted:
-
-   ```ts
    await fetch('https://notifs.atmo.tools/xrpc/tools.atmo.notifs.send', {
      method: 'POST',
-     headers: {
-       authorization: `Bearer ${await jwt('tools.atmo.notifs.send')}`,
-       'content-type': 'application/json',
-     },
+     headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
      body: JSON.stringify({
        recipient: 'did:plc:therecipient',
        title: 'New reply',
@@ -275,6 +288,7 @@ verifies your signature against your DID document.
 
 The relay publishes two OAuth permission sets so the website can request scopes:
 
-- `tools.atmo.notifs.authSender` — `requestPermission` + `send` (for apps).
+- `tools.atmo.notifs.authSender` — `requestPermission` only (for sender apps;
+  `send` is authenticated by the app's own DID, not via this grant).
 - `tools.atmo.notifs.authUser` — all user-facing management methods (for the
   dashboard acting on a user's behalf).

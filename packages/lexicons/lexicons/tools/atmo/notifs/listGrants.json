@@ -21,12 +21,21 @@
     },
     "grantView": {
       "type": "object",
-      "required": ["sender", "grantedAt", "muted"],
+      "required": ["sender", "title", "grantedAt", "muted"],
       "properties": {
         "sender": { "type": "string", "format": "did" },
-        "senderHandle": { "type": "string" },
-        "senderDisplayName": { "type": "string" },
-        "senderAvatar": { "type": "string" },
+        "title": {
+          "type": "string",
+          "description": "Display name for the sender (user-supplied at request time, falling back to Bluesky info or the DID)."
+        },
+        "description": { "type": "string" },
+        "iconUrl": { "type": "string" },
+        "senderHandle": {
+          "type": "string",
+          "description": "Best-effort Bluesky handle for the sender DID, if it has a profile."
+        },
+        "senderBskyDisplayName": { "type": "string" },
+        "senderBskyAvatar": { "type": "string" },
         "grantedAt": { "type": "string", "format": "datetime" },
         "muted": { "type": "boolean" }
       }

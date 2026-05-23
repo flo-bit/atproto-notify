@@ -42,6 +42,12 @@
 	},
 	"dependencies": {
 		"@atcute/atproto": "^3.1.10",
-		"@svelte-atproto/oauth": "^0.1.0"
+		"@atcute/client": "^4.2.1",
+		"@atcute/identity": "^1.1.5",
+		"@atcute/lexicons": "^1.2.9",
+		"@atmo/notifs-lexicons": "workspace:*",
+		"@svelte-atproto/oauth": "^0.1.0",
+		"shiki": "^4.1.0",
+		"valibot": "^1.4.0"
 	}
 }

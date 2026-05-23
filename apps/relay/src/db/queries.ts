@@ -37,7 +37,10 @@ export interface PendingRequestRow {
   id: string;
   recipient_did: Did;
   sender_did: Did;
-  reason: string | null;
+  reason: string | null; // legacy (migration 0001); unused
+  title: string | null;
+  description: string | null;
+  icon_url: string | null;
   created_at: number;
   expires_at: number;
 }
@@ -47,16 +50,19 @@ export interface GrantRow {
   sender_did: Did;
   granted_at: number;
   muted: number;
+  title: string | null;
+  description: string | null;
+  icon_url: string | null;
 }
 
-/** A grant joined with the (optional) cached sender profile. */
+/** A grant joined with the (optional) cached Bluesky profile (`s.*`). */
 export interface GrantWithSenderRow extends GrantRow {
   handle: string | null;
   display_name: string | null;
   avatar_url: string | null;
 }
 
-/** A pending request joined with the (optional) cached sender profile. */
+/** A pending request joined with the (optional) cached Bluesky profile (`s.*`). */
 export interface PendingWithSenderRow extends PendingRequestRow {
   handle: string | null;
   display_name: string | null;
@@ -244,7 +250,9 @@ export interface InsertPendingInput {
   id: string;
   recipientDid: Did;
   senderDid: Did;
-  reason: string | null;
+  title: string;
+  description: string | null;
+  iconUrl: string | null;
   createdAt: number;
   expiresAt: number;
 }
@@ -252,9 +260,20 @@ export interface InsertPendingInput {
 export async function insertPending(db: D1Database, input: InsertPendingInput): Promise<void> {
   await db
     .prepare(
-      'INSERT INTO pending_requests (id, recipient_did, sender_did, reason, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
+      `INSERT INTO pending_requests
+         (id, recipient_did, sender_did, title, description, icon_url, created_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .bind(input.id, input.recipientDid, input.senderDid, input.reason, input.createdAt, input.expiresAt)
+    .bind(
+      input.id,
+      input.recipientDid,
+      input.senderDid,
+      input.title,
+      input.description,
+      input.iconUrl,
+      input.createdAt,
+      input.expiresAt,
+    )
     .run();
 }
 
@@ -315,22 +334,41 @@ export function getGrant(db: D1Database, recipientDid: Did, senderDid: Did): Pro
     .first<GrantRow>();
 }
 
-/** Insert or refresh a grant. Re-granting resets `muted` to 0. */
-export async function upsertGrant(
-  db: D1Database,
-  recipientDid: Did,
-  senderDid: Did,
-  grantedAt: number,
-): Promise<void> {
+export interface UpsertGrantInput {
+  recipientDid: Did;
+  senderDid: Did;
+  grantedAt: number;
+  /** Display metadata copied from the pending request; null for manual grants. */
+  title: string | null;
+  description: string | null;
+  iconUrl: string | null;
+}
+
+/**
+ * Insert or refresh a grant. Re-granting resets `muted` to 0. Metadata is copied
+ * from the pending request; `COALESCE` keeps any previously-stored metadata when
+ * a re-grant provides none (e.g. a manual grant with no requestId).
+ */
+export async function upsertGrant(db: D1Database, input: UpsertGrantInput): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO grants (recipient_did, sender_did, granted_at, muted)
-       VALUES (?, ?, ?, 0)
+      `INSERT INTO grants (recipient_did, sender_did, granted_at, muted, title, description, icon_url)
+       VALUES (?, ?, ?, 0, ?, ?, ?)
        ON CONFLICT(recipient_did, sender_did) DO UPDATE SET
          granted_at = excluded.granted_at,
-         muted = 0`,
+         muted = 0,
+         title = COALESCE(excluded.title, grants.title),
+         description = COALESCE(excluded.description, grants.description),
+         icon_url = COALESCE(excluded.icon_url, grants.icon_url)`,
     )
-    .bind(recipientDid, senderDid, grantedAt)
+    .bind(
+      input.recipientDid,
+      input.senderDid,
+      input.grantedAt,
+      input.title,
+      input.description,
+      input.iconUrl,
+    )
     .run();
 }
 

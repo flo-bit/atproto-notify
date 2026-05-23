@@ -17,9 +17,13 @@ export function makeListGrants(app: AppContext): QueryConfig<ToolsAtmoNotifsList
       return json({
         grants: rows.map((row) => ({
           sender: row.sender_did,
+          // user-supplied title; fall back to the Bluesky name/handle, then the DID
+          title: row.title ?? row.display_name ?? row.handle ?? row.sender_did,
+          description: row.description ?? undefined,
+          iconUrl: row.icon_url ?? undefined,
           senderHandle: row.handle ?? undefined,
-          senderDisplayName: row.display_name ?? undefined,
-          senderAvatar: row.avatar_url ?? undefined,
+          senderBskyDisplayName: row.display_name ?? undefined,
+          senderBskyAvatar: row.avatar_url ?? undefined,
           grantedAt: toIsoDatetime(row.granted_at),
           muted: row.muted === 1,
         })),

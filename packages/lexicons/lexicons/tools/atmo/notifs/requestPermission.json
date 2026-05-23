@@ -4,22 +4,32 @@
   "defs": {
     "main": {
       "type": "procedure",
-      "description": "Ask a recipient for permission to send them notifications. Sender-authenticated.",
+      "description": "Ask the authenticated user for permission for a sender DID to notify them. User-authenticated (via the authSender permission set); the sender DID and display metadata are supplied in the body.",
       "input": {
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["recipient"],
+          "required": ["senderDid", "title"],
           "properties": {
-            "recipient": {
+            "senderDid": {
               "type": "string",
               "format": "did",
-              "description": "DID of the user the sender wants to notify."
+              "description": "The DID that will send notifications. This is what the user approves and what `send` calls authenticate as."
             },
-            "reason": {
+            "title": {
+              "type": "string",
+              "maxLength": 50,
+              "description": "Short display name shown to the user during approval (e.g. \"Bookhive\")."
+            },
+            "description": {
               "type": "string",
               "maxLength": 200,
-              "description": "Human-readable reason shown to the user when approving."
+              "description": "Optional one-line context shown during approval."
+            },
+            "iconUrl": {
+              "type": "string",
+              "format": "uri",
+              "description": "Optional HTTPS URL to a small square icon shown during approval."
             }
           }
         }
@@ -33,14 +43,15 @@
             "id": { "type": "string" },
             "status": {
               "type": "string",
-              "enum": ["pending", "alreadyGranted"]
+              "knownValues": ["pending", "alreadyGranted"]
             }
           }
         }
       },
       "errors": [
         { "name": "NotAuthorized" },
-        { "name": "RateLimitExceeded" }
+        { "name": "RateLimitExceeded" },
+        { "name": "InvalidRequest" }
       ]
     }
   }

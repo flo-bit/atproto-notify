@@ -43,7 +43,10 @@ CREATE TABLE pending_requests (
   id TEXT PRIMARY KEY,
   recipient_did TEXT NOT NULL,
   sender_did TEXT NOT NULL,
-  reason TEXT,
+  reason TEXT,                 -- legacy (migration 0001); no longer written/read
+  title TEXT,                  -- migration 0002: user-supplied display name
+  description TEXT,            -- migration 0002
+  icon_url TEXT,               -- migration 0002
   created_at INTEGER NOT NULL,
   expires_at INTEGER NOT NULL,
   UNIQUE (recipient_did, sender_did)
@@ -56,6 +59,9 @@ CREATE TABLE grants (
   sender_did TEXT NOT NULL,
   granted_at INTEGER NOT NULL,
   muted INTEGER NOT NULL DEFAULT 0,
+  title TEXT,                  -- migration 0002: copied from the pending request
+  description TEXT,            -- migration 0002
+  icon_url TEXT,               -- migration 0002
   PRIMARY KEY (recipient_did, sender_did)
 );
 CREATE INDEX grants_by_recipient ON grants (recipient_did);

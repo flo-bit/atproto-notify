@@ -1,8 +1,9 @@
 import { ToolsAtmoNotifsRequestPermission } from '@atmo/notifs-lexicons';
 import type { Did } from '@atcute/lexicons';
-import { json, type ProcedureConfig } from '@atcute/xrpc-server';
+import { isDid } from '@atcute/lexicons/syntax';
+import { InvalidRequestError, json, type ProcedureConfig } from '@atcute/xrpc-server';
 
-import { verifySenderRequest } from '../auth/sender';
+import { verifyUserRequest } from '../auth/user';
 import * as q from '../db/queries';
 import type { AppContext } from '../env';
 import { rateLimited } from '../lib/errors';
@@ -13,62 +14,89 @@ import { checkAndIncrement } from '../ratelimit';
 
 const LXM = 'tools.atmo.notifs.requestPermission';
 
-// Per-sender cap on new pending requests: 100 per rolling hour.
-const REQ_LIMIT = 100;
-const REQ_WINDOW_SECONDS = 60 * 60;
+// New pending-request caps, both per rolling hour.
+const PER_RECIPIENT_LIMIT = 50; // NEW: stops one OAuth'd app spamming a user
+const PER_SENDER_LIMIT = 100; // unchanged from the original design
+const WINDOW_SECONDS = 60 * 60;
 
 export function makeRequestPermission(
   app: AppContext,
 ): ProcedureConfig<ToolsAtmoNotifsRequestPermission.mainSchema> {
   return {
     handler: async ({ request, input }) => {
-      const { senderDid } = await verifySenderRequest(app.verifier, request, LXM);
-      const recipient = input.recipient;
+      // Auth flipped to the user path: the JWT issuer is the recipient (the user
+      // who'd receive notifications). The sender DID is supplied in the body.
+      const { userDid } = await verifyUserRequest(app.verifier, request, LXM);
+      const senderDid = input.senderDid;
 
-      // 2. Already granted? Return a stable id and the alreadyGranted status.
-      const existingGrant = await q.getGrant(app.env.DB, recipient, senderDid);
-      if (existingGrant !== null) {
-        return json({ id: pseudoGrantId(recipient, senderDid), status: 'alreadyGranted' });
+      // 1. Validate the sender DID (router already enforces `format: did`; this
+      //    keeps the contract explicit and surfaces InvalidRequest).
+      if (!isDid(senderDid)) {
+        throw new InvalidRequestError({ message: 'senderDid is not a valid DID' });
       }
 
-      // 3. Per-pair pending cap: reuse a live pending request instead of inserting a duplicate.
-      const existingPending = await q.getPendingByPair(app.env.DB, recipient, senderDid);
+      // 2. Ensure the user row exists.
+      await q.ensureUser(app.env.DB, userDid, now());
+
+      // 3. Already granted? Short-circuit.
+      const existingGrant = await q.getGrant(app.env.DB, userDid, senderDid);
+      if (existingGrant !== null) {
+        return json({ id: pseudoGrantId(userDid, senderDid), status: 'alreadyGranted' });
+      }
+
+      // 4. Per-pair pending cap: reuse a live pending request instead of duplicating.
+      const existingPending = await q.getPendingByPair(app.env.DB, userDid, senderDid);
       if (existingPending !== null && existingPending.expires_at > now()) {
         return json({ id: existingPending.id, status: 'pending' });
       }
 
-      // 4. Per-sender global rate limit.
-      const rl = await checkAndIncrement(
+      // 5. Rate limits: per recipient (new) and per sender DID (unchanged).
+      const perRecipient = await checkAndIncrement(
         app.env.CACHE,
-        `rl:req:${senderDid}`,
-        REQ_LIMIT,
-        REQ_WINDOW_SECONDS,
+        `rl:req:recipient:${userDid}`,
+        PER_RECIPIENT_LIMIT,
+        WINDOW_SECONDS,
       );
-      if (!rl.allowed) {
-        throw rateLimited(rl.resetIn, 'Too many permission requests; try again later');
+      if (!perRecipient.allowed) {
+        throw rateLimited(perRecipient.resetIn, 'Too many permission requests for this account');
+      }
+      const perSender = await checkAndIncrement(
+        app.env.CACHE,
+        `rl:req:sender:${senderDid}`,
+        PER_SENDER_LIMIT,
+        WINDOW_SECONDS,
+      );
+      if (!perSender.allowed) {
+        throw rateLimited(perSender.resetIn, 'Too many permission requests from this sender');
       }
 
-      // 5. Insert the pending request (replacing any stale/expired row for the pair
-      // so the UNIQUE(recipient_did, sender_did) constraint holds).
+      // 6. Insert the pending request (replacing any stale row for the pair so the
+      //    UNIQUE(recipient_did, sender_did) constraint holds).
       if (existingPending !== null) {
-        await q.deletePendingByPair(app.env.DB, recipient, senderDid);
+        await q.deletePendingByPair(app.env.DB, userDid, senderDid);
       }
       const id = newId();
-      const reason = input.reason ?? null;
       const createdAt = now();
+      const description = input.description ?? null;
+      const iconUrl = input.iconUrl ?? null;
       await q.insertPending(app.env.DB, {
         id,
-        recipientDid: recipient,
+        recipientDid: userDid,
         senderDid,
-        reason,
+        title: input.title,
+        description,
+        iconUrl,
         createdAt,
         expiresAt: addDays(createdAt, 7),
       });
 
-      // 6. Fire-and-forget: refresh the sender profile cache.
+      // 7. Fire-and-forget: refresh the sender's Bluesky profile cache (informational
+      //    "verified on Bluesky" fallback for the dashboard).
       app.ctx.waitUntil(ensureSenderProfile(app.env, senderDid));
-      // 7. Fire-and-forget: optionally notify the recipient on Telegram.
-      app.ctx.waitUntil(maybeNotifyPending(app, recipient, senderDid, id, reason));
+      // 8. Fire-and-forget: optionally notify the recipient on Telegram.
+      app.ctx.waitUntil(
+        maybeNotifyPending(app, userDid, senderDid, id, input.title, description, iconUrl),
+      );
 
       return json({ id, status: 'pending' });
     },
@@ -89,7 +117,9 @@ async function maybeNotifyPending(
   recipient: Did,
   senderDid: Did,
   requestId: string,
-  reason: string | null,
+  title: string,
+  description: string | null,
+  iconUrl: string | null,
 ): Promise<void> {
   const user = await q.getUser(app.env.DB, recipient);
   if (user === null || user.notify_pending_via_telegram !== 1) {
@@ -101,13 +131,13 @@ async function maybeNotifyPending(
     return;
   }
 
-  const sender = await q.getSender(app.env.DB, senderDid);
   await app.env.DISPATCH_QUEUE.send({
     kind: 'pendingRequest',
     channel: { platform: 'telegram', platformUserId: telegram.platform_user_id },
     requestId,
-    senderHandle: sender?.handle ?? senderDid,
-    senderDisplayName: sender?.display_name ?? undefined,
-    reason: reason ?? undefined,
+    senderTitle: title,
+    senderDescription: description ?? undefined,
+    senderIconUrl: iconUrl ?? undefined,
+    senderDid,
   });
 }

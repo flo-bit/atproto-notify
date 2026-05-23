@@ -20,10 +20,14 @@ export function makeListPending(
         pending: rows.map((row) => ({
           id: row.id,
           sender: row.sender_did,
+          // user-supplied display metadata (fall back to the DID for title)
+          title: row.title ?? row.sender_did,
+          description: row.description ?? undefined,
+          iconUrl: row.icon_url ?? undefined,
+          // best-effort Bluesky profile (informational "verified on Bluesky")
           senderHandle: row.handle ?? undefined,
-          senderDisplayName: row.display_name ?? undefined,
-          senderAvatar: row.avatar_url ?? undefined,
-          reason: row.reason ?? undefined,
+          senderBskyDisplayName: row.display_name ?? undefined,
+          senderBskyAvatar: row.avatar_url ?? undefined,
           createdAt: toIsoDatetime(row.created_at),
           expiresAt: toIsoDatetime(row.expires_at),
         })),

@@ -5,23 +5,17 @@ import { beforeAll, expect, it } from 'vitest';
 import * as q from '../src/db/queries';
 import worker from '../src/index';
 
-import {
-  installFetchMock,
-  makeBskyProfileMock,
-  makeIdentity,
-  makeJwt,
-  mockPlc,
-  xrpcPost,
-} from './helpers';
+import { installFetchMock, makeBskyProfileMock, makeIdentity, makeJwt, mockPlc, xrpcPost } from './helpers';
 
 beforeAll(() => {
   installFetchMock();
-  // Sender profile refresh runs fire-and-forget; stub it so it never hits network.
+  // The sender profile refresh runs fire-and-forget; stub it so it never hits network.
   makeBskyProfileMock();
 });
 
 const REQ = 'tools.atmo.notifs.requestPermission';
-const RECIPIENT: Did = 'did:plc:reqrecipient';
+// requestPermission is now user-authenticated; the sender is a plain DID in the body.
+const SENDER: Did = 'did:plc:somesender';
 
 async function call(req: Request): Promise<Response> {
   const ctx = createExecutionContext();
@@ -35,60 +29,73 @@ interface RequestResult {
   status: string;
 }
 
-it('first request creates a pending request', async () => {
-  const sender = await makeIdentity('did:plc:reqfirst');
-  mockPlc(sender);
-  const jwt = await makeJwt(sender, { lxm: REQ });
+it('first request creates a pending request with the supplied metadata', async () => {
+  const user = await makeIdentity('did:plc:requser1');
+  mockPlc(user);
+  const jwt = await makeJwt(user, { lxm: REQ });
 
-  const res = await call(xrpcPost(REQ, jwt, { recipient: RECIPIENT, reason: 'because' }));
+  const res = await call(
+    xrpcPost(REQ, jwt, { senderDid: SENDER, title: 'Bookhive', description: 'New comments' }),
+  );
 
   expect(res.status).toBe(200);
   const data = (await res.json()) as RequestResult;
   expect(data.status).toBe('pending');
-  expect(typeof data.id).toBe('string');
-  expect(await q.getPendingByPair(env.DB, RECIPIENT, sender.did)).not.toBeNull();
+
+  const pending = await q.getPendingByPair(env.DB, user.did, SENDER);
+  expect(pending).not.toBeNull();
+  expect(pending?.title).toBe('Bookhive');
+  expect(pending?.description).toBe('New comments');
 });
 
 it('a duplicate within the window returns the same pending request', async () => {
-  const sender = await makeIdentity('did:plc:reqdup');
-  mockPlc(sender);
-  const jwt = await makeJwt(sender, { lxm: REQ });
+  const user = await makeIdentity('did:plc:requser2');
+  mockPlc(user);
+  const jwt = await makeJwt(user, { lxm: REQ });
+  const body = { senderDid: SENDER, title: 'Bookhive' };
 
-  const first = (await (await call(xrpcPost(REQ, jwt, { recipient: RECIPIENT }))).json()) as RequestResult;
-  const second = (await (await call(xrpcPost(REQ, jwt, { recipient: RECIPIENT }))).json()) as RequestResult;
+  const first = (await (await call(xrpcPost(REQ, jwt, body))).json()) as RequestResult;
+  const second = (await (await call(xrpcPost(REQ, jwt, body))).json()) as RequestResult;
 
   expect(second.id).toBe(first.id);
   const count = await env.DB.prepare(
     'SELECT COUNT(*) AS c FROM pending_requests WHERE recipient_did = ? AND sender_did = ?',
   )
-    .bind(RECIPIENT, sender.did)
+    .bind(user.did, SENDER)
     .first<{ c: number }>();
   expect(count?.c).toBe(1);
 });
 
 it('returns alreadyGranted when a grant exists', async () => {
-  const sender = await makeIdentity('did:plc:reqgranted');
-  mockPlc(sender);
-  await q.upsertGrant(env.DB, RECIPIENT, sender.did, Date.now());
-  const jwt = await makeJwt(sender, { lxm: REQ });
+  const user = await makeIdentity('did:plc:requser3');
+  mockPlc(user);
+  await q.upsertGrant(env.DB, {
+    recipientDid: user.did,
+    senderDid: SENDER,
+    grantedAt: Date.now(),
+    title: null,
+    description: null,
+    iconUrl: null,
+  });
+  const jwt = await makeJwt(user, { lxm: REQ });
 
-  const res = await call(xrpcPost(REQ, jwt, { recipient: RECIPIENT }));
+  const res = await call(xrpcPost(REQ, jwt, { senderDid: SENDER, title: 'Bookhive' }));
 
   const data = (await res.json()) as RequestResult;
   expect(data.status).toBe('alreadyGranted');
 });
 
-it('returns 429 when the per-sender rate limit is exceeded', async () => {
-  const sender = await makeIdentity('did:plc:reqratelimited');
-  mockPlc(sender);
-  // Seed the hourly counter at the limit so the next request trips it.
-  await env.CACHE.put(`rl:req:${sender.did}`, '100', {
+it('returns 429 when the per-recipient rate limit is exceeded', async () => {
+  const user = await makeIdentity('did:plc:requser4');
+  mockPlc(user);
+  // Seed the per-recipient hourly counter at its limit (50) so the next trips it.
+  await env.CACHE.put(`rl:req:recipient:${user.did}`, '50', {
     expirationTtl: 3600,
     metadata: { expiresAt: Date.now() + 3_600_000 },
   });
-  const jwt = await makeJwt(sender, { lxm: REQ });
+  const jwt = await makeJwt(user, { lxm: REQ });
 
-  const res = await call(xrpcPost(REQ, jwt, { recipient: RECIPIENT }));
+  const res = await call(xrpcPost(REQ, jwt, { senderDid: SENDER, title: 'Bookhive' }));
 
   expect(res.status).toBe(429);
 });

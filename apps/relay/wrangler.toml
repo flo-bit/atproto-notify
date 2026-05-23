@@ -18,7 +18,9 @@ binding = "CACHE"
 id = "8b1baa80a28c468c83da20f3f6dec3b6"
 
 [[queues.producers]]
-binding = "notifs_dispatch"
+# `binding` is the code-side name (env.DISPATCH_QUEUE); `queue` is the real
+# Cloudflare queue you created (`notifs-dispatch`). The binding name is arbitrary.
+binding = "DISPATCH_QUEUE"
 queue = "notifs-dispatch"
 
 [[queues.consumers]]
