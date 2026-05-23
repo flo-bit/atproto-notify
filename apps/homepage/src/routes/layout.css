@@ -1,0 +1,131 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/forms';
+@plugin '@tailwindcss/typography';
+
+/*
+ * Semantic design tokens (palette adapted from the design bundle).
+ * Colors are exposed to Tailwind via `@theme inline`, so utilities like
+ * `bg-surface`, `text-muted`, `border-line` resolve to the live CSS variables
+ * and switch automatically between light and dark.
+ */
+@theme inline {
+	--color-bg: var(--bg);
+	--color-surface: var(--surface);
+	--color-surface-2: var(--surface-2);
+	--color-line: var(--line);
+	--color-line-2: var(--line-2);
+	--color-fg: var(--fg);
+	--color-muted: var(--muted);
+	--color-muted-2: var(--muted-2);
+	--color-accent: var(--accent);
+	--color-accent-fg: var(--accent-fg);
+	--color-accent-soft: var(--accent-soft);
+	--color-success: var(--success);
+	--color-warn: var(--warn);
+	--color-danger: var(--danger);
+
+	--font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
+	--font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+
+	--radius-card: 0.75rem;
+}
+
+/* Light theme (default). */
+:root {
+	color-scheme: light;
+	--bg: oklch(0.985 0.003 80);
+	--surface: oklch(1 0 0);
+	--surface-2: oklch(0.975 0.003 80);
+	--line: oklch(0.92 0.005 80);
+	--line-2: oklch(0.95 0.004 80);
+	--fg: oklch(0.22 0.01 60);
+	--muted: oklch(0.5 0.01 60);
+	--muted-2: oklch(0.68 0.01 60);
+	--accent: oklch(0.55 0.18 250);
+	--accent-fg: oklch(1 0 0);
+	--accent-soft: oklch(0.55 0.18 250 / 0.1);
+	--success: oklch(0.6 0.14 150);
+	--warn: oklch(0.7 0.14 80);
+	--danger: oklch(0.58 0.18 28);
+}
+
+/* Dark theme values, shared by the explicit toggle and the system fallback. */
+:root[data-theme='dark'],
+:root.theme-dark {
+	color-scheme: dark;
+	--bg: oklch(0.18 0.005 60);
+	--surface: oklch(0.22 0.005 60);
+	--surface-2: oklch(0.25 0.005 60);
+	--line: oklch(0.32 0.005 60);
+	--line-2: oklch(0.28 0.005 60);
+	--fg: oklch(0.97 0.005 80);
+	--muted: oklch(0.72 0.01 60);
+	--muted-2: oklch(0.55 0.01 60);
+	--accent: oklch(0.72 0.18 250);
+	--accent-fg: oklch(0.18 0.005 60);
+	--accent-soft: oklch(0.72 0.18 250 / 0.16);
+	--success: oklch(0.78 0.14 150);
+	--warn: oklch(0.78 0.14 80);
+	--danger: oklch(0.72 0.18 28);
+}
+
+/* No-JS / pre-hydration fallback: honor the OS preference when no explicit
+   theme has been chosen (the inline script in app.html sets data-theme). */
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']):not([data-theme='dark']) {
+		color-scheme: dark;
+		--bg: oklch(0.18 0.005 60);
+		--surface: oklch(0.22 0.005 60);
+		--surface-2: oklch(0.25 0.005 60);
+		--line: oklch(0.32 0.005 60);
+		--line-2: oklch(0.28 0.005 60);
+		--fg: oklch(0.97 0.005 80);
+		--muted: oklch(0.72 0.01 60);
+		--muted-2: oklch(0.55 0.01 60);
+		--accent: oklch(0.72 0.18 250);
+		--accent-fg: oklch(0.18 0.005 60);
+		--accent-soft: oklch(0.72 0.18 250 / 0.16);
+		--success: oklch(0.78 0.14 150);
+		--warn: oklch(0.78 0.14 80);
+		--danger: oklch(0.72 0.18 28);
+	}
+}
+
+html {
+	background: var(--bg);
+	color: var(--fg);
+	font-family: var(--font-sans);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+/* Consistent, visible focus ring for keyboard users. */
+:where(a, button, input, select, textarea):focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+	border-radius: 4px;
+}
+
+/*
+ * Shiki code blocks (rendered via {@html} in /docs). Shiki emits dual-theme
+ * output: light colors inline + a `--shiki-dark` variable per token. We keep the
+ * card's own surface background (transparent <pre>) and swap to the dark tokens
+ * under our dark theme.
+ */
+.codeblock :where(pre.shiki) {
+	margin: 0;
+	background-color: transparent !important;
+	font-family: var(--font-mono);
+}
+:root[data-theme='dark'] .codeblock :where(pre.shiki, pre.shiki span) {
+	color: var(--shiki-dark) !important;
+	background-color: transparent !important;
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']):not([data-theme='dark'])
+		.codeblock
+		:where(pre.shiki, pre.shiki span) {
+		color: var(--shiki-dark) !important;
+		background-color: transparent !important;
+	}
+}
