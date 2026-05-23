@@ -1,15 +1,24 @@
+import getRouting from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/getRouting.json';
+import listNotifications from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/listNotifications.json';
+import markRead from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/markRead.json';
 import requestPermission from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/requestPermission.json';
 import send from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/send.json';
+import setRouting from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/setRouting.json';
 
 import type { Env } from './env';
 
-// Only the *federated* lexicons are published here. The user-management methods
-// are no longer public XRPC — they live behind the `RelayRpc` service binding —
-// so their lexicon JSON is intentionally NOT served (the files remain in the
-// package purely as type-generation input). See src/rpc/entrypoint.ts.
+// Only the *federated* lexicons are published here. The first-party
+// user-management methods are not public XRPC — they live behind the `RelayRpc`
+// service binding — so their lexicon JSON is intentionally NOT served (those
+// files remain in the package purely as type-generation input). See
+// src/rpc/entrypoint.ts.
 const LEXICONS: Record<string, unknown> = {
   'pub.atmo.notify.requestPermission': requestPermission,
   'pub.atmo.notify.send': send,
+  'pub.atmo.notify.setRouting': setRouting,
+  'pub.atmo.notify.getRouting': getRouting,
+  'pub.atmo.notify.listNotifications': listNotifications,
+  'pub.atmo.notify.markRead': markRead,
 };
 
 /**

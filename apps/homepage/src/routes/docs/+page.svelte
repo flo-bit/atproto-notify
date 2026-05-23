@@ -138,7 +138,23 @@
 	</section>
 
 	<section class="space-y-3">
-		<h2 class="text-lg font-semibold text-fg">4. Rate limits</h2>
+		<h2 class="text-lg font-semibold text-fg">4. Cross-app login (optional)</h2>
+		<p class="max-w-prose text-sm leading-relaxed text-muted">
+			Let users jump from your app into {PROJECT_NAME} <em>already signed in</em>, with no login form
+			— handy for a “Configure notifications” link that lands on your app's settings page. Your app
+			mints a single-use, short-lived identity token on the user's PDS; {PROJECT_NAME} verifies the
+			signature against their DID and starts a session. It's an identity proof only — it grants no
+			access to the user's data.
+		</p>
+		{@render codeblock(data.code.appLogin)}
+		<p class="max-w-prose text-sm leading-relaxed text-muted">
+			The token is single-use and expires in ~60s; <code class="font-mono text-fg">redirect</code>
+			must be a relative path. It's a bearer link, so don't log it.
+		</p>
+	</section>
+
+	<section class="space-y-3">
+		<h2 class="text-lg font-semibold text-fg">5. Rate limits</h2>
 		<ul class="ml-5 list-disc space-y-1 text-sm text-muted">
 			<li>At most <strong class="text-fg">1 outstanding pending request</strong> per (sender, recipient).</li>
 			<li><code class="font-mono text-fg">requestPermission</code>: <strong class="text-fg">50 / hour</strong> per recipient and <strong class="text-fg">100 / hour</strong> per sender.</li>
@@ -147,7 +163,7 @@
 	</section>
 
 	<section class="space-y-3">
-		<h2 class="text-lg font-semibold text-fg">5. Error handling</h2>
+		<h2 class="text-lg font-semibold text-fg">6. Error handling</h2>
 		<p class="max-w-prose text-sm leading-relaxed text-muted">Common XRPC errors:</p>
 		<ul class="ml-5 list-disc space-y-1 text-sm text-muted">
 			<li><code class="font-mono text-fg">AuthenticationRequired</code> — missing/invalid JWT.</li>

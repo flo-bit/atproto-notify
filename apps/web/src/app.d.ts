@@ -11,6 +11,9 @@ declare global {
 			session: OAuthSession | null;
 			client: Client | null;
 			did: Did | null;
+			// How the current session was established: a full OAuth login, a
+			// cross-app login link (lite session, see CROSS-APP-AUTH.md), or neither.
+			authVia: 'oauth' | 'link' | null;
 		}
 		// interface PageData {}
 		// interface PageState {}

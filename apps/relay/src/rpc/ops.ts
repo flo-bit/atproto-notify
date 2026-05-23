@@ -29,6 +29,7 @@ import type {
   PubAtmoNotifyUpdateSettings,
 } from '@atmo/notifs-lexicons';
 
+import { verifyAppLoginToken } from '../auth/appLogin';
 import * as q from '../db/queries';
 import type { Env } from '../env';
 import { newLinkToken } from '../lib/ids';
@@ -389,4 +390,15 @@ export async function setDefaultRoute(
   await q.ensureUser(env.DB, did, now());
   await q.setDefaultRoute(env.DB, did, route);
   return { ok: true };
+}
+
+/**
+ * Cross-app login: verify a `pub.atmo.auth` service-auth token and return the
+ * issuer DID, ensuring the user row exists. Pre-auth — no leading `did`, the DID
+ * is the result. The web app's /applogin route consumes it to mint a session.
+ */
+export async function verifyAppLogin(env: Env, token: string): Promise<{ did: Did }> {
+  const { did } = await verifyAppLoginToken(env, token);
+  await q.ensureUser(env.DB, did, now());
+  return { did };
 }

@@ -643,6 +643,71 @@ export async function markAllNotificationsRead(
   return result.meta.changes ?? 0;
 }
 
+// --- App-scoped inbox access (one sender's notifications for one recipient) ---
+// Used by the federated, dual-authed `listNotifications`/`markRead` so an app
+// can see and acknowledge only the notifications *it* sent.
+
+export interface NotificationWithDeliveryRow extends NotificationRow {
+  /** Channels this notification fanned out to (from delivery_log); null if unlogged. */
+  delivered_count: number | null;
+}
+
+/** Page one sender's notifications to one recipient, newest-first, with delivery counts. */
+export async function listNotificationsFromSender(
+  db: D1Database,
+  recipientDid: Did,
+  senderDid: Did,
+  limit: number,
+  before?: number,
+): Promise<NotificationWithDeliveryRow[]> {
+  const where =
+    before !== undefined
+      ? 'n.recipient_did = ? AND n.sender_did = ? AND n.created_at < ?'
+      : 'n.recipient_did = ? AND n.sender_did = ?';
+  const sql = `SELECT n.*, d.delivered_count FROM notifications n
+       LEFT JOIN delivery_log d ON d.id = n.id
+       WHERE ${where} ORDER BY n.created_at DESC LIMIT ?`;
+  const stmt =
+    before !== undefined
+      ? db.prepare(sql).bind(recipientDid, senderDid, before, limit)
+      : db.prepare(sql).bind(recipientDid, senderDid, limit);
+  const { results } = await stmt.all<NotificationWithDeliveryRow>();
+  return results;
+}
+
+/**
+ * Mark a sender's notifications to a recipient as read. With `ids`, only those
+ * (still scoped to this sender); without, all of this sender's unread ones.
+ * Returns the number of rows changed.
+ */
+export async function markNotificationsReadFromSender(
+  db: D1Database,
+  recipientDid: Did,
+  senderDid: Did,
+  readAt: number,
+  ids?: string[],
+): Promise<number> {
+  if (ids !== undefined) {
+    if (ids.length === 0) return 0;
+    const placeholders = ids.map(() => '?').join(',');
+    const result = await db
+      .prepare(
+        `UPDATE notifications SET read_at = ?
+         WHERE recipient_did = ? AND sender_did = ? AND read_at IS NULL AND id IN (${placeholders})`,
+      )
+      .bind(readAt, recipientDid, senderDid, ...ids)
+      .run();
+    return result.meta.changes ?? 0;
+  }
+  const result = await db
+    .prepare(
+      'UPDATE notifications SET read_at = ? WHERE recipient_did = ? AND sender_did = ? AND read_at IS NULL',
+    )
+    .bind(readAt, recipientDid, senderDid)
+    .run();
+  return result.meta.changes ?? 0;
+}
+
 // ---------------------------------------------------------------------------
 // app_categories + routing (per-category routing)
 // ---------------------------------------------------------------------------
@@ -688,6 +753,21 @@ export async function listAppCategoriesForRecipient(
   return results;
 }
 
+/** Categories seen from one sender for one recipient (for an app's own routing UI). */
+export async function listAppCategoriesForSender(
+  db: D1Database,
+  recipientDid: Did,
+  senderDid: Did,
+): Promise<AppCategoryRow[]> {
+  const { results } = await db
+    .prepare(
+      'SELECT * FROM app_categories WHERE recipient_did = ? AND sender_did = ? ORDER BY category ASC',
+    )
+    .bind(recipientDid, senderDid)
+    .all<AppCategoryRow>();
+  return results;
+}
+
 export interface RoutingRow {
   recipient_did: Did;
   sender_did: Did;
@@ -714,6 +794,19 @@ export async function listRoutingForRecipient(
   const { results } = await db
     .prepare('SELECT * FROM routing WHERE recipient_did = ?')
     .bind(recipientDid)
+    .all<RoutingRow>();
+  return results;
+}
+
+/** Per-category routing overrides from one sender for one recipient. */
+export async function listRoutingForSender(
+  db: D1Database,
+  recipientDid: Did,
+  senderDid: Did,
+): Promise<RoutingRow[]> {
+  const { results } = await db
+    .prepare('SELECT * FROM routing WHERE recipient_did = ? AND sender_did = ?')
+    .bind(recipientDid, senderDid)
     .all<RoutingRow>();
   return results;
 }

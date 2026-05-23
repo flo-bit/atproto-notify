@@ -1,18 +1,36 @@
 // Remote command functions the page calls. requestNotifications goes through the
-// user's OAuth session; sendTest signs with this app's own key.
+// user's OAuth session; sendTest signs with this app's own key; the routing/inbox
+// commands carry both tokens (dual-auth).
 import { command, getRequestEvent } from '$app/server';
 import { error } from '@sveltejs/kit';
 import * as v from 'valibot';
 
 import { APP_DOMAIN } from '$lib/config';
-import { requestPermissionForUser, sendAsSender } from '$lib/server/relay';
+import {
+	getRoutingForUser,
+	listNotificationsForUser,
+	markAllReadForUser,
+	mintAppLoginUrl,
+	requestPermissionForUser,
+	sendAsSender,
+	setRoutingForUser
+} from '$lib/server/relay';
+import type { AppRoute, NotificationView, RoutingView } from '$lib/types';
 
-export const requestNotifications = command(async () => {
+/** The user's OAuth client, or a 401 if they're not signed in. */
+function requireClient() {
 	const { locals } = getRequestEvent();
 	if (!locals.client) {
 		error(401, 'Not signed in');
 	}
-	return requestPermissionForUser(locals.client);
+	return locals.client;
+}
+
+export const requestNotifications = command(() => requestPermissionForUser(requireClient()));
+
+/** Build a one-time link that signs the user into atmo.pub (cross-app login). */
+export const openInAtmo = command(async (): Promise<{ url: string }> => {
+	return { url: await mintAppLoginUrl(requireClient()) };
 });
 
 export type SendResult =
@@ -42,4 +60,23 @@ export const sendTest = command(
 			throw e;
 		}
 	}
+);
+
+// --- Dual-auth: manage this app's own routing + inbox for the signed-in user ---
+
+export const getRouting = command((): Promise<RoutingView> => getRoutingForUser(requireClient()));
+
+export const setRouting = command(
+	v.object({ route: v.picklist(['push', 'telegram', 'push+telegram', 'off', 'default']) }),
+	({ route }): Promise<{ ok: boolean }> =>
+		setRoutingForUser(requireClient(), { route: route as AppRoute })
+);
+
+export const listNotifications = command(
+	(): Promise<{ notifications: NotificationView[]; cursor?: string }> =>
+		listNotificationsForUser(requireClient(), { limit: 25 })
+);
+
+export const markAllRead = command((): Promise<{ marked: number }> =>
+	markAllReadForUser(requireClient())
 );

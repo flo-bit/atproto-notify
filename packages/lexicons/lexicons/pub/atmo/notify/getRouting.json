@@ -1,0 +1,64 @@
+{
+  "lexicon": 1,
+  "id": "pub.atmo.notify.getRouting",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Read how the calling app's own notifications are currently routed for a user, so the app can render its in-app settings UI. Dual-authenticated exactly like setRouting (app JWT in the Authorization header + a user-issued `userToken`). It is a procedure, not a query, so the user token travels in the request body rather than the URL. Requires an active grant from the user to the app.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["userToken"],
+          "properties": {
+            "userToken": {
+              "type": "string",
+              "description": "A user-issued atproto service-auth JWT (com.atproto.server.getServiceAuth) with aud = the relay's DID and lxm = pub.atmo.notify.getRouting."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["route", "defaultRoute", "categories"],
+          "properties": {
+            "route": {
+              "type": "string",
+              "enum": ["push", "telegram", "push+telegram", "off", "default"],
+              "description": "The app-wide route. 'default' means it inherits the account default."
+            },
+            "defaultRoute": {
+              "type": "string",
+              "enum": ["push", "telegram", "push+telegram", "off"],
+              "description": "The user's account-default route, so the app can label what 'default'/'app' resolves to."
+            },
+            "categories": {
+              "type": "array",
+              "description": "Categories this app has used for the user, with their current routing.",
+              "items": { "type": "ref", "ref": "#category" }
+            }
+          }
+        }
+      },
+      "errors": [{ "name": "NotAuthorized" }]
+    },
+    "category": {
+      "type": "object",
+      "required": ["id", "route"],
+      "properties": {
+        "id": { "type": "string", "description": "The category key." },
+        "description": {
+          "type": "string",
+          "description": "Human description last seen for this category, if any."
+        },
+        "route": {
+          "type": "string",
+          "enum": ["push", "telegram", "push+telegram", "off", "app"],
+          "description": "Route for this category. 'app' means it inherits the app-wide route."
+        }
+      }
+    }
+  }
+}

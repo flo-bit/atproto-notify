@@ -101,4 +101,7 @@ export class RelayRpc extends WorkerEntrypoint<Env> implements NotifsRpc {
   setDefaultRoute(did: Did, route: AlertRoute) {
     return ops.setDefaultRoute(this.env, did, route);
   }
+  verifyAppLogin(token: string): Promise<{ did: Did }> {
+    return ops.verifyAppLogin(this.env, token);
+  }
 }

@@ -1,0 +1,59 @@
+{
+  "lexicon": 1,
+  "id": "pub.atmo.notify.setRouting",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Update how the calling app's own notifications are routed for a user. Dual-authenticated: the app authenticates with its service-auth JWT in the Authorization header (like send), and the user's consent is proven by a fresh user-issued service-auth JWT in `userToken`. Both tokens must be audienced to the relay and scoped to this method (lxm). Only the calling app's routing is affected — never the account default, other apps, or channels. Requires an active grant from the user to the app.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["userToken"],
+          "properties": {
+            "userToken": {
+              "type": "string",
+              "description": "A user-issued atproto service-auth JWT (com.atproto.server.getServiceAuth) with aud = the relay's DID and lxm = pub.atmo.notify.setRouting. Identifies the user and proves they authorized this change."
+            },
+            "route": {
+              "type": "string",
+              "enum": ["push", "telegram", "push+telegram", "off", "default"],
+              "description": "App-wide route for all of this app's notifications. 'default' clears the override so it inherits the account default. Omit to leave the app-wide route unchanged."
+            },
+            "categories": {
+              "type": "array",
+              "maxLength": 200,
+              "description": "Per-category routing overrides for this app. Omit to leave categories unchanged.",
+              "items": { "type": "ref", "ref": "#categoryRoute" }
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["ok"],
+          "properties": { "ok": { "type": "boolean" } }
+        }
+      },
+      "errors": [{ "name": "NotAuthorized" }]
+    },
+    "categoryRoute": {
+      "type": "object",
+      "required": ["id", "route"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "The category key, matching the `category` used in send."
+        },
+        "route": {
+          "type": "string",
+          "enum": ["push", "telegram", "push+telegram", "off", "app"],
+          "description": "Route for this category. 'app' clears the override so it inherits the app-wide route."
+        }
+      }
+    }
+  }
+}

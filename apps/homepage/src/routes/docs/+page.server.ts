@@ -1,4 +1,4 @@
-import { LEXICON_PREFIX, RELAY_DID, RELAY_ORIGIN } from '$lib/config';
+import { LEXICON_PREFIX, RELAY_DID, RELAY_ORIGIN, WEBAPP_URL } from '$lib/config';
 import { highlight, type CodeLang } from '$lib/server/highlight';
 
 import type { PageServerLoad } from './$types';
@@ -49,6 +49,18 @@ const sendCurlExample = `curl -X POST ${RELAY_ORIGIN}/xrpc/${LEXICON_PREFIX}.sen
     "uri": "https://yourapp.example/thread/123"
   }'`;
 
+const appLoginExample = `// 1. Add to your app's OAuth scope:  rpc?lxm=pub.atmo.auth&aud=*
+// 2. Mint a single-use, ~60s identity token on the signed-in user's PDS:
+const { data } = await client.get('com.atproto.server.getServiceAuth', {
+  params: { aud: '${RELAY_DID}', lxm: 'pub.atmo.auth' }
+});
+
+// 3. Open atmo.pub already signed in — deep-link to YOUR app's settings page.
+//    (Open the tab on the click first to keep the user gesture.)
+const url = \`${WEBAPP_URL}/applogin?token=\${encodeURIComponent(data.token)}\`
+  + \`&redirect=\${encodeURIComponent('/apps/did:web:yourapp.example')}\`;
+window.open(url);`;
+
 export interface CodeBlock {
 	lang: CodeLang;
 	raw: string;
@@ -56,7 +68,9 @@ export interface CodeBlock {
 }
 
 // Highlight the (static) examples once per server instance, then reuse.
-let cached: Promise<Record<'request' | 'sendJwt' | 'sendAtcute' | 'sendCurl', CodeBlock>> | undefined;
+let cached:
+	| Promise<Record<'request' | 'sendJwt' | 'sendAtcute' | 'sendCurl' | 'appLogin', CodeBlock>>
+	| undefined;
 function buildBlocks() {
 	cached ??= (async () => {
 		const make = async (raw: string, lang: CodeLang): Promise<CodeBlock> => ({
@@ -68,7 +82,8 @@ function buildBlocks() {
 			request: await make(requestExample, 'bash'),
 			sendJwt: await make(sendJwtExample, 'ts'),
 			sendAtcute: await make(sendAtcuteExample, 'ts'),
-			sendCurl: await make(sendCurlExample, 'bash')
+			sendCurl: await make(sendCurlExample, 'bash'),
+			appLogin: await make(appLoginExample, 'ts')
 		};
 	})();
 	return cached;

@@ -1,0 +1,72 @@
+{
+  "lexicon": 1,
+  "id": "pub.atmo.notify.listNotifications",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "List the notifications the calling app has sent to a user, newest-first, including read state and how many channels each was delivered to. Dual-authenticated like setRouting (app JWT in the Authorization header + a user-issued `userToken`); it is a procedure, not a query, so the user token travels in the body. Returns only the calling app's own notifications. Requires an active grant from the user to the app.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["userToken"],
+          "properties": {
+            "userToken": {
+              "type": "string",
+              "description": "A user-issued atproto service-auth JWT (com.atproto.server.getServiceAuth) with aud = the relay's DID and lxm = pub.atmo.notify.listNotifications."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "description": "Max notifications to return."
+            },
+            "cursor": {
+              "type": "string",
+              "description": "Pagination cursor from a previous response."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["notifications"],
+          "properties": {
+            "notifications": {
+              "type": "array",
+              "items": { "type": "ref", "ref": "#notification" }
+            },
+            "cursor": {
+              "type": "string",
+              "description": "Present when more notifications may be available."
+            }
+          }
+        }
+      },
+      "errors": [{ "name": "NotAuthorized" }]
+    },
+    "notification": {
+      "type": "object",
+      "required": ["id", "title", "body", "createdAt", "read"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "uri": { "type": "string" },
+        "category": { "type": "string" },
+        "createdAt": { "type": "string", "format": "datetime" },
+        "read": {
+          "type": "boolean",
+          "description": "Whether the user has marked this notification read (in any client)."
+        },
+        "delivered": {
+          "type": "integer",
+          "description": "Number of channels (push/Telegram targets) this notification fanned out to. 0 means it was recorded to the inbox but no alert channel fired (e.g. muted, routed off, or no channels)."
+        }
+      }
+    }
+  }
+}

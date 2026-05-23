@@ -140,4 +140,14 @@ export interface NotifsRpc {
   ): Promise<{ ok: boolean }>;
   setAppRouting(did: Did, sender: Did, route: AppRoute): Promise<{ ok: boolean }>;
   setDefaultRoute(did: Did, route: AlertRoute): Promise<{ ok: boolean }>;
+
+  /**
+   * Cross-app login: verify a `pub.atmo.auth` service-auth JWT (issued by the
+   * user's PDS, addressed to the relay DID, single-use) and return the issuer
+   * DID. The ONLY method with no leading `did` — it is pre-auth; the DID is the
+   * *result*, which the web app's /applogin route turns into a session. An
+   * identity proof only: it grants no access to the user's PDS. See
+   * CROSS-APP-AUTH.md.
+   */
+  verifyAppLogin(token: string): Promise<{ did: Did }>;
 }

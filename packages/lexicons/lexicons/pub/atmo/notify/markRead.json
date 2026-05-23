@@ -1,0 +1,43 @@
+{
+  "lexicon": 1,
+  "id": "pub.atmo.notify.markRead",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Mark the calling app's notifications to a user as read — by default all of them, or a specific set via `ids`. Useful when the user has seen them inside the app, so they don't also show unread in atmo.pub. Dual-authenticated like setRouting (app JWT in the Authorization header + a user-issued `userToken`). Only ever affects the calling app's own notifications. Requires an active grant from the user to the app.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["userToken"],
+          "properties": {
+            "userToken": {
+              "type": "string",
+              "description": "A user-issued atproto service-auth JWT (com.atproto.server.getServiceAuth) with aud = the relay's DID and lxm = pub.atmo.notify.markRead."
+            },
+            "ids": {
+              "type": "array",
+              "maxLength": 1000,
+              "items": { "type": "string" },
+              "description": "Specific notification ids to mark read (still scoped to this app). Omit to mark all of this app's notifications read."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["marked"],
+          "properties": {
+            "marked": {
+              "type": "integer",
+              "description": "Number of notifications newly marked read."
+            }
+          }
+        }
+      },
+      "errors": [{ "name": "NotAuthorized" }]
+    }
+  }
+}

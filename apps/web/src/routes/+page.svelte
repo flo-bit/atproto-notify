@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { oauthLogin } from '$lib/atproto/oauth.remote';
 	import Icon from '$lib/components/Icon.svelte';
 	import Logomark from '$lib/components/Logomark.svelte';
@@ -7,6 +8,9 @@
 	let handle = $state('');
 	let busy = $state(false);
 	let errorMsg = $state('');
+
+	// Set by /applogin when a cross-app login link was invalid or expired.
+	const linkExpired = $derived(page.url.searchParams.get('login') === 'expired');
 
 	async function signIn(event: SubmitEvent) {
 		event.preventDefault();
@@ -46,6 +50,15 @@
 				Notifications for the atmosphere — delivered the way you choose.
 			</p>
 		</div>
+
+		{#if linkExpired}
+			<p
+				class="mb-4 rounded-card border border-line bg-surface px-4 py-3 text-sm text-muted"
+				role="status"
+			>
+				That sign-in link expired or was already used. Sign in below to continue.
+			</p>
+		{/if}
 
 		<form onsubmit={signIn} class="rounded-card border border-line bg-surface p-6">
 			<label

@@ -1,6 +1,7 @@
-import { command } from '$app/server';
+import { command, getRequestEvent } from '$app/server';
 import * as v from 'valibot';
 import { atproto } from '$lib/atproto';
+import { LITE_SESSION_COOKIE, liteCookieOptions } from '$lib/server/liteSession';
 
 export const oauthLogin = command(
 	v.object({
@@ -19,4 +20,9 @@ export const oauthLogin = command(
 	}
 );
 
-export const oauthLogout = command(() => atproto.api.logout());
+export const oauthLogout = command(async () => {
+	// Clear the cross-app lite session too, so logout works regardless of how the
+	// user signed in (see CROSS-APP-AUTH.md).
+	getRequestEvent().cookies.delete(LITE_SESSION_COOKIE, { path: liteCookieOptions.path });
+	return atproto.api.logout();
+});

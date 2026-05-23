@@ -16,3 +16,22 @@ export async function verifySenderRequest(
   const { issuer } = await verifier.verifyRequest(request, { lxm });
   return { senderDid: issuer };
 }
+
+/**
+ * Verify a *second*, body-carried service-auth JWT — used by the dual-auth
+ * routing methods to prove the user's consent alongside the app's own bearer
+ * token. The verifier only inspects the `Authorization` header, so we wrap the
+ * raw token in a synthetic request; the URL/method are irrelevant to JWT
+ * verification while the same audience/lxm/expiry checks still apply.
+ */
+export async function verifyServiceToken(
+  verifier: ServiceJwtVerifier,
+  token: string,
+  lxm: Nsid,
+): Promise<{ did: Did }> {
+  const synthetic = new Request('https://relay.invalid/', {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  const { issuer } = await verifier.verifyRequest(synthetic, { lxm });
+  return { did: issuer };
+}
