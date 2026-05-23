@@ -48,7 +48,6 @@
 		"@atcute/uint8array": "^1.1.2",
 		"@atmo/notifs-lexicons": "workspace:*",
 		"@svelte-atproto/oauth": "^0.3.0",
-		"shiki": "^4.1.0",
 		"valibot": "^1.4.0"
 	}
 }

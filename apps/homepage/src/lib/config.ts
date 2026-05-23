@@ -2,7 +2,7 @@
 // relay live on their own domains; these point at them.
 
 /** Product name shown in the UI. */
-export const PROJECT_NAME = 'notify.atmo.tools';
+export const PROJECT_NAME = 'atmo.pub';
 
 /** The webapp (PWA) — where the header/landing "Sign in" buttons send users. */
 export const WEBAPP_URL = 'https://notify.atmo.tools';

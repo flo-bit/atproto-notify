@@ -49,7 +49,7 @@ async function handleStart(env: Env, message: TelegramMessage, token: string): P
     await replyText(
       env,
       chatId,
-      `👋 Welcome to the atmo notifications bot!\n\nLink your account from the dashboard to start receiving notifications:\n${DASHBOARD_URL}`,
+      `👋 Welcome to atmo.pub!\n\nLink your account from the dashboard to start receiving notifications:\n${DASHBOARD_URL}`,
     );
     return;
   }

@@ -1,0 +1,13 @@
+{
+	"name": "atmo.pub",
+	"short_name": "atmo.pub",
+	"description": "Notifications for the atmosphere — choose which apps can notify you, and how.",
+	"start_url": "/",
+	"scope": "/",
+	"display": "standalone",
+	"background_color": "#191917",
+	"theme_color": "#191917",
+	"icons": [
+		{ "src": "/icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any" }
+	]
+}

@@ -6,6 +6,14 @@
 		<meta name="text-scale" content="scale" />
 		<meta name="color-scheme" content="light dark" />
 
+		<!-- PWA install -->
+		<link rel="manifest" href="/manifest.webmanifest" />
+		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafaf9" />
+		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#191917" />
+		<link rel="apple-touch-icon" href="/icon.svg" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-title" content="atmo.pub" />
+
 		<!-- Apply the saved theme before paint to avoid a flash of the wrong theme.
 		     When unset ('system'), CSS falls back to prefers-color-scheme. -->
 		<script>

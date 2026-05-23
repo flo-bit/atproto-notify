@@ -239,9 +239,6 @@ importers:
       '@svelte-atproto/oauth':
         specifier: ^0.3.0
         version: 0.3.0(@atcute/identity@2.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3))(@sveltejs/kit@2.60.1(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.55.9(@typescript-eslint/types@8.59.4))(vite@8.0.14(@types/node@22.19.19)(esbuild@0.27.3)(jiti@2.7.0)))(svelte@5.55.9(@typescript-eslint/types@8.59.4))(typescript@6.0.3)(vite@8.0.14(@types/node@22.19.19)(esbuild@0.27.3)(jiti@2.7.0)))(svelte@5.55.9(@typescript-eslint/types@8.59.4))(typescript@6.0.3)
-      shiki:
-        specifier: ^4.1.0
-        version: 4.1.0
       valibot:
         specifier: ^1.4.0
         version: 1.4.0(typescript@6.0.3)
