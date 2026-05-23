@@ -9,6 +9,7 @@ export interface UserRow {
   created_at: number;
   notify_pending_via_telegram: number;
   default_route: string;
+  auto_allow: string;
 }
 
 export interface ChannelRow {
@@ -447,6 +448,7 @@ export interface PushSubscriptionRow {
   did: Did;
   p256dh: string;
   auth: string;
+  label: string | null;
   created_at: number;
 }
 
@@ -455,20 +457,44 @@ export interface UpsertPushSubscriptionInput {
   did: Did;
   p256dh: string;
   auth: string;
+  label: string | null;
   createdAt: number;
 }
 
-/** Insert/replace a subscription, keyed by its endpoint (re-subscribing refreshes the keys + owner). */
+/**
+ * Register a subscription, keyed by its endpoint. Re-subscribing refreshes the
+ * keys/owner but preserves a previously-set (e.g. user-renamed) label.
+ */
 export async function upsertPushSubscription(
   db: D1Database,
   input: UpsertPushSubscriptionInput,
 ): Promise<void> {
   await db
     .prepare(
-      'INSERT OR REPLACE INTO push_subscriptions (endpoint, did, p256dh, auth, created_at) VALUES (?, ?, ?, ?, ?)',
+      `INSERT INTO push_subscriptions (endpoint, did, p256dh, auth, label, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(endpoint) DO UPDATE SET
+         did = excluded.did,
+         p256dh = excluded.p256dh,
+         auth = excluded.auth,
+         label = COALESCE(push_subscriptions.label, excluded.label)`,
     )
-    .bind(input.endpoint, input.did, input.p256dh, input.auth, input.createdAt)
+    .bind(input.endpoint, input.did, input.p256dh, input.auth, input.label, input.createdAt)
     .run();
+}
+
+/** Rename a subscription owned by `did` (scoped). */
+export async function renamePushSubscription(
+  db: D1Database,
+  did: Did,
+  endpoint: string,
+  label: string,
+): Promise<boolean> {
+  const result = await db
+    .prepare('UPDATE push_subscriptions SET label = ? WHERE did = ? AND endpoint = ?')
+    .bind(label, did, endpoint)
+    .run();
+  return changed(result);
 }
 
 export async function listPushSubscriptionsForDid(
@@ -723,4 +749,66 @@ export async function deleteRouting(
 
 export async function setDefaultRoute(db: D1Database, did: Did, route: string): Promise<void> {
   await db.prepare('UPDATE users SET default_route = ? WHERE did = ?').bind(route, did).run();
+}
+
+export async function setAutoAllow(db: D1Database, did: Did, value: string): Promise<void> {
+  await db.prepare('UPDATE users SET auto_allow = ? WHERE did = ?').bind(value, did).run();
+}
+
+// App-wide routing: one optional row per (recipient, sender). Absence = inherit
+// the user default; a category with no routing row inherits this.
+
+export interface AppRoutingRow {
+  recipient_did: Did;
+  sender_did: Did;
+  route: string;
+}
+
+export function getAppRoute(
+  db: D1Database,
+  recipientDid: Did,
+  senderDid: Did,
+): Promise<AppRoutingRow | null> {
+  return db
+    .prepare('SELECT * FROM app_routing WHERE recipient_did = ? AND sender_did = ?')
+    .bind(recipientDid, senderDid)
+    .first<AppRoutingRow>();
+}
+
+export async function listAppRoutingForRecipient(
+  db: D1Database,
+  recipientDid: Did,
+): Promise<AppRoutingRow[]> {
+  const { results } = await db
+    .prepare('SELECT * FROM app_routing WHERE recipient_did = ?')
+    .bind(recipientDid)
+    .all<AppRoutingRow>();
+  return results;
+}
+
+export async function upsertAppRoute(
+  db: D1Database,
+  recipientDid: Did,
+  senderDid: Did,
+  route: string,
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO app_routing (recipient_did, sender_did, route)
+       VALUES (?, ?, ?)
+       ON CONFLICT(recipient_did, sender_did) DO UPDATE SET route = excluded.route`,
+    )
+    .bind(recipientDid, senderDid, route)
+    .run();
+}
+
+export async function deleteAppRoute(
+  db: D1Database,
+  recipientDid: Did,
+  senderDid: Did,
+): Promise<void> {
+  await db
+    .prepare('DELETE FROM app_routing WHERE recipient_did = ? AND sender_did = ?')
+    .bind(recipientDid, senderDid)
+    .run();
 }

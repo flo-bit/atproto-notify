@@ -115,3 +115,34 @@ it('registerWebPush stores a subscription; unregisterWebPush removes it (scoped 
   rows = await q.listPushSubscriptionsForDid(env.DB, did);
   expect(rows).toHaveLength(0);
 });
+
+it('listDevices labels devices; renameDevice updates; re-register preserves a label', async () => {
+  const did = 'did:plc:pushdevices' as Did;
+  await ops.registerWebPush(env, did, {
+    endpoint: 'https://push.example/d1',
+    p256dh: 'k',
+    auth: 'a',
+    label: 'Chrome · macOS'
+  });
+  await ops.registerWebPush(env, did, { endpoint: 'https://push.example/d2', p256dh: 'k', auth: 'a' });
+
+  let devices = await ops.listDevices(env, did);
+  expect(devices).toHaveLength(2);
+  expect(devices.find((d) => d.endpoint === 'https://push.example/d1')?.label).toBe('Chrome · macOS');
+  expect(devices.find((d) => d.endpoint === 'https://push.example/d2')?.label).toBe('Unknown device');
+
+  expect((await ops.renameDevice(env, did, 'https://push.example/d2', 'Work laptop')).ok).toBe(true);
+  devices = await ops.listDevices(env, did);
+  expect(devices.find((d) => d.endpoint === 'https://push.example/d2')?.label).toBe('Work laptop');
+
+  // Re-registering (e.g. key refresh) keeps the existing label.
+  await ops.registerWebPush(env, did, {
+    endpoint: 'https://push.example/d1',
+    p256dh: 'k2',
+    auth: 'a2',
+    label: 'ignored'
+  });
+  expect(
+    (await ops.listDevices(env, did)).find((d) => d.endpoint === 'https://push.example/d1')?.label
+  ).toBe('Chrome · macOS');
+});

@@ -3,7 +3,9 @@ import { WorkerEntrypoint } from 'cloudflare:workers';
 import type { Did } from '@atcute/lexicons';
 import type {
   AlertRoute,
+  AppRoute,
   CategoryRoute,
+  DeviceView,
   ListNotificationsResult,
   MarkReadInput,
   NotifsRpc,
@@ -75,6 +77,12 @@ export class RelayRpc extends WorkerEntrypoint<Env> implements NotifsRpc {
   unregisterWebPush(did: Did, endpoint: string) {
     return ops.unregisterWebPush(this.env, did, endpoint);
   }
+  listDevices(did: Did): Promise<DeviceView[]> {
+    return ops.listDevices(this.env, did);
+  }
+  renameDevice(did: Did, endpoint: string, label: string) {
+    return ops.renameDevice(this.env, did, endpoint, label);
+  }
   listNotifications(did: Did, cursor?: string): Promise<ListNotificationsResult> {
     return ops.listNotifications(this.env, did, cursor);
   }
@@ -86,6 +94,9 @@ export class RelayRpc extends WorkerEntrypoint<Env> implements NotifsRpc {
   }
   setRouting(did: Did, sender: Did, category: string, route: CategoryRoute) {
     return ops.setRouting(this.env, did, sender, category, route);
+  }
+  setAppRouting(did: Did, sender: Did, route: AppRoute) {
+    return ops.setAppRouting(this.env, did, sender, route);
   }
   setDefaultRoute(did: Did, route: AlertRoute) {
     return ops.setDefaultRoute(this.env, did, route);

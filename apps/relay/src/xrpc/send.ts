@@ -81,14 +81,18 @@ export function makeSend(app: AppContext): ProcedureConfig<ToolsAtmoNotifsSend.m
         throw rateLimited(perDay.resetIn, 'Daily notification limit reached for this recipient');
       }
 
-      // 4. Resolve the alert route (per-category override, else the user default)
-      //    and collect the enabled targets. Everything is already in the inbox;
-      //    the route only gates which alert channels fire.
-      const user = await q.getUser(app.env.DB, recipient);
-      let route = user?.default_route ?? 'push';
+      // 4. Resolve the alert route: per-category override → app-wide → account
+      //    default. Everything is already in the inbox; the route only gates which
+      //    alert channels fire.
+      let route: string | undefined;
       if (input.category != null) {
-        const override = await q.getRoutingRoute(app.env.DB, recipient, senderDid, input.category);
-        if (override) route = override.route;
+        route = (await q.getRoutingRoute(app.env.DB, recipient, senderDid, input.category))?.route;
+      }
+      if (route === undefined) {
+        route = (await q.getAppRoute(app.env.DB, recipient, senderDid))?.route;
+      }
+      if (route === undefined) {
+        route = (await q.getUser(app.env.DB, recipient))?.default_route ?? 'push';
       }
       const usePush = route === 'push' || route === 'push+telegram';
       const useTelegram = route === 'telegram' || route === 'push+telegram';

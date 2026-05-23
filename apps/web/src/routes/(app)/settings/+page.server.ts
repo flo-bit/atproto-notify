@@ -7,16 +7,19 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ locals, platform }) => {
 	const relay = relayFor(platform, locals.did);
 
-	const [channels, settings, routing] = await Promise.all([
+	const [channels, settings, routing, devices] = await Promise.all([
 		relay.listChannels(),
 		relay.getSettings(),
-		relay.getRouting()
+		relay.getRouting(),
+		relay.listDevices()
 	]);
 
 	// Be defensive about relay responses — render fallbacks rather than crash.
 	return {
 		channels: channels?.channels ?? [],
 		notifyPendingViaTelegram: settings?.notifyPendingViaTelegram ?? false,
+		autoAllow: settings?.autoAllow ?? 'trusted',
+		devices: devices ?? [],
 		defaultRoute: routing?.defaultRoute ?? 'push'
 	};
 };

@@ -65,8 +65,12 @@
 
 		<!-- Account / theme / sign out -->
 		<div class="flex flex-col gap-2 border-t border-line pt-3">
-			<div class="px-2">
-				<div class="truncate font-mono text-xs text-muted-2" title={data.did}>{shortDid}</div>
+			<div class="px-2" title={data.did}>
+				{#if data.handle}
+					<div class="truncate text-xs font-medium text-fg">@{data.handle}</div>
+				{:else}
+					<div class="truncate font-mono text-xs text-muted-2">{shortDid}</div>
+				{/if}
 			</div>
 			<div class="flex items-center gap-2">
 				<ThemeToggle />

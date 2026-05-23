@@ -10,7 +10,12 @@
         "schema": {
           "type": "object",
           "properties": {
-            "notifyPendingViaTelegram": { "type": "boolean" }
+            "notifyPendingViaTelegram": { "type": "boolean" },
+            "autoAllow": {
+              "type": "string",
+              "enum": ["all", "trusted", "none"],
+              "description": "Policy for incoming permission requests."
+            }
           }
         }
       },

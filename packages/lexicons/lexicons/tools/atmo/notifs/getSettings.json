@@ -9,9 +9,18 @@
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["notifyPendingViaTelegram"],
+          "required": ["notifyPendingViaTelegram", "autoAllow", "pushDevices"],
           "properties": {
-            "notifyPendingViaTelegram": { "type": "boolean" }
+            "notifyPendingViaTelegram": { "type": "boolean" },
+            "autoAllow": {
+              "type": "string",
+              "enum": ["all", "trusted", "none"],
+              "description": "Policy for incoming permission requests: auto-grant all, only trusted apps, or none."
+            },
+            "pushDevices": {
+              "type": "integer",
+              "description": "Number of web push subscriptions registered for this account."
+            }
           }
         }
       }

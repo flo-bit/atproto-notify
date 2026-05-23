@@ -7,6 +7,36 @@ export interface FlatPushSubscription {
 	endpoint: string;
 	p256dh: string;
 	auth: string;
+	/** Auto-detected device label (only set by `subscribe`). */
+	label?: string;
+}
+
+/** Best-effort "Browser · OS" label from the User-Agent (user can rename later). */
+function deviceLabel(): string {
+	const ua = navigator.userAgent;
+	const browser = /Edg\//.test(ua)
+		? 'Edge'
+		: /OPR\/|Opera/.test(ua)
+			? 'Opera'
+			: /Firefox\//.test(ua)
+				? 'Firefox'
+				: /Chrome\//.test(ua)
+					? 'Chrome'
+					: /Safari\//.test(ua)
+						? 'Safari'
+						: 'Browser';
+	const os = /iPhone|iPad|iPod/.test(ua)
+		? 'iOS'
+		: /Android/.test(ua)
+			? 'Android'
+			: /Macintosh|Mac OS X/.test(ua)
+				? 'macOS'
+				: /Windows/.test(ua)
+					? 'Windows'
+					: /Linux/.test(ua)
+						? 'Linux'
+						: '';
+	return os ? `${browser} · ${os}` : browser;
 }
 
 export function pushSupported(): boolean {
@@ -52,7 +82,7 @@ export async function subscribe(): Promise<FlatPushSubscription> {
 		userVisibleOnly: true,
 		applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
 	});
-	return flatten(sub);
+	return { ...flatten(sub), label: deviceLabel() };
 }
 
 /** Unsubscribe this browser; returns the endpoint that was removed (or null). */

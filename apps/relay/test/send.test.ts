@@ -141,6 +141,37 @@ it('per-category routing gates which channels fire', async () => {
   expect(await res.json()).toMatchObject({ delivered: 1 });
 });
 
+it('app-wide routing gates delivery when the notification has no category', async () => {
+  const sender = await makeIdentity('did:plc:sendapproute');
+  mockPlc(sender);
+  const recip: Did = 'did:plc:approuterecipient';
+  await q.ensureUser(env.DB, recip, Date.now());
+  await q.upsertGrant(env.DB, {
+    recipientDid: recip,
+    senderDid: sender.did,
+    grantedAt: Date.now(),
+    title: null,
+    description: null,
+    iconUrl: null
+  });
+  await q.upsertChannel(env.DB, {
+    did: recip,
+    platform: 'telegram',
+    platformUserId: '88888',
+    displayName: null,
+    linkedAt: Date.now()
+  });
+  // Account default 'push' would skip Telegram, but the app-wide route is Telegram.
+  await q.setDefaultRoute(env.DB, recip, 'push');
+  await q.upsertAppRoute(env.DB, recip, sender.did, 'telegram');
+  const jwt = await makeJwt(sender, { lxm: SEND });
+
+  const res = await call(xrpcPost(SEND, jwt, { recipient: recip, title: 'Hi', body: 'B' }));
+
+  expect(res.status).toBe(200);
+  expect(await res.json()).toMatchObject({ delivered: 1 });
+});
+
 it('accepts silently with delivered=0 when the grant is muted', async () => {
   const sender = await makeIdentity('did:plc:sendmuted');
   mockPlc(sender);

@@ -32,6 +32,15 @@ export interface PushSubscriptionInput {
   endpoint: string;
   p256dh: string;
   auth: string;
+  /** Auto-detected device label (from the User-Agent); preserved across re-subscribes. */
+  label?: string;
+}
+
+/** A registered web push device (binding-only). */
+export interface DeviceView {
+  endpoint: string;
+  label: string;
+  createdAt: string;
 }
 
 /** A notification as shown in the inbox (binding-only; no public lexicon). */
@@ -59,10 +68,12 @@ export interface MarkReadInput {
   all?: boolean;
 }
 
-/** Alert routes (binding-only). Everything is in the inbox regardless; these gate alerts. */
+/** Concrete alert routes (binding-only). Everything is in the inbox regardless; these gate alerts. */
 export type AlertRoute = 'push' | 'telegram' | 'push+telegram' | 'off';
-/** Per-category route, plus 'default' (inherit the user-wide default). */
-export type CategoryRoute = AlertRoute | 'default';
+/** App-wide route: a concrete route, or 'default' (inherit the account default). */
+export type AppRoute = AlertRoute | 'default';
+/** Per-category route: a concrete route, or 'app' (inherit the app-wide route). */
+export type CategoryRoute = AlertRoute | 'app';
 
 export interface RoutingCategory {
   category: string;
@@ -72,6 +83,8 @@ export interface RoutingCategory {
 export interface RoutingApp {
   sender: Did;
   title: string;
+  /** App-wide route applied to everything from this app (and to categories set to 'app'). */
+  route: AppRoute;
   categories: RoutingCategory[];
 }
 export interface RoutingConfig {
@@ -110,12 +123,14 @@ export interface NotifsRpc {
   // Web push (binding-only; no public lexicon).
   registerWebPush(did: Did, sub: PushSubscriptionInput): Promise<{ registered: boolean }>;
   unregisterWebPush(did: Did, endpoint: string): Promise<{ unregistered: boolean }>;
+  listDevices(did: Did): Promise<DeviceView[]>;
+  renameDevice(did: Did, endpoint: string, label: string): Promise<{ ok: boolean }>;
 
   // Inbox (binding-only; no public lexicon).
   listNotifications(did: Did, cursor?: string): Promise<ListNotificationsResult>;
   markRead(did: Did, input: MarkReadInput): Promise<{ marked: number }>;
 
-  // Per-category routing (binding-only).
+  // Routing (binding-only). Three levels: category → app → account default.
   getRouting(did: Did): Promise<RoutingConfig>;
   setRouting(
     did: Did,
@@ -123,5 +138,6 @@ export interface NotifsRpc {
     category: string,
     route: CategoryRoute,
   ): Promise<{ ok: boolean }>;
+  setAppRouting(did: Did, sender: Did, route: AppRoute): Promise<{ ok: boolean }>;
   setDefaultRoute(did: Did, route: AlertRoute): Promise<{ ok: boolean }>;
 }

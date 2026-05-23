@@ -1,9 +1,9 @@
 <script lang="ts">
-	import type { CategoryRoute } from '@atmo/notifs-lexicons';
+	import type { AppRoute, CategoryRoute } from '@atmo/notifs-lexicons';
 	import { invalidateAll } from '$app/navigation';
 	import AppMark from '$lib/components/AppMark.svelte';
-	import { setRouting } from '$lib/remote/notifs.remote';
-	import { CATEGORY_ROUTES, ROUTE_LABELS } from '$lib/routes';
+	import { setAppRouting, setRouting } from '$lib/remote/notifs.remote';
+	import { APP_ROUTES, CATEGORY_ROUTES, ROUTE_LABELS } from '$lib/routes';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -11,20 +11,31 @@
 	let busy = $state<Record<string, boolean>>({});
 	let errorMsg = $state('');
 
-	async function changeRoute(category: string, route: CategoryRoute) {
-		const sender = data.app?.sender;
-		if (!sender) return;
-		busy[category] = true;
+	async function run(key: string, fn: () => Promise<unknown>) {
+		busy[key] = true;
 		errorMsg = '';
 		try {
-			await setRouting({ sender, category, route });
+			await fn();
 			await invalidateAll();
 		} catch (err) {
 			errorMsg = err instanceof Error ? err.message : 'Could not update routing';
 		} finally {
-			busy[category] = false;
+			busy[key] = false;
 		}
 	}
+
+	function changeApp(route: AppRoute) {
+		const sender = data.app?.sender;
+		if (sender) run('__app', () => setAppRouting({ sender, route }));
+	}
+
+	function changeCategory(category: string, route: CategoryRoute) {
+		const sender = data.app?.sender;
+		if (sender) run(category, () => setRouting({ sender, category, route }));
+	}
+
+	const selectClass =
+		'shrink-0 rounded-md border border-line bg-surface-2 px-2 py-1.5 text-sm text-fg disabled:opacity-50';
 </script>
 
 <svelte:head><title>{data.app?.title ?? 'App'} · atmo.pub</title></svelte:head>
@@ -57,20 +68,42 @@
 			</p>
 		{/if}
 
+		<!-- App-wide routing -->
 		<section class="mt-6 max-w-2xl">
-			<h2 class="mb-1 font-mono text-[0.7rem] tracking-wide text-muted-2 uppercase">Routing</h2>
-			<p class="mb-3 text-sm text-muted">
-				Choose where each kind of notification goes.
-				<span class="font-medium text-fg">Default</span> follows your
-				<a href="/settings" class="text-accent hover:underline">default route</a>
-				({ROUTE_LABELS[data.defaultRoute]}). Everything is in your inbox regardless.
-			</p>
+			<h2 class="mb-3 font-mono text-[0.7rem] tracking-wide text-muted-2 uppercase">App routing</h2>
+			<div class="rounded-card border border-line bg-surface p-4">
+				<div class="flex items-center justify-between gap-4">
+					<div class="min-w-0">
+						<div class="text-sm font-medium text-fg">All notifications from this app</div>
+						<p class="mt-1 text-xs text-muted">
+							<span class="font-medium text-fg">Account default</span> follows your
+							<a href="/settings?tab=routing" class="text-accent hover:underline">default route</a>
+							({ROUTE_LABELS[data.defaultRoute]}). Everything is in your inbox regardless.
+						</p>
+					</div>
+					<select
+						class={selectClass}
+						value={data.app.route}
+						disabled={busy['__app']}
+						onchange={(e) => changeApp(e.currentTarget.value as AppRoute)}
+					>
+						{#each APP_ROUTES as r (r)}
+							<option value={r}>{ROUTE_LABELS[r]}</option>
+						{/each}
+					</select>
+				</div>
+			</div>
+		</section>
 
+		<!-- Per-category routing -->
+		<section class="mt-8 max-w-2xl">
+			<h2 class="mb-3 font-mono text-[0.7rem] tracking-wide text-muted-2 uppercase">Categories</h2>
 			{#if data.app.categories.length === 0}
 				<div class="rounded-card border border-dashed border-line px-6 py-8 text-center">
 					<p class="text-sm font-medium text-fg">No categories yet</p>
 					<p class="mx-auto mt-1 max-w-sm text-sm text-muted">
-						Categories appear here once this app sends notifications.
+						Categories appear here once this app sends them. Until then, everything uses the app
+						routing above.
 					</p>
 				</div>
 			{:else}
@@ -87,10 +120,10 @@
 								{#if c.description}<div class="text-xs text-muted">{c.description}</div>{/if}
 							</div>
 							<select
-								class="shrink-0 rounded-md border border-line bg-surface-2 px-2 py-1.5 text-sm text-fg disabled:opacity-50"
+								class={selectClass}
 								value={c.route}
 								disabled={busy[c.category]}
-								onchange={(e) => changeRoute(c.category, e.currentTarget.value as CategoryRoute)}
+								onchange={(e) => changeCategory(c.category, e.currentTarget.value as CategoryRoute)}
 							>
 								{#each CATEGORY_ROUTES as r (r)}
 									<option value={r}>{ROUTE_LABELS[r]}</option>

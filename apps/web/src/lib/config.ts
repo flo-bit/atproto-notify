@@ -21,4 +21,5 @@ export const OAUTH_SCOPE = 'atproto';
  * the same value here and into the relay's `wrangler.toml`. Empty hides the push
  * controls (so the app still works before keys are configured).
  */
-export const VAPID_PUBLIC_KEY = '';
+export const VAPID_PUBLIC_KEY: string =
+	'BF4pVUiFeh9wltn6Rj151RHA4WfidcRRv8kXp2aKcRATi_2gUgq0uGX8jVY1EczXqOvRtluqIxRj6Mtf5d1ImRw';

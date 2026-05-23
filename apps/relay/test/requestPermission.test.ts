@@ -99,3 +99,17 @@ it('returns 429 when the per-recipient rate limit is exceeded', async () => {
 
   expect(res.status).toBe(429);
 });
+
+it('auto-allow "all" grants immediately instead of creating a pending request', async () => {
+  const user = await makeIdentity('did:plc:reqautoallow');
+  mockPlc(user);
+  await q.ensureUser(env.DB, user.did, Date.now());
+  await q.setAutoAllow(env.DB, user.did, 'all');
+  const jwt = await makeJwt(user, { lxm: REQ });
+
+  const res = await call(xrpcPost(REQ, jwt, { senderDid: SENDER, title: 'Bookhive' }));
+
+  const data = (await res.json()) as RequestResult;
+  expect(data.status).toBe('alreadyGranted');
+  expect(await q.getGrant(env.DB, user.did, SENDER)).not.toBeNull();
+});

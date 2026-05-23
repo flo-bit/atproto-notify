@@ -7,7 +7,9 @@ import type { Did } from '@atcute/lexicons';
 
 import type {
   AlertRoute,
+  AppRoute,
   CategoryRoute,
+  DeviceView,
   ListNotificationsResult,
   MarkReadInput,
   NotificationView,
@@ -135,6 +137,9 @@ export async function updateSettings(
   if (input.notifyPendingViaTelegram !== undefined) {
     await q.setNotifyPending(env.DB, did, input.notifyPendingViaTelegram);
   }
+  if (input.autoAllow !== undefined) {
+    await q.setAutoAllow(env.DB, did, input.autoAllow);
+  }
 
   const user = await q.getUser(env.DB, did);
   return {
@@ -210,9 +215,12 @@ export async function getSettings(
   // Ensure the row exists so we return stored defaults rather than guessing.
   await q.ensureUser(env.DB, did, now());
   const user = await q.getUser(env.DB, did);
+  const pushDevices = (await q.countPushSubscriptionsForDid(env.DB, did))?.c ?? 0;
 
   return {
     notifyPendingViaTelegram: (user?.notify_pending_via_telegram ?? 0) === 1,
+    autoAllow: (user?.auto_allow ?? 'trusted') as 'all' | 'trusted' | 'none',
+    pushDevices,
   };
 }
 
@@ -227,6 +235,7 @@ export async function registerWebPush(
     did,
     p256dh: sub.p256dh,
     auth: sub.auth,
+    label: sub.label ?? null,
     createdAt: now(),
   });
   return { registered: true };
@@ -239,6 +248,25 @@ export async function unregisterWebPush(
 ): Promise<{ unregistered: boolean }> {
   const unregistered = await q.deletePushSubscriptionForDid(env.DB, did, endpoint);
   return { unregistered };
+}
+
+export async function listDevices(env: Env, did: Did): Promise<DeviceView[]> {
+  const rows = await q.listPushSubscriptionsForDid(env.DB, did);
+  return rows.map((row) => ({
+    endpoint: row.endpoint,
+    label: row.label ?? 'Unknown device',
+    createdAt: toIsoDatetime(row.created_at),
+  }));
+}
+
+export async function renameDevice(
+  env: Env,
+  did: Did,
+  endpoint: string,
+  label: string,
+): Promise<{ ok: boolean }> {
+  const ok = await q.renamePushSubscription(env.DB, did, endpoint, label);
+  return { ok };
 }
 
 const INBOX_PAGE_SIZE = 30;
@@ -290,14 +318,18 @@ export async function getRouting(env: Env, did: Did): Promise<RoutingConfig> {
   const user = await q.getUser(env.DB, did);
   const defaultRoute = (user?.default_route ?? 'push') as AlertRoute;
 
-  const [grants, categories, routing] = await Promise.all([
+  const [grants, categories, routing, appRouting] = await Promise.all([
     q.listGrantsForRecipient(env.DB, did),
     q.listAppCategoriesForRecipient(env.DB, did),
     q.listRoutingForRecipient(env.DB, did),
+    q.listAppRoutingForRecipient(env.DB, did),
   ]);
 
   const routeBy = new Map<string, string>();
   for (const r of routing) routeBy.set(`${r.sender_did} ${r.category}`, r.route);
+
+  const appRouteBy = new Map<string, string>();
+  for (const a of appRouting) appRouteBy.set(a.sender_did, a.route);
 
   const catsBySender = new Map<string, q.AppCategoryRow[]>();
   for (const c of categories) {
@@ -309,10 +341,11 @@ export async function getRouting(env: Env, did: Did): Promise<RoutingConfig> {
   const apps: RoutingApp[] = grants.map((g) => ({
     sender: g.sender_did,
     title: g.title ?? g.display_name ?? g.handle ?? g.sender_did,
+    route: (appRouteBy.get(g.sender_did) ?? 'default') as AppRoute,
     categories: (catsBySender.get(g.sender_did) ?? []).map((c) => ({
       category: c.category,
       description: c.description ?? undefined,
-      route: (routeBy.get(`${g.sender_did} ${c.category}`) ?? 'default') as CategoryRoute,
+      route: (routeBy.get(`${g.sender_did} ${c.category}`) ?? 'app') as CategoryRoute,
     })),
   }));
 
@@ -326,10 +359,24 @@ export async function setRouting(
   category: string,
   route: CategoryRoute,
 ): Promise<{ ok: boolean }> {
-  if (route === 'default') {
+  if (route === 'app') {
     await q.deleteRouting(env.DB, did, sender, category);
   } else {
     await q.upsertRouting(env.DB, did, sender, category, route);
+  }
+  return { ok: true };
+}
+
+export async function setAppRouting(
+  env: Env,
+  did: Did,
+  sender: Did,
+  route: AppRoute,
+): Promise<{ ok: boolean }> {
+  if (route === 'default') {
+    await q.deleteAppRoute(env.DB, did, sender);
+  } else {
+    await q.upsertAppRoute(env.DB, did, sender, route);
   }
   return { ok: true };
 }

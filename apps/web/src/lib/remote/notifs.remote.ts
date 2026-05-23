@@ -56,7 +56,12 @@ export const unlinkTelegram = command(async () => {
 });
 
 export const registerPush = command(
-	v.object({ endpoint: v.string(), p256dh: v.string(), auth: v.string() }),
+	v.object({
+		endpoint: v.string(),
+		p256dh: v.string(),
+		auth: v.string(),
+		label: v.optional(v.string())
+	}),
 	async (sub) => {
 		await requireRelay().registerWebPush(sub);
 	}
@@ -65,6 +70,13 @@ export const registerPush = command(
 export const unregisterPush = command(v.object({ endpoint: v.string() }), async ({ endpoint }) => {
 	await requireRelay().unregisterWebPush(endpoint);
 });
+
+export const renameDevice = command(
+	v.object({ endpoint: v.string(), label: v.string() }),
+	async ({ endpoint, label }) => {
+		await requireRelay().renameDevice(endpoint, label);
+	}
+);
 
 export const markNotificationsRead = command(
 	v.object({ ids: v.optional(v.array(v.string())), all: v.optional(v.boolean()) }),
@@ -84,9 +96,26 @@ export const setRouting = command(
 	v.object({
 		sender: didSchema,
 		category: v.string(),
-		route: v.picklist(['default', 'push', 'telegram', 'push+telegram', 'off'])
+		route: v.picklist(['app', 'push', 'telegram', 'push+telegram', 'off'])
 	}),
 	async ({ sender, category, route }) => {
 		await requireRelay().setRouting(sender as Did, category, route);
+	}
+);
+
+export const setAppRouting = command(
+	v.object({
+		sender: didSchema,
+		route: v.picklist(['default', 'push', 'telegram', 'push+telegram', 'off'])
+	}),
+	async ({ sender, route }) => {
+		await requireRelay().setAppRouting(sender as Did, route);
+	}
+);
+
+export const setAutoAllow = command(
+	v.object({ autoAllow: v.picklist(['all', 'trusted', 'none']) }),
+	async ({ autoAllow }) => {
+		await requireRelay().updateSettings({ autoAllow });
 	}
 );

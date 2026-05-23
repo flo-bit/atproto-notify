@@ -11,6 +11,7 @@
 import type { Did } from '@atcute/lexicons';
 import type {
 	AlertRoute,
+	AppRoute,
 	CategoryRoute,
 	MarkReadInput,
 	PushSubscriptionInput,
@@ -54,11 +55,14 @@ export function relayFor(platform: App.Platform | undefined, did: Did | null) {
 			svc.updateSettings(did, input),
 		registerWebPush: (sub: PushSubscriptionInput) => svc.registerWebPush(did, sub),
 		unregisterWebPush: (endpoint: string) => svc.unregisterWebPush(did, endpoint),
+		listDevices: () => svc.listDevices(did),
+		renameDevice: (endpoint: string, label: string) => svc.renameDevice(did, endpoint, label),
 		listNotifications: (cursor?: string) => svc.listNotifications(did, cursor),
 		markRead: (input: MarkReadInput) => svc.markRead(did, input),
 		getRouting: () => svc.getRouting(did),
 		setRouting: (sender: Did, category: string, route: CategoryRoute) =>
 			svc.setRouting(did, sender, category, route),
+		setAppRouting: (sender: Did, route: AppRoute) => svc.setAppRouting(did, sender, route),
 		setDefaultRoute: (route: AlertRoute) => svc.setDefaultRoute(did, route)
 	};
 }

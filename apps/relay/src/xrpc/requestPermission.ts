@@ -39,8 +39,10 @@ export function makeRequestPermission(
       // 2. Ensure the user row exists.
       await q.ensureUser(app.env.DB, userDid, now());
 
-      // Trusted apps skip the pending step and are granted immediately.
-      if (isTrustedSender(senderDid)) {
+      // Auto-allow policy gates the auto-grant: 'all' grants anyone, 'trusted'
+      // only TRUSTED_SENDERS, 'none' always requires manual approval.
+      const policy = (await q.getUser(app.env.DB, userDid))?.auto_allow ?? 'trusted';
+      if (policy === 'all' || (policy === 'trusted' && isTrustedSender(senderDid))) {
         await q.upsertGrant(app.env.DB, {
           recipientDid: userDid,
           senderDid,

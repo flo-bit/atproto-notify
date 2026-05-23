@@ -12,6 +12,9 @@ export const atproto = createAtprotoAuth({
 	clientAssertionKey: env.CLIENT_ASSERTION_KEY,
 	// Only requestPermission is needed via user OAuth (see config.ts).
 	scope: OAUTH_SCOPE,
+	// Dev loopback OAuth client runs on 5174 (web keeps Vite's default 5173) so
+	// both apps run at once. Keep in sync with `port` in vite.config.ts.
+	devPort: 5174,
 	sessions: cloudflareKV('OAUTH_SESSIONS'),
 	states: cloudflareKV('OAUTH_STATES', { ttl: 600 })
 });

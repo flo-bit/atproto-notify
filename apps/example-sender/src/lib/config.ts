@@ -1,4 +1,5 @@
 // Configuration for the example sender app.
+import { dev } from '$app/environment';
 
 /** This app's public domain. */
 export const APP_DOMAIN = 'example.notify.atmo.tools';
@@ -10,8 +11,12 @@ export const SENDER_DID = `did:web:${APP_DOMAIN}`;
 export const APP_TITLE = 'Example Sender';
 export const APP_DESCRIPTION = 'Demo of how to integrate with notify.atmo.tools.';
 
-/** The relay's XRPC API. */
-export const RELAY_ORIGIN = 'https://notifs.atmo.tools';
+/**
+ * The relay's XRPC API. In dev (`vite dev`) talk to the local relay running via
+ * `wrangler dev`; in production use the deployed relay. The DID (service-auth
+ * `aud`) is the same either way — the local relay's `RELAY_DID` var matches.
+ */
+export const RELAY_ORIGIN = dev ? 'http://localhost:8787' : 'https://notifs.atmo.tools';
 export const RELAY_DID = 'did:web:notifs.atmo.tools';
 
 /** The web dashboard where users approve apps + link Telegram (note: no "s"). */
