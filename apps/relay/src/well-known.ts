@@ -1,5 +1,3 @@
-import authSender from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/authSender.json';
-import authUser from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/authUser.json';
 import denyPending from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/denyPending.json';
 import getSettings from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/getSettings.json';
 import grant from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/grant.json';
@@ -32,8 +30,6 @@ const LEXICONS: Record<string, unknown> = {
   'tools.atmo.notifs.listChannels': listChannels,
   'tools.atmo.notifs.getSettings': getSettings,
   'tools.atmo.notifs.updateSettings': updateSettings,
-  'tools.atmo.notifs.authSender': authSender,
-  'tools.atmo.notifs.authUser': authUser,
 };
 
 /**

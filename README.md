@@ -28,7 +28,7 @@ re-home the relay, change them everywhere listed below.
 | Relay domain | `notifs.atmo.tools` | `apps/relay/wrangler.toml` (`routes`, derived `RELAY_DID`); dashboard links in `apps/relay/src/telegram/commands.ts` (`DASHBOARD_URL`, `NOT_LINKED`); `apps/relay/test/helpers.ts` |
 | Relay DID | `did:web:notifs.atmo.tools` | `apps/relay/wrangler.toml` (`[vars].RELAY_DID`); consumed by `apps/relay/src/auth/verifier.ts` and `apps/relay/src/well-known.ts` (service endpoint derived from it); `apps/relay/test/helpers.ts` (`RELAY_DID`) |
 | Relay service id | `#notif_relay` | `apps/relay/src/well-known.ts` (DID-doc `service[].id`); `apps/relay/src/auth/verifier.ts` (`acceptAudiences` fragment) |
-| Lexicon NSID prefix | `tools.atmo.notifs` | Every file under `packages/lexicons/lexicons/` (each `id`); regenerated types under `packages/lexicons/src/lexicons/`; the `LXM` constant in every `apps/relay/src/xrpc/*.ts`; the map + imports in `apps/relay/src/well-known.ts`; the permission-set `lxm` arrays |
+| Lexicon NSID prefix | `tools.atmo.notifs` | Every file under `packages/lexicons/lexicons/` (each `id`); regenerated types under `packages/lexicons/src/lexicons/`; the `LXM` constant in every `apps/relay/src/xrpc/*.ts`; the map + imports in `apps/relay/src/well-known.ts` |
 | Pending request TTL | 7 days | `apps/relay/src/xrpc/requestPermission.ts` (`addDays(createdAt, 7)`) |
 | Link token TTL | 10 minutes | `apps/relay/src/xrpc/linkChannel.ts` (`addMinutes(now(), 10)`) |
 | DID-doc cache TTL (KV) | 5 minutes | `apps/relay/src/identity/resolve.ts` (`DID_DOC_CACHE_TTL_SECONDS`) |
@@ -38,7 +38,7 @@ re-home the relay, change them everywhere listed below.
 | Bot username | `REPLACE_ME` | `apps/relay/wrangler.toml` (`[vars].BOT_USERNAME`) → deep links in `linkChannel` |
 
 > **Auth model:** `requestPermission` is **user-authenticated** (the user OAuths
-> into the requesting app with the `tools.atmo.notifs.authSender` permission set);
+> into the requesting app, granting the relay's `requestPermission` rpc scope);
 > the sender DID + display metadata are in the request body. `send` stays
 > **sender-authenticated** (the sender's own DID key). See "For sender developers".
 
@@ -226,9 +226,7 @@ Then:
    atproto rpc?lxm=tools.atmo.notifs.requestPermission&aud=*
    ```
 
-   (Once the `tools.atmo.notifs.authSender` permission set is published, the
-   tidier `include:tools.atmo.notifs.authSender?aud=did:web:notifs.atmo.tools%23notif_relay`
-   works too.) Then, on the user's PDS, mint a service-auth JWT via
+   Then, on the user's PDS, mint a service-auth JWT via
    `com.atproto.server.getServiceAuth` (`aud = did:web:notifs.atmo.tools`,
    `lxm = tools.atmo.notifs.requestPermission`) and call:
 
@@ -283,12 +281,3 @@ Then:
    `send` returns `403 NotAuthorized` if there is no grant, and `429
    RateLimitExceeded` (with `Retry-After`) when limits are hit. A muted grant is
    accepted silently with `delivered: 0`.
-
-### Permission sets
-
-The relay publishes two OAuth permission sets so the website can request scopes:
-
-- `tools.atmo.notifs.authSender` — `requestPermission` only (for sender apps;
-  `send` is authenticated by the app's own DID, not via this grant).
-- `tools.atmo.notifs.authUser` — all user-facing management methods (for the
-  dashboard acting on a user's behalf).

@@ -59,17 +59,22 @@
 	{#if !data.did}
 		<form onsubmit={signIn} class="mt-8 max-w-md">
 			<label for="handle" class="mb-1.5 block text-sm font-medium text-fg">
-				Sign in with Bluesky
+				Sign in with your Atmosphere Account
 			</label>
 			<div class="flex flex-col gap-2 sm:flex-row">
 				<input
 					id="handle"
 					name="handle"
 					bind:value={handle}
-					placeholder="alice.bsky.social"
-					autocomplete="username"
+					placeholder="jcsalterego.bsky.social"
+					autocomplete="off"
 					autocapitalize="none"
+					autocorrect="off"
 					spellcheck="false"
+					data-1p-ignore
+					data-lpignore="true"
+					data-bwignore
+					data-form-type="other"
 					required
 					class="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-fg placeholder:text-muted-2 focus:border-accent"
 				/>
@@ -82,7 +87,7 @@
 				</button>
 			</div>
 			<p class="mt-2 text-xs text-muted-2">
-				Enter your handle or DID. You'll approve access on your own server.
+				Enter your handle or DID.
 			</p>
 			{#if errorMsg}
 				<p class="mt-2 text-sm text-danger" role="alert">{errorMsg}</p>

@@ -17,12 +17,8 @@ export const RELAY_SERVICE_REF = `${RELAY_DID}#notif_relay`;
 export const LEXICON_PREFIX = 'tools.atmo.notifs';
 
 /**
- * The user-management methods the website calls on the relay. These mirror the
- * `tools.atmo.notifs.authUser` permission set, but we request them directly as
- * individual `rpc` scopes instead of `include:`-ing the permission set — the
- * permission-set lexicon isn't published to the network yet, and `include:`
- * makes the authorization server resolve it ("Could not resolve Lexicon for
- * NSID"). Requesting the methods directly avoids that.
+ * The user-management methods the website calls on the relay, requested directly
+ * as individual `rpc` scopes (rather than a published permission set).
  */
 export const USER_LXMS = [
 	'grant',
@@ -40,16 +36,15 @@ export const USER_LXMS = [
 
 /**
  * OAuth scope: base `atproto` plus an `rpc` permission for the relay methods.
- * Format is `rpc?lxm=<nsid>&lxm=<nsid>…&aud=<aud>`. We use `aud=*` for now (any
- * audience) so service-auth tokens can be minted for the relay; tighten to the
- * relay's service ref once the permission set is published.
+ * Format is `rpc?lxm=<nsid>&lxm=<nsid>…&aud=<aud>`. `aud=*` (any audience) so
+ * service-auth tokens can be minted for the relay.
  */
 export const OAUTH_SCOPE = `atproto rpc?${USER_LXMS.map((lxm) => `lxm=${lxm}`).join('&')}&aud=*`;
 
 // --- Branding (placeholders — rename freely) -------------------------------
 
-/** Product name shown in the UI. Placeholder; rename to taste. */
-export const PROJECT_NAME = 'Atmo Notifs';
+/** Product name shown in the UI. */
+export const PROJECT_NAME = 'notify.atmo.tools';
 
 /** GitHub repo link in the footer. */
 export const GITHUB_URL = 'https://github.com/flo-bit/atproto-notify';

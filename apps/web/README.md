@@ -60,21 +60,31 @@ pnpm check     # svelte-check (type check)
 pnpm build     # production build
 ```
 
-## Deployment (Cloudflare)
+## Deployment (Cloudflare Workers)
 
-The OAuth session store uses Cloudflare KV, so this deploys to Cloudflare.
+Uses `@sveltejs/adapter-cloudflare` (Workers + static assets). Run these from
+`apps/web/` in a Cloudflare-authenticated terminal.
 
-1. Install the adapter: `pnpm add -D @sveltejs/adapter-cloudflare` and use it in
-   `svelte.config.js` (or rely on `adapter-auto`, which selects it on CF Pages).
-2. Create the KV namespaces and paste the ids into `wrangler.jsonc`:
+1. **Pick the domain.** In `wrangler.jsonc`, set `name` and `vars.ORIGIN`
+   (e.g. `https://notifs-web.atmo.tools`). `ORIGIN` must equal the served URL —
+   the atproto OAuth `client_id` is derived from it.
+2. **Create the KV namespaces** and paste the ids into `wrangler.jsonc`:
    ```sh
    pnpm exec wrangler kv namespace create OAUTH_SESSIONS
    pnpm exec wrangler kv namespace create OAUTH_STATES
    ```
-3. Set secrets (`ORIGIN`, `COOKIE_SECRET`, `CLIENT_ASSERTION_KEY`) via
-   `wrangler secret put` (or the dashboard).
-4. Pick a real subdomain (placeholder: `notifs-web.atmo.tools`), update
-   `wrangler.jsonc` `name`, deploy, and bind the custom domain.
+3. **Set the secrets** (the `atproto-oauth` CLI generates them):
+   ```sh
+   pnpm exec atproto-oauth secret | pnpm exec wrangler secret put COOKIE_SECRET
+   pnpm exec atproto-oauth keygen | pnpm exec wrangler secret put CLIENT_ASSERTION_KEY
+   ```
+4. **Deploy** (builds, then `wrangler deploy`):
+   ```sh
+   pnpm run deploy
+   ```
+5. **Bind the custom domain** in the CF dashboard (Workers → the worker →
+   Settings → Domains & Routes), matching `ORIGIN`.
 
 The OAuth client metadata is served dynamically by `@svelte-atproto/oauth` — no
-static file to write.
+static file to write. The dashboard needs the relay reachable at the domain in
+`src/lib/config.ts` (`notifs.atmo.tools`), so deploy the relay too.

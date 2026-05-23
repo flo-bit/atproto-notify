@@ -1,22 +1,37 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	// Working default — pick a real subdomain and update this + the custom domain.
-	"name": "notifs-web",
+	// Working default — pick a real subdomain and update this, ORIGIN, and the custom domain.
+	"name": "notify-atmo",
+	"main": ".svelte-kit/cloudflare/_worker.js",
 	"compatibility_date": "2026-04-01",
 	"compatibility_flags": ["nodejs_compat"],
-
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".svelte-kit/cloudflare"
+	},
+	// Public origin of the deployed app (NOT secret). Must equal the domain you
+	// serve from — the atproto OAuth client_id is derived from it.
+	"vars": {
+		"ORIGIN": "https://notify.atmo.tools"
+	},
 	// KV namespaces required by @svelte-atproto/oauth's `cloudflareKV` stores
 	// (see src/lib/atproto/index.ts). Create them and paste the ids:
 	//   pnpm exec wrangler kv namespace create OAUTH_SESSIONS
 	//   pnpm exec wrangler kv namespace create OAUTH_STATES
 	"kv_namespaces": [
-		{ "binding": "OAUTH_SESSIONS", "id": "REPLACE_ME" },
-		{ "binding": "OAUTH_STATES", "id": "REPLACE_ME" }
+		{
+			"binding": "OAUTH_SESSIONS",
+			"id": "6559fa117ec041a1a5fabda5b6526f83"
+		},
+		{
+			"binding": "OAUTH_STATES",
+			"id": "a0f731098f5d4bdea2c3b9e622b13153"
+		}
 	]
-
-	// Deploying to Cloudflare: install `@sveltejs/adapter-cloudflare` and use it in
-	// svelte.config.js (adapter-auto also selects it automatically on CF Pages).
-	// The adapter injects `main` and `assets`; this file supplies the bindings.
-	// Bind the custom domain (e.g. notifs-web.atmo.tools) in the CF dashboard, or:
+	// Secrets (set via `wrangler secret put`, never commit):
+	//   COOKIE_SECRET         (atproto-oauth secret | wrangler secret put COOKIE_SECRET)
+	//   CLIENT_ASSERTION_KEY  (atproto-oauth keygen | wrangler secret put CLIENT_ASSERTION_KEY)
+	//
+	// Custom domain: bind it in the CF dashboard, or add:
 	//   "routes": [{ "pattern": "notifs-web.atmo.tools", "custom_domain": true }]
 }

@@ -89,10 +89,7 @@
 			atproto rpc?lxm=tools.atmo.notifs.requestPermission&amp;aud=*
 		</p>
 		<p class="max-w-prose text-sm leading-relaxed text-muted">
-			Once the <code class="font-mono text-fg">tools.atmo.notifs.authSender</code> permission set is
-			published you can use the tidier
-			<code class="font-mono text-fg">include:tools.atmo.notifs.authSender?aud=did:web:notifs.atmo.tools#notif_relay</code>
-			instead. Then mint a service-auth JWT on the user's PDS via
+			Then mint a service-auth JWT on the user's PDS via
 			<code class="font-mono text-fg">com.atproto.server.getServiceAuth</code> and call:
 		</p>
 		{@render codeblock(data.code.request)}

@@ -3,10 +3,7 @@ import { highlight, type CodeLang } from '$lib/server/highlight';
 
 import type { PageServerLoad } from './$types';
 
-const requestExample = `# $USER_JWT is minted on the user's PDS via com.atproto.server.getServiceAuth
-# (aud=${RELAY_DID}, lxm=${LEXICON_PREFIX}.requestPermission) after the user
-# OAuths into your app with the authSender scope.
-curl -X POST ${RELAY_ORIGIN}/xrpc/${LEXICON_PREFIX}.requestPermission \\
+const requestExample = `curl -X POST ${RELAY_ORIGIN}/xrpc/${LEXICON_PREFIX}.requestPermission \\
   -H "Authorization: Bearer $USER_JWT" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -40,9 +37,7 @@ await client.post('${LEXICON_PREFIX}.send', {
     body: 'alice replied to your post',
     uri: 'https://yourapp.example/thread/123'
   }
-});
-// typing tip: \`import '@atmo/notifs-lexicons'\` to register the lexicon,
-// or use client.call(ToolsAtmoNotifsSend.mainSchema, { ... }).`;
+});`;
 
 const sendCurlExample = `curl -X POST ${RELAY_ORIGIN}/xrpc/${LEXICON_PREFIX}.send \\
   -H "Authorization: Bearer $JWT" \\

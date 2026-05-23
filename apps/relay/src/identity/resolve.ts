@@ -54,3 +54,18 @@ export function makeResolver(cache: KVNamespace): DidDocumentResolver {
   });
   return new CachedDidDocumentResolver(composite, cache);
 }
+
+/**
+ * Best-effort handle for a DID, read from the DID document's `alsoKnownAs`
+ * (`at://<handle>`). For display only (the claimed handle is not bidirectionally
+ * verified). Returns null on any failure.
+ */
+export async function resolveHandle(cache: KVNamespace, did: Did): Promise<string | null> {
+  try {
+    const doc = await makeResolver(cache).resolve(did);
+    const aka = doc.alsoKnownAs?.find((uri) => uri.startsWith('at://'));
+    return aka !== undefined ? aka.slice('at://'.length) : null;
+  } catch {
+    return null;
+  }
+}

@@ -1,4 +1,4 @@
-import adapter from '@sveltejs/adapter-auto';
+import adapter from '@sveltejs/adapter-cloudflare';
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -11,9 +11,8 @@ const config = {
 		}
 	},
 	kit: {
-		// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.
-		// If your environment is not supported, or you settled on a specific environment, switch out the adapter.
-		// See https://svelte.dev/docs/kit/adapters for more information about adapters.
+		// Cloudflare Workers (with static assets). The Worker output goes to
+		// `.svelte-kit/cloudflare`, which `wrangler.jsonc` points `main`/`assets` at.
 		adapter: adapter(),
 		// Mutations are written as remote `command` functions.
 		experimental: {

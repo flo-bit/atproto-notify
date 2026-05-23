@@ -7,6 +7,7 @@ import {
   type InlineKeyboardMarkup,
   sendMessage,
 } from '../delivery/telegram';
+import { resolveHandle } from '../identity/resolve';
 import { now } from '../lib/time';
 
 import type { TelegramMessage } from './webhook';
@@ -65,13 +66,17 @@ async function handleStart(env: Env, message: TelegramMessage, token: string): P
     did,
     platform: PLATFORM,
     platformUserId: String(chatId),
-    displayName: username,
+    displayName: username, // the Telegram account label (for the channels list)
     linkedAt: now(),
   });
   await q.deleteLinkToken(env.DB, token);
 
-  const label = username !== null ? `@${username}` : did;
-  await replyText(env, chatId, `✅ Linked to ${label}`);
+  // Confirm with the atproto identity being linked (their handle), not the
+  // Telegram username. Falls back to the DID if the handle can't be resolved.
+  // Rendered as a code span so Telegram doesn't linkify it as an @username.
+  const handle = await resolveHandle(env.CACHE, did);
+  const label = handle !== null ? `@${handle}` : did;
+  await replyMarkdown(env, chatId, `✅ Linked to \`${label}\``);
 }
 
 async function handleList(env: Env, chatId: number): Promise<void> {
@@ -88,9 +93,11 @@ async function handleList(env: Env, chatId: number): Promise<void> {
   }
 
   const lines = grants.map((grant) => {
-    const name = grant.handle !== null ? `@${grant.handle}` : grant.sender_did;
+    // Prefer the app's display title; identifier goes in a code span so Telegram
+    // doesn't linkify it as an @username/URL.
+    const name = grant.title ?? grant.handle ?? grant.sender_did;
     const muted = grant.muted === 1 ? ' \\(muted\\)' : '';
-    return `• ${escapeMd(name)}${muted}`;
+    return `• *${escapeMd(name)}*${muted}\n  \`${grant.sender_did}\``;
   });
   await replyMarkdown(env, chatId, `*Authorized apps*\n${lines.join('\n')}`);
 }
