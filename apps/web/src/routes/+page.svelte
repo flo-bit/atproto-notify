@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { oauthLogin } from '$lib/atproto/oauth.remote';
 	import Logomark from '$lib/components/Logomark.svelte';
 	import { PROJECT_NAME } from '$lib/config';
 	import type { PageData } from './$types';
@@ -16,8 +17,8 @@
 		busy = true;
 		errorMsg = '';
 		try {
-			const { login } = await import('@svelte-atproto/oauth/client');
-			await login(value); // navigates to the PDS on success
+			const { url } = await oauthLogin({ handle: value, returnTo: '/dashboard' });
+			window.location.href = url; // off to the PDS authorize screen
 		} catch (err) {
 			errorMsg = err instanceof Error ? err.message : 'Sign-in failed';
 			busy = false;

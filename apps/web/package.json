@@ -42,12 +42,11 @@
 		"vite": "^8.0.7"
 	},
 	"dependencies": {
-		"@atcute/atproto": "^3.1.10",
-		"@atcute/client": "^4.2.1",
-		"@atcute/identity": "^1.1.5",
-		"@atcute/lexicons": "^1.2.9",
+		"@atcute/atproto": "^4.0.0",
+		"@atcute/client": "^5.0.0",
+		"@atcute/lexicons": "^2.0.0",
 		"@atmo/notifs-lexicons": "workspace:*",
-		"@svelte-atproto/oauth": "^0.1.0",
+		"@svelte-atproto/oauth": "^0.3.0",
 		"shiki": "^4.1.0",
 		"valibot": "^1.4.0"
 	}

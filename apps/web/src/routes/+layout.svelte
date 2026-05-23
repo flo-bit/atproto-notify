@@ -2,6 +2,7 @@
 	import './layout.css';
 	import type { Snippet } from 'svelte';
 	import favicon from '$lib/assets/favicon.svg';
+	import { oauthLogout } from '$lib/atproto/oauth.remote';
 	import Logomark from '$lib/components/Logomark.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import { GITHUB_URL, PROJECT_NAME } from '$lib/config';
@@ -13,8 +14,8 @@
 	async function signOut() {
 		signingOut = true;
 		try {
-			const { logout } = await import('@svelte-atproto/oauth/client');
-			await logout();
+			await oauthLogout();
+			window.location.href = '/';
 		} catch {
 			signingOut = false;
 		}

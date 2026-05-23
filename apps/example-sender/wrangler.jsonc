@@ -1,0 +1,32 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "atmo-notifs-example-sender",
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	"compatibility_date": "2026-04-01",
+	"compatibility_flags": ["nodejs_compat"],
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".svelte-kit/cloudflare"
+	},
+
+	// Public origin (NOT secret) — must equal the served domain (OAuth client_id derives from it).
+	"vars": {
+		"ORIGIN": "https://example.notify.atmo.tools"
+	},
+
+	// KV namespaces for @svelte-atproto/oauth session/state storage:
+	//   pnpm exec wrangler kv namespace create OAUTH_SESSIONS
+	//   pnpm exec wrangler kv namespace create OAUTH_STATES
+	"kv_namespaces": [
+		{ "binding": "OAUTH_SESSIONS", "id": "REPLACE_ME" },
+		{ "binding": "OAUTH_STATES", "id": "REPLACE_ME" }
+	]
+
+	// Secrets (wrangler secret put):
+	//   COOKIE_SECRET         (atproto-oauth secret | wrangler secret put COOKIE_SECRET)
+	//   CLIENT_ASSERTION_KEY  (atproto-oauth keygen | wrangler secret put CLIENT_ASSERTION_KEY)
+	//   SENDER_PRIVATE_KEY    (pnpm sender:keygen → the private multikey; for `send`)
+	//
+	// Custom domain: bind it in the CF dashboard, or add:
+	//   "routes": [{ "pattern": "example.notify.atmo.tools", "custom_domain": true }]
+}

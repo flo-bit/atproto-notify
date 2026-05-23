@@ -7,9 +7,11 @@
 		"atproto:setup": "atproto-oauth setup",
 		"atproto:keygen": "atproto-oauth keygen",
 		"atproto:secret": "atproto-oauth secret",
+		"sender:keygen": "node scripts/generate-keys.js",
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
+		"deploy": "vite build && wrangler deploy",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
@@ -19,7 +21,7 @@
 	"devDependencies": {
 		"@eslint/compat": "^2.0.4",
 		"@eslint/js": "^10.0.1",
-		"@sveltejs/adapter-auto": "^7.0.1",
+		"@sveltejs/adapter-cloudflare": "^7.2.8",
 		"@sveltejs/kit": "^2.57.0",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
 		"@tailwindcss/forms": "^0.5.11",
@@ -42,6 +44,10 @@
 	},
 	"dependencies": {
 		"@atcute/atproto": "^4.0.0",
+		"@atcute/client": "^5.0.0",
+		"@atcute/crypto": "^2.4.1",
+		"@atcute/lexicons": "^2.0.0",
+		"@atcute/xrpc-server": "^2.0.0",
 		"@svelte-atproto/oauth": "^0.3.0",
 		"valibot": "^1.0.0"
 	}
