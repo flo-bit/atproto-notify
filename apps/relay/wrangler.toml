@@ -41,7 +41,7 @@ BOT_USERNAME = "atmo_notify_bot"        # e.g. "atmonotifsbot"
 # Web push (VAPID). Generate with `pnpm vapid:keygen`. The public key is also the
 # browser applicationServerKey — paste the SAME value into apps/web VAPID_PUBLIC_KEY.
 VAPID_PUBLIC_KEY = "BF4pVUiFeh9wltn6Rj151RHA4WfidcRRv8kXp2aKcRATi_2gUgq0uGX8jVY1EczXqOvRtluqIxRj6Mtf5d1ImRw"
-VAPID_SUBJECT = "mailto:you@example.com"
+VAPID_SUBJECT = "https://atmo.pub"
 
 # Secrets set via `wrangler secret put`:
 # - TELEGRAM_BOT_TOKEN
