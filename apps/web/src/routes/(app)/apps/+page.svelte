@@ -187,7 +187,13 @@
 							</label>
 						</div>
 
-						<div class="mt-3 flex justify-end">
+						<div class="mt-3 flex items-center justify-between">
+							<a
+								href={`/apps/${encodeURIComponent(g.sender)}`}
+								class="text-sm font-medium text-accent hover:underline"
+							>
+								Routing →
+							</a>
 							{#if confirming[g.sender]}
 								<div class="flex gap-2">
 									<button

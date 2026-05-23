@@ -59,6 +59,26 @@ export interface MarkReadInput {
   all?: boolean;
 }
 
+/** Alert routes (binding-only). Everything is in the inbox regardless; these gate alerts. */
+export type AlertRoute = 'push' | 'telegram' | 'push+telegram' | 'off';
+/** Per-category route, plus 'default' (inherit the user-wide default). */
+export type CategoryRoute = AlertRoute | 'default';
+
+export interface RoutingCategory {
+  category: string;
+  description?: string;
+  route: CategoryRoute;
+}
+export interface RoutingApp {
+  sender: Did;
+  title: string;
+  categories: RoutingCategory[];
+}
+export interface RoutingConfig {
+  defaultRoute: AlertRoute;
+  apps: RoutingApp[];
+}
+
 export interface NotifsRpc {
   grant(did: Did, input: ToolsAtmoNotifsGrant.$input): Promise<ToolsAtmoNotifsGrant.$output>;
   revoke(did: Did, input: ToolsAtmoNotifsRevoke.$input): Promise<ToolsAtmoNotifsRevoke.$output>;
@@ -94,4 +114,14 @@ export interface NotifsRpc {
   // Inbox (binding-only; no public lexicon).
   listNotifications(did: Did, cursor?: string): Promise<ListNotificationsResult>;
   markRead(did: Did, input: MarkReadInput): Promise<{ marked: number }>;
+
+  // Per-category routing (binding-only).
+  getRouting(did: Did): Promise<RoutingConfig>;
+  setRouting(
+    did: Did,
+    sender: Did,
+    category: string,
+    route: CategoryRoute,
+  ): Promise<{ ok: boolean }>;
+  setDefaultRoute(did: Did, route: AlertRoute): Promise<{ ok: boolean }>;
 }

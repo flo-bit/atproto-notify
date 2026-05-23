@@ -8,6 +8,7 @@ export interface UserRow {
   did: Did;
   created_at: number;
   notify_pending_via_telegram: number;
+  default_route: string;
 }
 
 export interface ChannelRow {
@@ -614,4 +615,112 @@ export async function markAllNotificationsRead(
     .bind(readAt, recipientDid)
     .run();
   return result.meta.changes ?? 0;
+}
+
+// ---------------------------------------------------------------------------
+// app_categories + routing (per-category routing)
+// ---------------------------------------------------------------------------
+
+export interface AppCategoryRow {
+  recipient_did: Did;
+  sender_did: Did;
+  category: string;
+  description: string | null;
+  last_seen: number;
+}
+
+export interface UpsertAppCategoryInput {
+  recipientDid: Did;
+  senderDid: Did;
+  category: string;
+  description: string | null;
+  lastSeen: number;
+}
+
+/** Record a category seen from a sender (keeps the latest description). */
+export async function upsertAppCategory(db: D1Database, input: UpsertAppCategoryInput): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO app_categories (recipient_did, sender_did, category, description, last_seen)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(recipient_did, sender_did, category) DO UPDATE SET
+         description = COALESCE(excluded.description, app_categories.description),
+         last_seen = excluded.last_seen`,
+    )
+    .bind(input.recipientDid, input.senderDid, input.category, input.description, input.lastSeen)
+    .run();
+}
+
+export async function listAppCategoriesForRecipient(
+  db: D1Database,
+  recipientDid: Did,
+): Promise<AppCategoryRow[]> {
+  const { results } = await db
+    .prepare('SELECT * FROM app_categories WHERE recipient_did = ? ORDER BY category ASC')
+    .bind(recipientDid)
+    .all<AppCategoryRow>();
+  return results;
+}
+
+export interface RoutingRow {
+  recipient_did: Did;
+  sender_did: Did;
+  category: string;
+  route: string;
+}
+
+export function getRoutingRoute(
+  db: D1Database,
+  recipientDid: Did,
+  senderDid: Did,
+  category: string,
+): Promise<RoutingRow | null> {
+  return db
+    .prepare('SELECT * FROM routing WHERE recipient_did = ? AND sender_did = ? AND category = ?')
+    .bind(recipientDid, senderDid, category)
+    .first<RoutingRow>();
+}
+
+export async function listRoutingForRecipient(
+  db: D1Database,
+  recipientDid: Did,
+): Promise<RoutingRow[]> {
+  const { results } = await db
+    .prepare('SELECT * FROM routing WHERE recipient_did = ?')
+    .bind(recipientDid)
+    .all<RoutingRow>();
+  return results;
+}
+
+export async function upsertRouting(
+  db: D1Database,
+  recipientDid: Did,
+  senderDid: Did,
+  category: string,
+  route: string,
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO routing (recipient_did, sender_did, category, route)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(recipient_did, sender_did, category) DO UPDATE SET route = excluded.route`,
+    )
+    .bind(recipientDid, senderDid, category, route)
+    .run();
+}
+
+export async function deleteRouting(
+  db: D1Database,
+  recipientDid: Did,
+  senderDid: Did,
+  category: string,
+): Promise<void> {
+  await db
+    .prepare('DELETE FROM routing WHERE recipient_did = ? AND sender_did = ? AND category = ?')
+    .bind(recipientDid, senderDid, category)
+    .run();
+}
+
+export async function setDefaultRoute(db: D1Database, did: Did, route: string): Promise<void> {
+  await db.prepare('UPDATE users SET default_route = ? WHERE did = ?').bind(route, did).run();
 }

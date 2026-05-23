@@ -72,3 +72,21 @@ export const markNotificationsRead = command(
 		await requireRelay().markRead(input);
 	}
 );
+
+export const setDefaultRoute = command(
+	v.object({ route: v.picklist(['push', 'telegram', 'push+telegram', 'off']) }),
+	async ({ route }) => {
+		await requireRelay().setDefaultRoute(route);
+	}
+);
+
+export const setRouting = command(
+	v.object({
+		sender: didSchema,
+		category: v.string(),
+		route: v.picklist(['default', 'push', 'telegram', 'push+telegram', 'off'])
+	}),
+	async ({ sender, category, route }) => {
+		await requireRelay().setRouting(sender as Did, category, route);
+	}
+);

@@ -45,6 +45,17 @@ export function makeSend(app: AppContext): ProcedureConfig<ToolsAtmoNotifsSend.m
         createdAt: now(),
       });
 
+      // Register the category so it shows up in the routing UI.
+      if (input.category != null) {
+        await q.upsertAppCategory(app.env.DB, {
+          recipientDid: recipient,
+          senderDid,
+          category: input.category,
+          description: input.categoryDescription ?? null,
+          lastSeen: now(),
+        });
+      }
+
       if (grant.muted === 1) {
         await logDelivery(app, id, recipient, senderDid, input.title, 0);
         return json({ id, delivered: 0 });
@@ -70,11 +81,22 @@ export function makeSend(app: AppContext): ProcedureConfig<ToolsAtmoNotifsSend.m
         throw rateLimited(perDay.resetIn, 'Daily notification limit reached for this recipient');
       }
 
-      // 4. Collect delivery targets: Telegram channels + web push subscriptions.
-      const telegramChannels = (await q.listChannelsForDid(app.env.DB, recipient)).filter(
-        (channel) => channel.platform === 'telegram',
-      );
-      const pushSubs = await q.listPushSubscriptionsForDid(app.env.DB, recipient);
+      // 4. Resolve the alert route (per-category override, else the user default)
+      //    and collect the enabled targets. Everything is already in the inbox;
+      //    the route only gates which alert channels fire.
+      const user = await q.getUser(app.env.DB, recipient);
+      let route = user?.default_route ?? 'push';
+      if (input.category != null) {
+        const override = await q.getRoutingRoute(app.env.DB, recipient, senderDid, input.category);
+        if (override) route = override.route;
+      }
+      const usePush = route === 'push' || route === 'push+telegram';
+      const useTelegram = route === 'telegram' || route === 'push+telegram';
+
+      const telegramChannels = useTelegram
+        ? (await q.listChannelsForDid(app.env.DB, recipient)).filter((c) => c.platform === 'telegram')
+        : [];
+      const pushSubs = usePush ? await q.listPushSubscriptionsForDid(app.env.DB, recipient) : [];
       const deliveredCount = telegramChannels.length + pushSubs.length;
 
       // No targets → accept but deliver to nobody.

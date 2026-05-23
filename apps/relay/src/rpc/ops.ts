@@ -6,10 +6,14 @@
 import type { Did } from '@atcute/lexicons';
 
 import type {
+  AlertRoute,
+  CategoryRoute,
   ListNotificationsResult,
   MarkReadInput,
   NotificationView,
   PushSubscriptionInput,
+  RoutingApp,
+  RoutingConfig,
   ToolsAtmoNotifsDenyPending,
   ToolsAtmoNotifsGetSettings,
   ToolsAtmoNotifsGrant,
@@ -279,4 +283,63 @@ export async function markRead(
     ? await q.markAllNotificationsRead(env.DB, did, readAt)
     : await q.markNotificationsRead(env.DB, did, input.ids ?? [], readAt);
   return { marked };
+}
+
+export async function getRouting(env: Env, did: Did): Promise<RoutingConfig> {
+  await q.ensureUser(env.DB, did, now());
+  const user = await q.getUser(env.DB, did);
+  const defaultRoute = (user?.default_route ?? 'push') as AlertRoute;
+
+  const [grants, categories, routing] = await Promise.all([
+    q.listGrantsForRecipient(env.DB, did),
+    q.listAppCategoriesForRecipient(env.DB, did),
+    q.listRoutingForRecipient(env.DB, did),
+  ]);
+
+  const routeBy = new Map<string, string>();
+  for (const r of routing) routeBy.set(`${r.sender_did} ${r.category}`, r.route);
+
+  const catsBySender = new Map<string, q.AppCategoryRow[]>();
+  for (const c of categories) {
+    const list = catsBySender.get(c.sender_did) ?? [];
+    list.push(c);
+    catsBySender.set(c.sender_did, list);
+  }
+
+  const apps: RoutingApp[] = grants.map((g) => ({
+    sender: g.sender_did,
+    title: g.title ?? g.display_name ?? g.handle ?? g.sender_did,
+    categories: (catsBySender.get(g.sender_did) ?? []).map((c) => ({
+      category: c.category,
+      description: c.description ?? undefined,
+      route: (routeBy.get(`${g.sender_did} ${c.category}`) ?? 'default') as CategoryRoute,
+    })),
+  }));
+
+  return { defaultRoute, apps };
+}
+
+export async function setRouting(
+  env: Env,
+  did: Did,
+  sender: Did,
+  category: string,
+  route: CategoryRoute,
+): Promise<{ ok: boolean }> {
+  if (route === 'default') {
+    await q.deleteRouting(env.DB, did, sender, category);
+  } else {
+    await q.upsertRouting(env.DB, did, sender, category, route);
+  }
+  return { ok: true };
+}
+
+export async function setDefaultRoute(
+  env: Env,
+  did: Did,
+  route: AlertRoute,
+): Promise<{ ok: boolean }> {
+  await q.ensureUser(env.DB, did, now());
+  await q.setDefaultRoute(env.DB, did, route);
+  return { ok: true };
 }

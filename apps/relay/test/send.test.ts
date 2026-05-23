@@ -73,6 +73,9 @@ it('enqueues and reports delivered=1 with a linked channel', async () => {
     displayName: null,
     linkedAt: Date.now(),
   });
+  // Default route is 'push'; opt this recipient into Telegram so the channel fires.
+  await q.ensureUser(env.DB, RECIPIENT, Date.now());
+  await q.setDefaultRoute(env.DB, RECIPIENT, 'push+telegram');
   const jwt = await makeJwt(sender, { lxm: SEND });
 
   const res = await call(send(jwt));
@@ -103,6 +106,39 @@ it('records the notification in the inbox', async () => {
 
   const rows = await q.listNotificationsForRecipient(env.DB, RECIPIENT, 50);
   expect(rows.some((r) => r.sender_did === sender.did && r.title === 'Hello')).toBe(true);
+});
+
+it('per-category routing gates which channels fire', async () => {
+  const sender = await makeIdentity('did:plc:sendroute');
+  mockPlc(sender);
+  const recip: Did = 'did:plc:routerecipient';
+  await q.ensureUser(env.DB, recip, Date.now());
+  await q.upsertGrant(env.DB, {
+    recipientDid: recip,
+    senderDid: sender.did,
+    grantedAt: Date.now(),
+    title: null,
+    description: null,
+    iconUrl: null
+  });
+  await q.upsertChannel(env.DB, {
+    did: recip,
+    platform: 'telegram',
+    platformUserId: '99999',
+    displayName: null,
+    linkedAt: Date.now()
+  });
+  // Default 'push' would skip Telegram, but this category is routed to Telegram.
+  await q.setDefaultRoute(env.DB, recip, 'push');
+  await q.upsertRouting(env.DB, recip, sender.did, 'mention', 'telegram');
+  const jwt = await makeJwt(sender, { lxm: SEND });
+
+  const res = await call(
+    xrpcPost(SEND, jwt, { recipient: recip, title: 'Hi', body: 'B', category: 'mention' })
+  );
+
+  expect(res.status).toBe(200);
+  expect(await res.json()).toMatchObject({ delivered: 1 });
 });
 
 it('accepts silently with delivered=0 when the grant is muted', async () => {

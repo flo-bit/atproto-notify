@@ -2,10 +2,13 @@ import { WorkerEntrypoint } from 'cloudflare:workers';
 
 import type { Did } from '@atcute/lexicons';
 import type {
+  AlertRoute,
+  CategoryRoute,
   ListNotificationsResult,
   MarkReadInput,
   NotifsRpc,
   PushSubscriptionInput,
+  RoutingConfig,
   ToolsAtmoNotifsDenyPending,
   ToolsAtmoNotifsGetSettings,
   ToolsAtmoNotifsGrant,
@@ -77,5 +80,14 @@ export class RelayRpc extends WorkerEntrypoint<Env> implements NotifsRpc {
   }
   markRead(did: Did, input: MarkReadInput) {
     return ops.markRead(this.env, did, input);
+  }
+  getRouting(did: Did): Promise<RoutingConfig> {
+    return ops.getRouting(this.env, did);
+  }
+  setRouting(did: Did, sender: Did, category: string, route: CategoryRoute) {
+    return ops.setRouting(this.env, did, sender, category, route);
+  }
+  setDefaultRoute(did: Did, route: AlertRoute) {
+    return ops.setDefaultRoute(this.env, did, route);
   }
 }

@@ -4,14 +4,17 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import IOSToggle from '$lib/components/IOSToggle.svelte';
 	import RelativeTime from '$lib/components/RelativeTime.svelte';
+	import type { AlertRoute } from '@atmo/notifs-lexicons';
 	import { currentSubscription, pushSupported, subscribe, unsubscribe } from '$lib/push';
 	import {
 		linkTelegram,
 		registerPush,
+		setDefaultRoute,
 		setNotifyPending,
 		unlinkTelegram,
 		unregisterPush
 	} from '$lib/remote/notifs.remote';
+	import { ALERT_ROUTES, ROUTE_LABELS } from '$lib/routes';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -217,6 +220,34 @@
 				When on, you'll get a Telegram message with Approve/Deny buttons whenever an app asks to
 				notify you. When off (the default), permission requests only appear in Apps.
 			</p>
+		</div>
+	</section>
+
+	<!-- Default routing -->
+	<section class="mt-8 max-w-2xl">
+		<h2 class="mb-3 font-mono text-[0.7rem] tracking-wide text-muted-2 uppercase">Default routing</h2>
+		<div class="rounded-card border border-line bg-surface p-4">
+			<div class="flex items-center justify-between gap-4">
+				<div class="min-w-0">
+					<div class="text-sm font-medium text-fg">Where notifications go by default</div>
+					<p class="mt-1 text-xs text-muted">
+						Apps and categories set to “Default” use this. Everything always lands in your inbox.
+					</p>
+				</div>
+				<select
+					class="shrink-0 rounded-md border border-line bg-surface-2 px-2 py-1.5 text-sm text-fg disabled:opacity-50"
+					value={data.defaultRoute}
+					disabled={busy['defaultRoute']}
+					onchange={(e) =>
+						run('defaultRoute', () =>
+							setDefaultRoute({ route: e.currentTarget.value as AlertRoute })
+						)}
+				>
+					{#each ALERT_ROUTES as r (r)}
+						<option value={r}>{ROUTE_LABELS[r]}</option>
+					{/each}
+				</select>
+			</div>
 		</div>
 	</section>
 </div>

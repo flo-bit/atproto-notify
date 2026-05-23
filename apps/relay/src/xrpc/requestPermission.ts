@@ -9,6 +9,7 @@ import type { AppContext } from '../env';
 import { rateLimited } from '../lib/errors';
 import { newId } from '../lib/ids';
 import { addDays, now } from '../lib/time';
+import { isTrustedSender } from '../lib/trusted';
 import { ensureSenderProfile } from '../profile/fetch';
 import { checkAndIncrement } from '../ratelimit';
 
@@ -37,6 +38,19 @@ export function makeRequestPermission(
 
       // 2. Ensure the user row exists.
       await q.ensureUser(app.env.DB, userDid, now());
+
+      // Trusted apps skip the pending step and are granted immediately.
+      if (isTrustedSender(senderDid)) {
+        await q.upsertGrant(app.env.DB, {
+          recipientDid: userDid,
+          senderDid,
+          grantedAt: now(),
+          title: input.title,
+          description: input.description ?? null,
+          iconUrl: input.iconUrl ?? null,
+        });
+        return json({ id: pseudoGrantId(userDid, senderDid), status: 'alreadyGranted' });
+      }
 
       // 3. Already granted? Short-circuit.
       const existingGrant = await q.getGrant(app.env.DB, userDid, senderDid);
