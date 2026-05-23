@@ -27,6 +27,13 @@ import type {
   ToolsAtmoNotifsUpdateSettings,
 } from './lexicons/index.js';
 
+/** A browser PushSubscription, flattened (binding-only; no public lexicon). */
+export interface PushSubscriptionInput {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}
+
 export interface NotifsRpc {
   grant(did: Did, input: ToolsAtmoNotifsGrant.$input): Promise<ToolsAtmoNotifsGrant.$output>;
   revoke(did: Did, input: ToolsAtmoNotifsRevoke.$input): Promise<ToolsAtmoNotifsRevoke.$output>;
@@ -54,4 +61,8 @@ export interface NotifsRpc {
   listPending(did: Did): Promise<ToolsAtmoNotifsListPending.$output>;
   listChannels(did: Did): Promise<ToolsAtmoNotifsListChannels.$output>;
   getSettings(did: Did): Promise<ToolsAtmoNotifsGetSettings.$output>;
+
+  // Web push (binding-only; no public lexicon).
+  registerWebPush(did: Did, sub: PushSubscriptionInput): Promise<{ registered: boolean }>;
+  unregisterWebPush(did: Did, endpoint: string): Promise<{ unregistered: boolean }>;
 }

@@ -55,35 +55,52 @@ export function makeSend(app: AppContext): ProcedureConfig<ToolsAtmoNotifsSend.m
         throw rateLimited(perDay.resetIn, 'Daily notification limit reached for this recipient');
       }
 
-      // 4. No linked channels → accept but deliver to nobody.
-      const channels = await q.listChannelsForDid(app.env.DB, recipient);
-      if (channels.length === 0) {
+      // 4. Collect delivery targets: Telegram channels + web push subscriptions.
+      const telegramChannels = (await q.listChannelsForDid(app.env.DB, recipient)).filter(
+        (channel) => channel.platform === 'telegram',
+      );
+      const pushSubs = await q.listPushSubscriptionsForDid(app.env.DB, recipient);
+      const deliveredCount = telegramChannels.length + pushSubs.length;
+
+      // No targets → accept but deliver to nobody.
+      if (deliveredCount === 0) {
         await logDelivery(app, id, recipient, senderDid, input.title, 0);
         return json({ id, delivered: 0 });
       }
 
-      // 5. Enqueue one dispatch job per channel.
-      const jobs = channels
-        .filter((channel) => channel.platform === 'telegram')
-        .map(
-          (channel): { body: DispatchJob } => ({
-            body: {
-              kind: 'notification',
-              channel: { platform: 'telegram', platformUserId: channel.platform_user_id },
-              title: input.title,
-              body: input.body,
-              uri: input.uri,
-              senderDid,
+      // 5. Enqueue one dispatch job per target.
+      const jobs: { body: DispatchJob }[] = [
+        ...telegramChannels.map((channel) => ({
+          body: {
+            kind: 'notification' as const,
+            channel: { platform: 'telegram' as const, platformUserId: channel.platform_user_id },
+            title: input.title,
+            body: input.body,
+            uri: input.uri,
+            senderDid,
+          },
+        })),
+        ...pushSubs.map((sub) => ({
+          body: {
+            kind: 'notification' as const,
+            channel: {
+              platform: 'webpush' as const,
+              endpoint: sub.endpoint,
+              p256dh: sub.p256dh,
+              auth: sub.auth,
             },
-          }),
-        );
-      if (jobs.length > 0) {
-        await app.env.DISPATCH_QUEUE.sendBatch(jobs);
-      }
+            title: input.title,
+            body: input.body,
+            uri: input.uri,
+            senderDid,
+          },
+        })),
+      ];
+      await app.env.DISPATCH_QUEUE.sendBatch(jobs);
 
       // 6. Record the delivery.
-      await logDelivery(app, id, recipient, senderDid, input.title, channels.length);
-      return json({ id, delivered: channels.length });
+      await logDelivery(app, id, recipient, senderDid, input.title, deliveredCount);
+      return json({ id, delivered: deliveredCount });
     },
   };
 }

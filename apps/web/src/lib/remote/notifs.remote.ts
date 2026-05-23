@@ -54,3 +54,14 @@ export const linkTelegram = command(async () => {
 export const unlinkTelegram = command(async () => {
 	await requireRelay().unlinkChannel({ platform: 'telegram' });
 });
+
+export const registerPush = command(
+	v.object({ endpoint: v.string(), p256dh: v.string(), auth: v.string() }),
+	async (sub) => {
+		await requireRelay().registerWebPush(sub);
+	}
+);
+
+export const unregisterPush = command(v.object({ endpoint: v.string() }), async ({ endpoint }) => {
+	await requireRelay().unregisterWebPush(endpoint);
+});

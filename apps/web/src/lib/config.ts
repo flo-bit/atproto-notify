@@ -13,3 +13,12 @@ export const GITHUB_URL = 'https://github.com/flo-bit/atproto-notify';
  * `atproto` (identity) is sufficient.
  */
 export const OAUTH_SCOPE = 'atproto';
+
+/**
+ * VAPID public key (base64url, uncompressed point) — the browser's
+ * applicationServerKey for web push. MUST equal the relay's `VAPID_PUBLIC_KEY`.
+ * Generate once with `pnpm --filter @atmo/notifs-relay vapid:keygen`, then paste
+ * the same value here and into the relay's `wrangler.toml`. Empty hides the push
+ * controls (so the app still works before keys are configured).
+ */
+export const VAPID_PUBLIC_KEY = '';

@@ -1,9 +1,17 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import Icon from '$lib/components/Icon.svelte';
 	import IOSToggle from '$lib/components/IOSToggle.svelte';
 	import RelativeTime from '$lib/components/RelativeTime.svelte';
-	import { linkTelegram, setNotifyPending, unlinkTelegram } from '$lib/remote/notifs.remote';
+	import { currentSubscription, pushSupported, subscribe, unsubscribe } from '$lib/push';
+	import {
+		linkTelegram,
+		registerPush,
+		setNotifyPending,
+		unlinkTelegram,
+		unregisterPush
+	} from '$lib/remote/notifs.remote';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -36,6 +44,49 @@
 		} catch (err) {
 			errorMsg = err instanceof Error ? err.message : 'Could not start linking';
 			busy['link'] = false;
+		}
+	}
+
+	// Web push is per-browser: check this device's subscription on mount.
+	type PushState = 'loading' | 'unsupported' | 'on' | 'off';
+	let pushState = $state<PushState>('loading');
+
+	onMount(async () => {
+		if (!pushSupported()) {
+			pushState = 'unsupported';
+			return;
+		}
+		try {
+			pushState = (await currentSubscription()) ? 'on' : 'off';
+		} catch {
+			pushState = 'off';
+		}
+	});
+
+	async function enablePush() {
+		busy['push'] = true;
+		errorMsg = '';
+		try {
+			await registerPush(await subscribe());
+			pushState = 'on';
+		} catch (err) {
+			errorMsg = err instanceof Error ? err.message : 'Could not enable push';
+		} finally {
+			busy['push'] = false;
+		}
+	}
+
+	async function disablePush() {
+		busy['push'] = true;
+		errorMsg = '';
+		try {
+			const endpoint = await unsubscribe();
+			if (endpoint) await unregisterPush({ endpoint });
+			pushState = 'off';
+		} catch (err) {
+			errorMsg = err instanceof Error ? err.message : 'Could not disable push';
+		} finally {
+			busy['push'] = false;
 		}
 	}
 </script>
@@ -99,19 +150,49 @@
 				{/if}
 			</div>
 
-			<!-- Push (coming soon) -->
-			<div class="flex items-center gap-3 p-4 opacity-60">
+			<!-- Push -->
+			<div class="flex items-center gap-3 p-4" class:opacity-60={pushState === 'unsupported'}>
 				<div
-					class="grid size-10 shrink-0 place-items-center rounded-full bg-surface-2 text-muted"
+					class="grid size-10 shrink-0 place-items-center rounded-full {pushState === 'on'
+						? 'bg-accent-soft text-accent'
+						: 'bg-surface-2 text-muted'}"
 					aria-hidden="true"
 				>
 					<Icon name="push" size={20} />
 				</div>
 				<div class="min-w-0 flex-1">
 					<div class="text-sm font-semibold text-fg">Push</div>
-					<div class="text-xs text-muted">Native push on iOS, Android & web.</div>
+					<div class="text-xs text-muted">
+						{#if pushState === 'unsupported'}
+							Not available in this browser.
+						{:else if pushState === 'on'}
+							Enabled on this device.
+						{:else}
+							Get notifications in this browser, even when it's closed.
+						{/if}
+					</div>
 				</div>
-				<span class="font-mono text-xs text-muted-2">Coming soon</span>
+				{#if pushState === 'on'}
+					<button
+						class="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-danger transition-colors hover:bg-danger/10 disabled:opacity-50"
+						disabled={busy['push']}
+						onclick={disablePush}
+					>
+						{busy['push'] ? '…' : 'Disable'}
+					</button>
+				{:else if pushState === 'off'}
+					<button
+						class="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
+						disabled={busy['push']}
+						onclick={enablePush}
+					>
+						{busy['push'] ? 'Enabling…' : 'Enable'}
+					</button>
+				{:else if pushState === 'loading'}
+					<span class="font-mono text-xs text-muted-2">…</span>
+				{:else}
+					<span class="font-mono text-xs text-muted-2">Unavailable</span>
+				{/if}
 			</div>
 		</div>
 	</section>

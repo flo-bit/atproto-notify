@@ -1,20 +1,32 @@
 import type { ServiceJwtVerifier } from '@atcute/xrpc-server/auth';
 
-/** A delivery channel on a third-party platform. v1 supports Telegram only. */
+/** A Telegram delivery channel. */
 export interface TelegramChannel {
   platform: 'telegram';
   /** Telegram chat id (stored as `channels.platform_user_id`). */
   platformUserId: string;
 }
 
+/** A web push delivery channel (a browser PushSubscription). */
+export interface WebPushChannel {
+  platform: 'webpush';
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}
+
+/** Where a notification can be delivered. */
+export type DeliveryChannel = TelegramChannel | WebPushChannel;
+
 /**
  * Work item placed on `DISPATCH_QUEUE` and handled by the `queue` consumer.
- * Discriminated on `kind`.
+ * Discriminated on `kind`. Notifications fan out to any channel; pending-request
+ * prompts are Telegram-only (they use inline approve/deny buttons).
  */
 export type DispatchJob =
   | {
       kind: 'notification';
-      channel: TelegramChannel;
+      channel: DeliveryChannel;
       title: string;
       body: string;
       uri?: string;
@@ -48,6 +60,13 @@ export interface Env {
   TELEGRAM_BOT_TOKEN: string;
   /** Shared secret embedded in the Telegram webhook path (secret). */
   TELEGRAM_WEBHOOK_SECRET: string;
+
+  /** VAPID public key — base64url uncompressed point; also the browser's applicationServerKey (var). */
+  VAPID_PUBLIC_KEY: string;
+  /** VAPID contact subject, e.g. "mailto:you@example.com" (var). */
+  VAPID_SUBJECT: string;
+  /** VAPID private signing key as JWK JSON (secret). */
+  VAPID_PRIVATE_JWK: string;
 }
 
 /**

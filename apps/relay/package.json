@@ -10,6 +10,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc -b",
     "deploy": "wrangler deploy",
+    "vapid:keygen": "node scripts/generate-vapid.js",
     "db:migrate": "wrangler d1 migrations apply notifs-relay --remote",
     "db:migrate:local": "wrangler d1 migrations apply notifs-relay --local"
   },

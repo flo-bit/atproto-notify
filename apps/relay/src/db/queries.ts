@@ -436,3 +436,76 @@ export async function deleteOldDeliveryLog(db: D1Database, beforeMs: number): Pr
   const result = await db.prepare('DELETE FROM delivery_log WHERE created_at < ?').bind(beforeMs).run();
   return result.meta.changes ?? 0;
 }
+
+// ---------------------------------------------------------------------------
+// push_subscriptions (web push)
+// ---------------------------------------------------------------------------
+
+export interface PushSubscriptionRow {
+  endpoint: string;
+  did: Did;
+  p256dh: string;
+  auth: string;
+  created_at: number;
+}
+
+export interface UpsertPushSubscriptionInput {
+  endpoint: string;
+  did: Did;
+  p256dh: string;
+  auth: string;
+  createdAt: number;
+}
+
+/** Insert/replace a subscription, keyed by its endpoint (re-subscribing refreshes the keys + owner). */
+export async function upsertPushSubscription(
+  db: D1Database,
+  input: UpsertPushSubscriptionInput,
+): Promise<void> {
+  await db
+    .prepare(
+      'INSERT OR REPLACE INTO push_subscriptions (endpoint, did, p256dh, auth, created_at) VALUES (?, ?, ?, ?, ?)',
+    )
+    .bind(input.endpoint, input.did, input.p256dh, input.auth, input.createdAt)
+    .run();
+}
+
+export async function listPushSubscriptionsForDid(
+  db: D1Database,
+  did: Did,
+): Promise<PushSubscriptionRow[]> {
+  const { results } = await db
+    .prepare('SELECT * FROM push_subscriptions WHERE did = ? ORDER BY created_at DESC')
+    .bind(did)
+    .all<PushSubscriptionRow>();
+  return results;
+}
+
+export function countPushSubscriptionsForDid(db: D1Database, did: Did): Promise<{ c: number } | null> {
+  return db
+    .prepare('SELECT COUNT(*) AS c FROM push_subscriptions WHERE did = ?')
+    .bind(did)
+    .first<{ c: number }>();
+}
+
+/** Unregister a subscription owned by `did` (scoped so a user can't drop another's). */
+export async function deletePushSubscriptionForDid(
+  db: D1Database,
+  did: Did,
+  endpoint: string,
+): Promise<boolean> {
+  const result = await db
+    .prepare('DELETE FROM push_subscriptions WHERE did = ? AND endpoint = ?')
+    .bind(did, endpoint)
+    .run();
+  return changed(result);
+}
+
+/** Reap a dead subscription by endpoint (push service returned 404/410). */
+export async function deletePushSubscription(db: D1Database, endpoint: string): Promise<boolean> {
+  const result = await db
+    .prepare('DELETE FROM push_subscriptions WHERE endpoint = ?')
+    .bind(endpoint)
+    .run();
+  return changed(result);
+}

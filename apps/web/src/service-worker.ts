@@ -49,3 +49,39 @@ sw.addEventListener('fetch', (event) => {
 		);
 	}
 });
+
+// Web push: show the notification the relay delivered.
+sw.addEventListener('push', (event) => {
+	let data: { title?: string; body?: string; uri?: string } = {};
+	try {
+		data = event.data?.json() ?? {};
+	} catch {
+		/* non-JSON payload — fall back to defaults */
+	}
+	event.waitUntil(
+		sw.registration.showNotification(data.title ?? 'atmo.pub', {
+			body: data.body ?? '',
+			icon: '/icon.svg',
+			badge: '/icon.svg',
+			data: { uri: data.uri }
+		})
+	);
+});
+
+// Focus an existing tab (navigating it to the notification's link) or open one.
+sw.addEventListener('notificationclick', (event) => {
+	event.notification.close();
+	const uri = (event.notification.data as { uri?: string } | null)?.uri;
+	const target = uri && /^https?:/.test(uri) ? uri : new URL('/inbox', sw.location.origin).href;
+	event.waitUntil(
+		(async () => {
+			const clients = await sw.clients.matchAll({ type: 'window', includeUncontrolled: true });
+			for (const client of clients) {
+				await client.focus();
+				if (uri) await client.navigate(target);
+				return;
+			}
+			await sw.clients.openWindow(target);
+		})()
+	);
+});

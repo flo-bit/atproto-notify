@@ -6,6 +6,7 @@
 import type { Did } from '@atcute/lexicons';
 
 import type {
+  PushSubscriptionInput,
   ToolsAtmoNotifsDenyPending,
   ToolsAtmoNotifsGetSettings,
   ToolsAtmoNotifsGrant,
@@ -206,4 +207,29 @@ export async function getSettings(
   return {
     notifyPendingViaTelegram: (user?.notify_pending_via_telegram ?? 0) === 1,
   };
+}
+
+export async function registerWebPush(
+  env: Env,
+  did: Did,
+  sub: PushSubscriptionInput,
+): Promise<{ registered: boolean }> {
+  await q.ensureUser(env.DB, did, now());
+  await q.upsertPushSubscription(env.DB, {
+    endpoint: sub.endpoint,
+    did,
+    p256dh: sub.p256dh,
+    auth: sub.auth,
+    createdAt: now(),
+  });
+  return { registered: true };
+}
+
+export async function unregisterWebPush(
+  env: Env,
+  did: Did,
+  endpoint: string,
+): Promise<{ unregistered: boolean }> {
+  const unregistered = await q.deletePushSubscriptionForDid(env.DB, did, endpoint);
+  return { unregistered };
 }

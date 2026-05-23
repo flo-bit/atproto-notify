@@ -1,4 +1,4 @@
-import { deleteChannelByPlatformUser } from '../db/queries';
+import { deleteChannelByPlatformUser, deletePushSubscription } from '../db/queries';
 import type { DispatchJob, Env } from '../env';
 
 import {
@@ -7,11 +7,12 @@ import {
   sendMessage,
   TelegramApiError,
 } from './telegram';
+import { sendWebPush, WebPushError } from './webpush';
 
 /**
  * Queue consumer. Each message is an independent delivery; we ack on success and
- * on permanent failure (dead channel), and retry on transient failure so Queues'
- * built-in retry/backoff handles it.
+ * on permanent failure (dead channel/subscription), and retry on transient
+ * failure so Queues' built-in retry/backoff handles it.
  */
 export async function handleQueue(batch: MessageBatch<DispatchJob>, env: Env): Promise<void> {
   for (const message of batch.messages) {
@@ -19,12 +20,7 @@ export async function handleQueue(batch: MessageBatch<DispatchJob>, env: Env): P
       await dispatch(env, message.body);
       message.ack();
     } catch (err) {
-      if (err instanceof TelegramApiError && isDeadChannel(err)) {
-        // The user blocked the bot or the chat is gone: reap the channel and
-        // stop retrying this message.
-        const { channel } = message.body;
-        await deleteChannelByPlatformUser(env.DB, channel.platform, channel.platformUserId);
-        console.error(`dispatch: dropping dead channel ${channel.platformUserId}: ${err.description}`);
+      if (await reapIfDead(env, message.body, err)) {
         message.ack();
       } else {
         console.error('dispatch: transient failure, retrying', err);
@@ -32,6 +28,28 @@ export async function handleQueue(batch: MessageBatch<DispatchJob>, env: Env): P
       }
     }
   }
+}
+
+/** If `err` means the target is permanently undeliverable, reap it and return true. */
+async function reapIfDead(env: Env, job: DispatchJob, err: unknown): Promise<boolean> {
+  const { channel } = job;
+  if (channel.platform === 'telegram' && err instanceof TelegramApiError && isDeadChannel(err)) {
+    // The user blocked the bot or the chat is gone.
+    await deleteChannelByPlatformUser(env.DB, channel.platform, channel.platformUserId);
+    console.error(`dispatch: dropping dead telegram channel ${channel.platformUserId}: ${err.description}`);
+    return true;
+  }
+  if (
+    channel.platform === 'webpush' &&
+    err instanceof WebPushError &&
+    (err.statusCode === 404 || err.statusCode === 410)
+  ) {
+    // The push subscription expired or was unsubscribed.
+    await deletePushSubscription(env.DB, channel.endpoint);
+    console.error(`dispatch: dropping dead push subscription (${err.statusCode})`);
+    return true;
+  }
+  return false;
 }
 
 /** Telegram errors that mean the channel is permanently undeliverable. */
@@ -48,6 +66,16 @@ function isDeadChannel(err: TelegramApiError): boolean {
 
 async function dispatch(env: Env, job: DispatchJob): Promise<void> {
   if (job.kind === 'notification') {
+    if (job.channel.platform === 'webpush') {
+      await sendWebPush(env, job.channel, {
+        title: job.title,
+        body: job.body,
+        uri: job.uri,
+        senderDid: job.senderDid,
+      });
+      return;
+    }
+
     const text = `*${escapeMd(job.title)}*\n${escapeMd(job.body)}`;
     const replyMarkup: InlineKeyboardMarkup | undefined =
       job.uri !== undefined ? { inline_keyboard: [[{ text: 'Open', url: job.uri }]] } : undefined;

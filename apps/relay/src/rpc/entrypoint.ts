@@ -3,6 +3,7 @@ import { WorkerEntrypoint } from 'cloudflare:workers';
 import type { Did } from '@atcute/lexicons';
 import type {
   NotifsRpc,
+  PushSubscriptionInput,
   ToolsAtmoNotifsDenyPending,
   ToolsAtmoNotifsGetSettings,
   ToolsAtmoNotifsGrant,
@@ -62,5 +63,11 @@ export class RelayRpc extends WorkerEntrypoint<Env> implements NotifsRpc {
   }
   getSettings(did: Did): Promise<ToolsAtmoNotifsGetSettings.$output> {
     return ops.getSettings(this.env, did);
+  }
+  registerWebPush(did: Did, sub: PushSubscriptionInput) {
+    return ops.registerWebPush(this.env, did, sub);
+  }
+  unregisterWebPush(did: Did, endpoint: string) {
+    return ops.unregisterWebPush(this.env, did, endpoint);
   }
 }

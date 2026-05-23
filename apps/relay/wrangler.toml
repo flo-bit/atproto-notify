@@ -38,7 +38,12 @@ enabled = true
 [vars]
 RELAY_DID = "did:web:notifs.atmo.tools"
 BOT_USERNAME = "atmo_notify_bot"        # e.g. "atmonotifsbot"
+# Web push (VAPID). Generate with `pnpm vapid:keygen`. The public key is also the
+# browser applicationServerKey — paste the SAME value into apps/web VAPID_PUBLIC_KEY.
+VAPID_PUBLIC_KEY = ""
+VAPID_SUBJECT = "mailto:you@example.com"
 
 # Secrets set via `wrangler secret put`:
 # - TELEGRAM_BOT_TOKEN
 # - TELEGRAM_WEBHOOK_SECRET
+# - VAPID_PRIVATE_JWK   (the private JWK from `pnpm vapid:keygen`)
