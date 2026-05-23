@@ -18,8 +18,8 @@
 	//   pnpm exec wrangler kv namespace create OAUTH_SESSIONS
 	//   pnpm exec wrangler kv namespace create OAUTH_STATES
 	"kv_namespaces": [
-		{ "binding": "OAUTH_SESSIONS", "id": "REPLACE_ME" },
-		{ "binding": "OAUTH_STATES", "id": "REPLACE_ME" }
+		{ "binding": "OAUTH_SESSIONS", "id": "fc20e9a60f454bc4936859f86a73347f" },
+		{ "binding": "OAUTH_STATES", "id": "3466c423dfb2426abb4d397e86e17f1b" }
 	]
 
 	// Secrets (wrangler secret put):

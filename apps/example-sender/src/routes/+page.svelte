@@ -28,7 +28,9 @@
 			const { url } = await oauthLogin({ handle: value, returnTo: '/' });
 			window.location.href = url;
 		} catch (err) {
-			authError = err instanceof Error ? err.message : 'Sign-in failed';
+			// Remote-function errors arrive as { body: { message } }, not Error instances.
+			const e = err as { body?: { message?: string }; message?: string };
+			authError = e?.body?.message ?? e?.message ?? 'Sign-in failed';
 			authBusy = false;
 		}
 	}

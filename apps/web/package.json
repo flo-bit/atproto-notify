@@ -45,6 +45,7 @@
 		"@atcute/atproto": "^4.0.0",
 		"@atcute/client": "^5.0.0",
 		"@atcute/lexicons": "^2.0.0",
+		"@atcute/uint8array": "^1.1.2",
 		"@atmo/notifs-lexicons": "workspace:*",
 		"@svelte-atproto/oauth": "^0.3.0",
 		"shiki": "^4.1.0",

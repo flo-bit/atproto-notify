@@ -20,7 +20,9 @@
 			const { url } = await oauthLogin({ handle: value, returnTo: '/dashboard' });
 			window.location.href = url; // off to the PDS authorize screen
 		} catch (err) {
-			errorMsg = err instanceof Error ? err.message : 'Sign-in failed';
+			// Remote-function errors arrive as { body: { message } }, not Error instances.
+			const e = err as { body?: { message?: string }; message?: string };
+			errorMsg = e?.body?.message ?? e?.message ?? 'Sign-in failed';
 			busy = false;
 		}
 	}

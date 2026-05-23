@@ -3,7 +3,7 @@ import { APP_DOMAIN, SENDER_DID } from '$lib/config';
 import type { RequestHandler } from './$types';
 
 // Replace after running `pnpm sender:keygen` (the public-key multikey).
-const PUBLIC_KEY_MULTIBASE = 'zREPLACE_ME_AFTER_KEYGEN';
+const PUBLIC_KEY_MULTIBASE = 'zDnaedyxQgL3SipK731YHPiJPbow5tDp7AbofZ2yskvsNHL96';
 
 // Serves this app's did:web document so the relay can verify `send` JWTs signed
 // by our private key (it resolves this via WebDidDocumentResolver).

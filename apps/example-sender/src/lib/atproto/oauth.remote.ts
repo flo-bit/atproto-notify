@@ -8,7 +8,15 @@ export const oauthLogin = command(
 		signup: v.optional(v.boolean()),
 		returnTo: v.optional(v.string())
 	}),
-	(input) => atproto.api.startLogin(input)
+	async (input) => {
+		try {
+			return await atproto.api.startLogin(input);
+		} catch (err) {
+			// Surfaces the real cause in `wrangler tail` / dev console.
+			console.error('[oauthLogin] startLogin failed:', err);
+			throw err;
+		}
+	}
 );
 
 export const oauthLogout = command(() => atproto.api.logout());
