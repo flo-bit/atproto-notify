@@ -1,8 +1,8 @@
 # Development
 
-Running, configuring, and deploying the `notify.atmo.tools` monorepo (relay, web
+Running, configuring, and deploying the `atmo.pub` monorepo (relay, web
 dashboard, example sender). For the high-level overview see
-[README.md](README.md); for the sender API see https://notify.atmo.tools/docs.
+[README.md](README.md); for the sender API see https://atmo.pub/docs.
 
 ## Repo layout
 
@@ -32,7 +32,7 @@ dashboard, example sender). For the high-level overview see
 │   │   │   ├── well-known.ts
 │   │   │   └── lib/              # errors.ts, ids.ts, time.ts
 │   │   └── test/                 # vitest (pool-workers)
-│   ├── web/                      # SvelteKit dashboard (notify.atmo.tools)
+│   ├── web/                      # SvelteKit dashboard (atmo.pub)
 │   │   ├── wrangler.jsonc
 │   │   ├── svelte.config.js      # adapter-cloudflare
 │   │   ├── vite.config.ts        # workerd resolve conditions (see "Deploying the SvelteKit apps")
@@ -41,7 +41,7 @@ dashboard, example sender). For the high-level overview see
 │   │       ├── lib/atproto/      # OAuth client config + oauth.remote.ts (login/logout)
 │   │       ├── lib/server/relay.ts   # calls the relay as the signed-in user
 │   │       └── routes/           # landing, /dashboard, /docs
-│   └── example-sender/           # one-page sender demo (example.notify.atmo.tools)
+│   └── example-sender/           # one-page sender demo (example.atmo.pub)
 │       ├── wrangler.jsonc
 │       ├── scripts/generate-keys.js  # P-256 keypair for `send` (sender:keygen)
 │       └── src/
@@ -53,7 +53,7 @@ dashboard, example sender). For the high-level overview see
 └── packages/
     └── lexicons/
         ├── lex.config.js         # @atcute/lex-cli config
-        ├── lexicons/tools/atmo/notifs/*.json   # 13 lexicons
+        ├── lexicons/pub/atmo/notify/*.json   # 13 lexicons
         └── src/index.ts          # re-exports generated types
 ```
 
@@ -123,11 +123,11 @@ re-home the relay, change them everywhere listed below.
 
 | Constant | Value | Where it lives |
 | --- | --- | --- |
-| Relay domain | `notifs.atmo.tools` | `apps/relay/wrangler.toml` (`routes`, derived `RELAY_DID`); `apps/relay/test/helpers.ts` |
-| Relay DID | `did:web:notifs.atmo.tools` | `apps/relay/wrangler.toml` (`[vars].RELAY_DID`); consumed by `apps/relay/src/auth/verifier.ts` and `apps/relay/src/well-known.ts` (service endpoint derived from it); `apps/relay/test/helpers.ts` (`RELAY_DID`) |
-| Dashboard (web) domain | `notify.atmo.tools` | `apps/web/wrangler.jsonc` (`ORIGIN`); the relay's Telegram messages in `apps/relay/src/telegram/commands.ts` (`DASHBOARD_URL`, `NOT_LINKED`); `apps/example-sender/src/lib/config.ts` (`DASHBOARD_ORIGIN`) |
+| Relay domain | `relay.atmo.pub` | `apps/relay/wrangler.toml` (`routes`, derived `RELAY_DID`); `apps/relay/test/helpers.ts` |
+| Relay DID | `did:web:relay.atmo.pub` | `apps/relay/wrangler.toml` (`[vars].RELAY_DID`); consumed by `apps/relay/src/auth/verifier.ts` and `apps/relay/src/well-known.ts` (service endpoint derived from it); `apps/relay/test/helpers.ts` (`RELAY_DID`) |
+| Dashboard (web) domain | `atmo.pub` | `apps/web/wrangler.jsonc` (`ORIGIN`); the relay's Telegram messages in `apps/relay/src/telegram/commands.ts` (`DASHBOARD_URL`, `NOT_LINKED`); `apps/example-sender/src/lib/config.ts` (`DASHBOARD_ORIGIN`) |
 | Relay service id | `#notif_relay` | `apps/relay/src/well-known.ts` (DID-doc `service[].id`); `apps/relay/src/auth/verifier.ts` (`acceptAudiences` fragment) |
-| Lexicon NSID prefix | `tools.atmo.notifs` | Every file under `packages/lexicons/lexicons/` (each `id`); regenerated types under `packages/lexicons/src/lexicons/`; the `LXM` constant in every `apps/relay/src/xrpc/*.ts`; the map + imports in `apps/relay/src/well-known.ts` |
+| Lexicon NSID prefix | `pub.atmo.notify` | Every file under `packages/lexicons/lexicons/` (each `id`); regenerated types under `packages/lexicons/src/lexicons/`; the `LXM` constant in every `apps/relay/src/xrpc/*.ts`; the map + imports in `apps/relay/src/well-known.ts` |
 | Pending request TTL | 7 days | `apps/relay/src/xrpc/requestPermission.ts` (`addDays(createdAt, 7)`) |
 | Link token TTL | 10 minutes | `apps/relay/src/xrpc/linkChannel.ts` (`addMinutes(now(), 10)`) |
 | DID-doc cache TTL (KV) | 5 minutes | `apps/relay/src/identity/resolve.ts` (`DID_DOC_CACHE_TTL_SECONDS`) |
@@ -173,7 +173,7 @@ re-home the relay, change them everywhere listed below.
    WEBHOOK_SECRET="<the hex you generated>"
    curl -sS "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
      -H 'content-type: application/json' \
-     -d "{\"url\":\"https://notifs.atmo.tools/telegram/webhook/${WEBHOOK_SECRET}\"}"
+     -d "{\"url\":\"https://relay.atmo.pub/telegram/webhook/${WEBHOOK_SECRET}\"}"
    ```
 
 ## Deploying the relay
@@ -185,29 +185,29 @@ pnpm exec wrangler deploy
 
 Then:
 
-1. In the Cloudflare dashboard, attach the **custom domain** `notifs.atmo.tools`
+1. In the Cloudflare dashboard, attach the **custom domain** `relay.atmo.pub`
    to the Worker (Workers & Pages → the worker → Settings → Domains & Routes).
    The `routes` entry in `wrangler.toml` already declares it as a custom domain.
 2. Verify the DID document resolves:
    ```sh
-   curl -s https://notifs.atmo.tools/.well-known/did.json
+   curl -s https://relay.atmo.pub/.well-known/did.json
    ```
    Expected:
    ```json
    {
      "@context": ["https://www.w3.org/ns/did/v1"],
-     "id": "did:web:notifs.atmo.tools",
+     "id": "did:web:relay.atmo.pub",
      "service": [
        {
          "id": "#notif_relay",
          "type": "AtprotoNotificationRelay",
-         "serviceEndpoint": "https://notifs.atmo.tools"
+         "serviceEndpoint": "https://relay.atmo.pub"
        }
      ]
    }
    ```
-3. Health check: `curl -s https://notifs.atmo.tools/xrpc/_health` → `{"status":"ok"}`.
-4. Lexicons are served at `https://notifs.atmo.tools/lexicons/<nsid>`.
+3. Health check: `curl -s https://relay.atmo.pub/xrpc/_health` → `{"status":"ok"}`.
+4. Lexicons are served at `https://relay.atmo.pub/lexicons/<nsid>`.
 
 ## Deploying the SvelteKit apps (web + example sender)
 
@@ -227,8 +227,8 @@ pnpm exec atproto-oauth keygen | pnpm exec wrangler secret put CLIENT_ASSERTION_
 pnpm run deploy        # vite build && wrangler deploy
 ```
 
-Then attach the custom domain in the Cloudflare dashboard (`notify.atmo.tools` for
-web, `example.notify.atmo.tools` for the example) and make sure `ORIGIN` in
+Then attach the custom domain in the Cloudflare dashboard (`atmo.pub` for
+web, `example.atmo.pub` for the example) and make sure `ORIGIN` in
 `wrangler.jsonc` matches it — OAuth `client_id`/`redirect_uri` derive from it.
 
 The example sender also needs a sender keypair for `send` — see
@@ -245,7 +245,7 @@ The example sender also needs a sender keypair for `send` — see
 
 ## For sender developers
 
-The user-facing version of this section lives at https://notify.atmo.tools/docs,
+The user-facing version of this section lives at https://atmo.pub/docs,
 and a complete working implementation is in
 [`apps/example-sender`](apps/example-sender). The essentials:
 
@@ -269,15 +269,15 @@ and a complete working implementation is in
    the user's session):
 
    ```
-   atproto rpc?lxm=tools.atmo.notifs.requestPermission&aud=*
+   atproto rpc?lxm=pub.atmo.notify.requestPermission&aud=*
    ```
 
    Then, on the user's PDS, mint a service-auth JWT via
-   `com.atproto.server.getServiceAuth` (`aud = did:web:notifs.atmo.tools`,
-   `lxm = tools.atmo.notifs.requestPermission`) and call:
+   `com.atproto.server.getServiceAuth` (`aud = did:web:relay.atmo.pub`,
+   `lxm = pub.atmo.notify.requestPermission`) and call:
 
    ```ts
-   await fetch('https://notifs.atmo.tools/xrpc/tools.atmo.notifs.requestPermission', {
+   await fetch('https://relay.atmo.pub/xrpc/pub.atmo.notify.requestPermission', {
      method: 'POST',
      headers: {
        authorization: `Bearer ${userServiceAuthJwt}`, // issued by the USER's PDS
@@ -296,7 +296,7 @@ and a complete working implementation is in
    The user approves it in the dashboard or Telegram.
 
 3. **Send a notification** once granted — authenticated with **your app's own
-   key** (`aud` = the relay, `lxm = tools.atmo.notifs.send`):
+   key** (`aud` = the relay, `lxm = pub.atmo.notify.send`):
 
    ```ts
    import { P256PrivateKeyExportable } from '@atcute/crypto';
@@ -306,12 +306,12 @@ and a complete working implementation is in
    const jwt = await createServiceJwt({
      keypair,
      issuer: 'did:web:yourapp.example',
-     audience: 'did:web:notifs.atmo.tools',
-     lxm: 'tools.atmo.notifs.send',
+     audience: 'did:web:relay.atmo.pub',
+     lxm: 'pub.atmo.notify.send',
      expiresIn: 60,
    });
 
-   await fetch('https://notifs.atmo.tools/xrpc/tools.atmo.notifs.send', {
+   await fetch('https://relay.atmo.pub/xrpc/pub.atmo.notify.send', {
      method: 'POST',
      headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
      body: JSON.stringify({

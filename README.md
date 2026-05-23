@@ -36,6 +36,6 @@ implementation of both flows (live at https://example.atmo.pub).
 - **`packages/lexicons`** — the shared `pub.atmo.notify.*` lexicons (13) and
   generated types.
 
-Running, configuring, and deploying everything: **[DEVELOPMENT.md](DEVELOPMENT.md)**.
+Running, configuring, and deploying everything: **[DEVELOPMENT.md](docs/DEVELOPMENT.md)**.
 Want notifications for your own app without depending on atmo.pub? Run the relay
-yourself: **[SELF-HOSTING.md](SELF-HOSTING.md)**.
+yourself: **[SELF-HOSTING.md](docs/SELF-HOSTING.md)**.
