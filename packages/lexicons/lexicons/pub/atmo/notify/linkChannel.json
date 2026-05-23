@@ -1,0 +1,31 @@
+{
+  "lexicon": 1,
+  "id": "pub.atmo.notify.linkChannel",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Begin linking a delivery channel. Returns a short-lived token and a deep link the user follows to complete linking. User-authenticated.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["platform"],
+          "properties": {
+            "platform": { "type": "string", "enum": ["telegram"] }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["token", "deepLink"],
+          "properties": {
+            "token": { "type": "string" },
+            "deepLink": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

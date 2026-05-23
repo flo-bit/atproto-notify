@@ -51,7 +51,7 @@ export interface Env {
   /** Queue producer for async delivery. */
   DISPATCH_QUEUE: Queue<DispatchJob>;
 
-  /** `did:web:notifs.atmo.tools` — this relay's DID (var). */
+  /** `did:web:relay.atmo.pub` — this relay's DID (var). */
   RELAY_DID: string;
   /** Telegram bot username, used to build deep links (var). */
   BOT_USERNAME: string;

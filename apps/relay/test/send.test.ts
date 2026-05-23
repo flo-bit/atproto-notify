@@ -12,7 +12,7 @@ beforeAll(() => {
   mockTelegramOk();
 });
 
-const SEND = 'tools.atmo.notifs.send';
+const SEND = 'pub.atmo.notify.send';
 const RECIPIENT: Did = 'did:plc:sendrecipient';
 
 async function call(req: Request): Promise<Response> {

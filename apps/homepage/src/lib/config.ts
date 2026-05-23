@@ -5,18 +5,18 @@
 export const PROJECT_NAME = 'atmo.pub';
 
 /** The webapp (PWA) — where the header/landing "Sign in" buttons send users. */
-export const WEBAPP_URL = 'https://notify.atmo.tools';
+export const WEBAPP_URL = 'https://atmo.pub';
 
 /** GitHub repo link in the footer. */
 export const GITHUB_URL = 'https://github.com/flo-bit/atproto-notify';
 
 // --- Relay (used only by the /docs code examples) --------------------------
 
-/** `https://notifs.atmo.tools` — base for the relay XRPC examples. */
-export const RELAY_ORIGIN = 'https://notifs.atmo.tools';
+/** `https://relay.atmo.pub` — base for the relay XRPC examples. */
+export const RELAY_ORIGIN = 'https://relay.atmo.pub';
 
 /** The relay's `did:web` identity (the `aud` for service-auth JWTs in examples). */
-export const RELAY_DID = 'did:web:notifs.atmo.tools';
+export const RELAY_DID = 'did:web:relay.atmo.pub';
 
 /** Lexicon NSID prefix for relay methods. */
-export const LEXICON_PREFIX = 'tools.atmo.notifs';
+export const LEXICON_PREFIX = 'pub.atmo.notify';

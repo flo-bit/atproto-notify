@@ -12,8 +12,9 @@ import { now } from '../lib/time';
 
 import type { TelegramMessage } from './webhook';
 
-// The dashboard is the web app (notify.atmo.tools), not the relay (notifs.atmo.tools).
-const DASHBOARD_URL = 'https://notify.atmo.tools/dashboard';
+// Telegram linking lives in the web app's Channels settings (atmo.pub), not the
+// relay (relay.atmo.pub). Deep-link straight to that tab.
+const DASHBOARD_URL = 'https://atmo.pub/settings?tab=channels';
 const PLATFORM = 'telegram';
 
 /** Dispatch a `/command` message to its handler. */
@@ -190,8 +191,7 @@ export function settingsKeyboard(enabled: boolean): InlineKeyboardMarkup {
   };
 }
 
-const NOT_LINKED =
-  'This Telegram account is not linked yet. Link it from https://notify.atmo.tools/dashboard';
+const NOT_LINKED = `This Telegram account is not linked yet. Link it from ${DASHBOARD_URL}`;
 
 function replyText(env: Env, chatId: number, text: string): Promise<{ message_id: number }> {
   return sendMessage(env, { chat_id: chatId, text });

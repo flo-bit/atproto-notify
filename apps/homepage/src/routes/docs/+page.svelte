@@ -60,9 +60,9 @@
 			both flows is live at
 			<a
 				class="text-accent hover:underline"
-				href="https://example.notify.atmo.tools"
+				href="https://example.atmo.pub"
 				target="_blank"
-				rel="noreferrer">example.notify.atmo.tools</a
+				rel="noreferrer">example.atmo.pub</a
 			>
 			— try it, then read the
 			<a
@@ -103,7 +103,7 @@
 			so it doesn't belong here:
 		</p>
 		<p class="max-w-prose rounded-card border border-line bg-surface px-3 py-2 font-mono text-xs break-all text-fg">
-			atproto rpc?lxm=tools.atmo.notifs.requestPermission&amp;aud=*
+			atproto rpc?lxm=pub.atmo.notify.requestPermission&amp;aud=*
 		</p>
 		<p class="max-w-prose text-sm leading-relaxed text-muted">
 			Then mint a service-auth JWT on the user's PDS via

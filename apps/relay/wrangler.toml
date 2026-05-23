@@ -5,7 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 
 # Custom domains bind the whole hostname (no path/wildcard); the Worker's own
 # router dispatches paths internally.
-routes = [{ pattern = "notifs.atmo.tools", custom_domain = true }]
+routes = [{ pattern = "relay.atmo.pub", custom_domain = true }]
 
 [[d1_databases]]
 binding = "DB"
@@ -36,7 +36,7 @@ crons = ["0 3 * * *"]
 enabled = true
 
 [vars]
-RELAY_DID = "did:web:notifs.atmo.tools"
+RELAY_DID = "did:web:relay.atmo.pub"
 BOT_USERNAME = "atmo_notify_bot"        # e.g. "atmonotifsbot"
 # Web push (VAPID). Generate with `pnpm vapid:keygen`. The public key is also the
 # browser applicationServerKey — paste the SAME value into apps/web VAPID_PUBLIC_KEY.

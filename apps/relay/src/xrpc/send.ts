@@ -1,4 +1,4 @@
-import { ToolsAtmoNotifsSend } from '@atmo/notifs-lexicons';
+import { PubAtmoNotifySend } from '@atmo/notifs-lexicons';
 import type { Did } from '@atcute/lexicons';
 import { json, type ProcedureConfig } from '@atcute/xrpc-server';
 
@@ -10,7 +10,7 @@ import { newId } from '../lib/ids';
 import { now } from '../lib/time';
 import { checkAndIncrement } from '../ratelimit';
 
-const LXM = 'tools.atmo.notifs.send';
+const LXM = 'pub.atmo.notify.send';
 
 // Per-pair limits: at most 1 notification/second and 100/day.
 const PER_SECOND_LIMIT = 1;
@@ -18,7 +18,7 @@ const PER_SECOND_WINDOW = 1;
 const PER_DAY_LIMIT = 100;
 const PER_DAY_WINDOW = 24 * 60 * 60;
 
-export function makeSend(app: AppContext): ProcedureConfig<ToolsAtmoNotifsSend.mainSchema> {
+export function makeSend(app: AppContext): ProcedureConfig<PubAtmoNotifySend.mainSchema> {
   return {
     handler: async ({ request, input }) => {
       const { senderDid } = await verifySenderRequest(app.verifier, request, LXM);

@@ -1,6 +1,6 @@
 {
   "lexicon": 1,
-  "id": "tools.atmo.notifs.grant",
+  "id": "pub.atmo.notify.grant",
   "defs": {
     "main": {
       "type": "procedure",

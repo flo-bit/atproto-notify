@@ -11,7 +11,7 @@
 
 	// Public origin (NOT secret) — must equal the served domain (OAuth client_id derives from it).
 	"vars": {
-		"ORIGIN": "https://example.notify.atmo.tools"
+		"ORIGIN": "https://example.atmo.pub"
 	},
 
 	// KV namespaces for @svelte-atproto/oauth session/state storage:
@@ -28,5 +28,5 @@
 	//   SENDER_PRIVATE_KEY    (pnpm sender:keygen → the private multikey; for `send`)
 	//
 	// Custom domain: bind it in the CF dashboard, or add:
-	//   "routes": [{ "pattern": "example.notify.atmo.tools", "custom_domain": true }]
+	//   "routes": [{ "pattern": "example.atmo.pub", "custom_domain": true }]
 }

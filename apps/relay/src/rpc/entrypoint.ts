@@ -11,17 +11,17 @@ import type {
   NotifsRpc,
   PushSubscriptionInput,
   RoutingConfig,
-  ToolsAtmoNotifsDenyPending,
-  ToolsAtmoNotifsGetSettings,
-  ToolsAtmoNotifsGrant,
-  ToolsAtmoNotifsLinkChannel,
-  ToolsAtmoNotifsListChannels,
-  ToolsAtmoNotifsListGrants,
-  ToolsAtmoNotifsListPending,
-  ToolsAtmoNotifsMuteGrant,
-  ToolsAtmoNotifsRevoke,
-  ToolsAtmoNotifsUnlinkChannel,
-  ToolsAtmoNotifsUpdateSettings,
+  PubAtmoNotifyDenyPending,
+  PubAtmoNotifyGetSettings,
+  PubAtmoNotifyGrant,
+  PubAtmoNotifyLinkChannel,
+  PubAtmoNotifyListChannels,
+  PubAtmoNotifyListGrants,
+  PubAtmoNotifyListPending,
+  PubAtmoNotifyMuteGrant,
+  PubAtmoNotifyRevoke,
+  PubAtmoNotifyUnlinkChannel,
+  PubAtmoNotifyUpdateSettings,
 } from '@atmo/notifs-lexicons';
 
 import type { Env } from '../env';
@@ -38,37 +38,37 @@ import * as ops from './ops';
  * the shared contract the web app types its binding against.
  */
 export class RelayRpc extends WorkerEntrypoint<Env> implements NotifsRpc {
-  grant(did: Did, input: ToolsAtmoNotifsGrant.$input) {
+  grant(did: Did, input: PubAtmoNotifyGrant.$input) {
     return ops.grant(this.env, did, input);
   }
-  revoke(did: Did, input: ToolsAtmoNotifsRevoke.$input) {
+  revoke(did: Did, input: PubAtmoNotifyRevoke.$input) {
     return ops.revoke(this.env, did, input);
   }
-  denyPending(did: Did, input: ToolsAtmoNotifsDenyPending.$input) {
+  denyPending(did: Did, input: PubAtmoNotifyDenyPending.$input) {
     return ops.denyPending(this.env, did, input);
   }
-  muteGrant(did: Did, input: ToolsAtmoNotifsMuteGrant.$input) {
+  muteGrant(did: Did, input: PubAtmoNotifyMuteGrant.$input) {
     return ops.muteGrant(this.env, did, input);
   }
-  linkChannel(did: Did, input: ToolsAtmoNotifsLinkChannel.$input) {
+  linkChannel(did: Did, input: PubAtmoNotifyLinkChannel.$input) {
     return ops.linkChannel(this.env, did, input);
   }
-  unlinkChannel(did: Did, input: ToolsAtmoNotifsUnlinkChannel.$input) {
+  unlinkChannel(did: Did, input: PubAtmoNotifyUnlinkChannel.$input) {
     return ops.unlinkChannel(this.env, did, input);
   }
-  updateSettings(did: Did, input: ToolsAtmoNotifsUpdateSettings.$input) {
+  updateSettings(did: Did, input: PubAtmoNotifyUpdateSettings.$input) {
     return ops.updateSettings(this.env, did, input);
   }
-  listGrants(did: Did): Promise<ToolsAtmoNotifsListGrants.$output> {
+  listGrants(did: Did): Promise<PubAtmoNotifyListGrants.$output> {
     return ops.listGrants(this.env, did);
   }
-  listPending(did: Did): Promise<ToolsAtmoNotifsListPending.$output> {
+  listPending(did: Did): Promise<PubAtmoNotifyListPending.$output> {
     return ops.listPending(this.env, did);
   }
-  listChannels(did: Did): Promise<ToolsAtmoNotifsListChannels.$output> {
+  listChannels(did: Did): Promise<PubAtmoNotifyListChannels.$output> {
     return ops.listChannels(this.env, did);
   }
-  getSettings(did: Did): Promise<ToolsAtmoNotifsGetSettings.$output> {
+  getSettings(did: Did): Promise<PubAtmoNotifyGetSettings.$output> {
     return ops.getSettings(this.env, did);
   }
   registerWebPush(did: Did, sub: PushSubscriptionInput) {

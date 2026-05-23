@@ -22,7 +22,7 @@ async function call(req: Request): Promise<Response> {
 }
 
 function webhook(update: unknown, secret = SECRET): Request {
-  return new Request(`https://notifs.atmo.tools/telegram/webhook/${secret}`, {
+  return new Request(`https://relay.atmo.pub/telegram/webhook/${secret}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(update),

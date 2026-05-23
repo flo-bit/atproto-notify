@@ -10,7 +10,7 @@ export const atproto = createAtprotoAuth({
 	origin: env.ORIGIN,
 	cookieSecret: env.COOKIE_SECRET,
 	clientAssertionKey: env.CLIENT_ASSERTION_KEY,
-	// Requests the `tools.atmo.notifs.authUser` permission set scoped to the relay.
+	// Requests the `pub.atmo.notify.authUser` permission set scoped to the relay.
 	scope: OAUTH_SCOPE,
 	sessions: cloudflareKV('OAUTH_SESSIONS'),
 	states: cloudflareKV('OAUTH_STATES', { ttl: 600 })

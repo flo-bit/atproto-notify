@@ -1,6 +1,6 @@
 {
   "lexicon": 1,
-  "id": "tools.atmo.notifs.revoke",
+  "id": "pub.atmo.notify.revoke",
   "defs": {
     "main": {
       "type": "procedure",

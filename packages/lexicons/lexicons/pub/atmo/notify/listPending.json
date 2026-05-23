@@ -1,6 +1,6 @@
 {
   "lexicon": 1,
-  "id": "tools.atmo.notifs.listPending",
+  "id": "pub.atmo.notify.listPending",
   "defs": {
     "main": {
       "type": "query",

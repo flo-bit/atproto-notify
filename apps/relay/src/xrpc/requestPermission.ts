@@ -1,4 +1,4 @@
-import { ToolsAtmoNotifsRequestPermission } from '@atmo/notifs-lexicons';
+import { PubAtmoNotifyRequestPermission } from '@atmo/notifs-lexicons';
 import type { Did } from '@atcute/lexicons';
 import { isDid } from '@atcute/lexicons/syntax';
 import { InvalidRequestError, json, type ProcedureConfig } from '@atcute/xrpc-server';
@@ -13,7 +13,7 @@ import { isTrustedSender } from '../lib/trusted';
 import { ensureSenderProfile } from '../profile/fetch';
 import { checkAndIncrement } from '../ratelimit';
 
-const LXM = 'tools.atmo.notifs.requestPermission';
+const LXM = 'pub.atmo.notify.requestPermission';
 
 // New pending-request caps, both per rolling hour.
 const PER_RECIPIENT_LIMIT = 50; // NEW: stops one OAuth'd app spamming a user
@@ -22,7 +22,7 @@ const WINDOW_SECONDS = 60 * 60;
 
 export function makeRequestPermission(
   app: AppContext,
-): ProcedureConfig<ToolsAtmoNotifsRequestPermission.mainSchema> {
+): ProcedureConfig<PubAtmoNotifyRequestPermission.mainSchema> {
   return {
     handler: async ({ request, input }) => {
       // Auth flipped to the user path: the JWT issuer is the recipient (the user

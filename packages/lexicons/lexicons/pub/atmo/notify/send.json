@@ -1,6 +1,6 @@
 {
   "lexicon": 1,
-  "id": "tools.atmo.notifs.send",
+  "id": "pub.atmo.notify.send",
   "defs": {
     "main": {
       "type": "procedure",

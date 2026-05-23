@@ -1,5 +1,5 @@
-import requestPermission from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/requestPermission.json';
-import send from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/send.json';
+import requestPermission from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/requestPermission.json';
+import send from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/send.json';
 
 import type { Env } from './env';
 
@@ -8,8 +8,8 @@ import type { Env } from './env';
 // so their lexicon JSON is intentionally NOT served (the files remain in the
 // package purely as type-generation input). See src/rpc/entrypoint.ts.
 const LEXICONS: Record<string, unknown> = {
-  'tools.atmo.notifs.requestPermission': requestPermission,
-  'tools.atmo.notifs.send': send,
+  'pub.atmo.notify.requestPermission': requestPermission,
+  'pub.atmo.notify.send': send,
 };
 
 /**

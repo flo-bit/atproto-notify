@@ -1,10 +1,10 @@
 {
   "lexicon": 1,
-  "id": "tools.atmo.notifs.linkChannel",
+  "id": "pub.atmo.notify.unlinkChannel",
   "defs": {
     "main": {
       "type": "procedure",
-      "description": "Begin linking a delivery channel. Returns a short-lived token and a deep link the user follows to complete linking. User-authenticated.",
+      "description": "Unlink a delivery channel from the authenticated user. User-authenticated.",
       "input": {
         "encoding": "application/json",
         "schema": {
@@ -19,10 +19,9 @@
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["token", "deepLink"],
+          "required": ["unlinked"],
           "properties": {
-            "token": { "type": "string" },
-            "deepLink": { "type": "string" }
+            "unlinked": { "type": "boolean" }
           }
         }
       }

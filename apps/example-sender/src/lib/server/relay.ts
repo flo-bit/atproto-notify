@@ -41,7 +41,7 @@ async function postRelay(jwt: string, lxm: string, body: object): Promise<unknow
 export async function requestPermissionForUser(
 	client: NonNullable<AppClient>
 ): Promise<{ id: string; status: 'pending' | 'alreadyGranted' }> {
-	const lxm = 'tools.atmo.notifs.requestPermission';
+	const lxm = 'pub.atmo.notify.requestPermission';
 	const auth = await client.get('com.atproto.server.getServiceAuth', {
 		params: { aud: RELAY_DID as Did, lxm: lxm as Nsid }
 	});
@@ -65,7 +65,7 @@ export async function sendAsSender(input: {
 	body: string;
 	uri?: string;
 }): Promise<{ id: string; delivered: number }> {
-	const lxm = 'tools.atmo.notifs.send';
+	const lxm = 'pub.atmo.notify.send';
 	const jwt = await mintSenderJwt(lxm);
 	return postRelay(jwt, lxm, input) as Promise<{ id: string; delivered: number }>;
 }

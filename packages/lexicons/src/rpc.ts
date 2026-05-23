@@ -14,17 +14,17 @@
 import type { Did } from '@atcute/lexicons';
 
 import type {
-  ToolsAtmoNotifsDenyPending,
-  ToolsAtmoNotifsGetSettings,
-  ToolsAtmoNotifsGrant,
-  ToolsAtmoNotifsLinkChannel,
-  ToolsAtmoNotifsListChannels,
-  ToolsAtmoNotifsListGrants,
-  ToolsAtmoNotifsListPending,
-  ToolsAtmoNotifsMuteGrant,
-  ToolsAtmoNotifsRevoke,
-  ToolsAtmoNotifsUnlinkChannel,
-  ToolsAtmoNotifsUpdateSettings,
+  PubAtmoNotifyDenyPending,
+  PubAtmoNotifyGetSettings,
+  PubAtmoNotifyGrant,
+  PubAtmoNotifyLinkChannel,
+  PubAtmoNotifyListChannels,
+  PubAtmoNotifyListGrants,
+  PubAtmoNotifyListPending,
+  PubAtmoNotifyMuteGrant,
+  PubAtmoNotifyRevoke,
+  PubAtmoNotifyUnlinkChannel,
+  PubAtmoNotifyUpdateSettings,
 } from './lexicons/index.js';
 
 /** A browser PushSubscription, flattened (binding-only; no public lexicon). */
@@ -93,32 +93,32 @@ export interface RoutingConfig {
 }
 
 export interface NotifsRpc {
-  grant(did: Did, input: ToolsAtmoNotifsGrant.$input): Promise<ToolsAtmoNotifsGrant.$output>;
-  revoke(did: Did, input: ToolsAtmoNotifsRevoke.$input): Promise<ToolsAtmoNotifsRevoke.$output>;
+  grant(did: Did, input: PubAtmoNotifyGrant.$input): Promise<PubAtmoNotifyGrant.$output>;
+  revoke(did: Did, input: PubAtmoNotifyRevoke.$input): Promise<PubAtmoNotifyRevoke.$output>;
   denyPending(
     did: Did,
-    input: ToolsAtmoNotifsDenyPending.$input,
-  ): Promise<ToolsAtmoNotifsDenyPending.$output>;
+    input: PubAtmoNotifyDenyPending.$input,
+  ): Promise<PubAtmoNotifyDenyPending.$output>;
   muteGrant(
     did: Did,
-    input: ToolsAtmoNotifsMuteGrant.$input,
-  ): Promise<ToolsAtmoNotifsMuteGrant.$output>;
+    input: PubAtmoNotifyMuteGrant.$input,
+  ): Promise<PubAtmoNotifyMuteGrant.$output>;
   linkChannel(
     did: Did,
-    input: ToolsAtmoNotifsLinkChannel.$input,
-  ): Promise<ToolsAtmoNotifsLinkChannel.$output>;
+    input: PubAtmoNotifyLinkChannel.$input,
+  ): Promise<PubAtmoNotifyLinkChannel.$output>;
   unlinkChannel(
     did: Did,
-    input: ToolsAtmoNotifsUnlinkChannel.$input,
-  ): Promise<ToolsAtmoNotifsUnlinkChannel.$output>;
+    input: PubAtmoNotifyUnlinkChannel.$input,
+  ): Promise<PubAtmoNotifyUnlinkChannel.$output>;
   updateSettings(
     did: Did,
-    input: ToolsAtmoNotifsUpdateSettings.$input,
-  ): Promise<ToolsAtmoNotifsUpdateSettings.$output>;
-  listGrants(did: Did): Promise<ToolsAtmoNotifsListGrants.$output>;
-  listPending(did: Did): Promise<ToolsAtmoNotifsListPending.$output>;
-  listChannels(did: Did): Promise<ToolsAtmoNotifsListChannels.$output>;
-  getSettings(did: Did): Promise<ToolsAtmoNotifsGetSettings.$output>;
+    input: PubAtmoNotifyUpdateSettings.$input,
+  ): Promise<PubAtmoNotifyUpdateSettings.$output>;
+  listGrants(did: Did): Promise<PubAtmoNotifyListGrants.$output>;
+  listPending(did: Did): Promise<PubAtmoNotifyListPending.$output>;
+  listChannels(did: Did): Promise<PubAtmoNotifyListChannels.$output>;
+  getSettings(did: Did): Promise<PubAtmoNotifyGetSettings.$output>;
 
   // Web push (binding-only; no public lexicon).
   registerWebPush(did: Did, sub: PushSubscriptionInput): Promise<{ registered: boolean }>;

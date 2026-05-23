@@ -52,7 +52,7 @@ pnpm dev
 
 Set the env vars in `.env` (see `.env.example`): `ORIGIN`, `COOKIE_SECRET`,
 `CLIENT_ASSERTION_KEY`. The relay must be reachable at the domain in
-`src/lib/config.ts` (`notifs.atmo.tools`) for dashboard data to load — point it at
+`src/lib/config.ts` (`relay.atmo.pub`) for dashboard data to load — point it at
 a local relay during development if needed.
 
 ```sh
@@ -66,7 +66,7 @@ Uses `@sveltejs/adapter-cloudflare` (Workers + static assets). Run these from
 `apps/web/` in a Cloudflare-authenticated terminal.
 
 1. **Pick the domain.** In `wrangler.jsonc`, set `name` and `vars.ORIGIN`
-   (e.g. `https://notifs-web.atmo.tools`). `ORIGIN` must equal the served URL —
+   (e.g. `https://atmo.pub`). `ORIGIN` must equal the served URL —
    the atproto OAuth `client_id` is derived from it.
 2. **Create the KV namespaces** and paste the ids into `wrangler.jsonc`:
    ```sh
@@ -87,4 +87,4 @@ Uses `@sveltejs/adapter-cloudflare` (Workers + static assets). Run these from
 
 The OAuth client metadata is served dynamically by `@svelte-atproto/oauth` — no
 static file to write. The dashboard needs the relay reachable at the domain in
-`src/lib/config.ts` (`notifs.atmo.tools`), so deploy the relay too.
+`src/lib/config.ts` (`relay.atmo.pub`), so deploy the relay too.

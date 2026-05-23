@@ -12,7 +12,7 @@
 	// Public origin of the deployed app (NOT secret). Must equal the domain you
 	// serve from — the atproto OAuth client_id is derived from it.
 	"vars": {
-		"ORIGIN": "https://notify.atmo.tools"
+		"ORIGIN": "https://atmo.pub"
 	},
 	// KV namespaces required by @svelte-atproto/oauth's `cloudflareKV` stores
 	// (see src/lib/atproto/index.ts). Create them and paste the ids:
@@ -46,5 +46,5 @@
 	//   CLIENT_ASSERTION_KEY  (atproto-oauth keygen | wrangler secret put CLIENT_ASSERTION_KEY)
 	//
 	// Custom domain: bind it in the CF dashboard, or add:
-	//   "routes": [{ "pattern": "notifs-web.atmo.tools", "custom_domain": true }]
+	//   "routes": [{ "pattern": "atmo.pub", "custom_domain": true }]
 }

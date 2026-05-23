@@ -16,17 +16,17 @@ import type {
   PushSubscriptionInput,
   RoutingApp,
   RoutingConfig,
-  ToolsAtmoNotifsDenyPending,
-  ToolsAtmoNotifsGetSettings,
-  ToolsAtmoNotifsGrant,
-  ToolsAtmoNotifsLinkChannel,
-  ToolsAtmoNotifsListChannels,
-  ToolsAtmoNotifsListGrants,
-  ToolsAtmoNotifsListPending,
-  ToolsAtmoNotifsMuteGrant,
-  ToolsAtmoNotifsRevoke,
-  ToolsAtmoNotifsUnlinkChannel,
-  ToolsAtmoNotifsUpdateSettings,
+  PubAtmoNotifyDenyPending,
+  PubAtmoNotifyGetSettings,
+  PubAtmoNotifyGrant,
+  PubAtmoNotifyLinkChannel,
+  PubAtmoNotifyListChannels,
+  PubAtmoNotifyListGrants,
+  PubAtmoNotifyListPending,
+  PubAtmoNotifyMuteGrant,
+  PubAtmoNotifyRevoke,
+  PubAtmoNotifyUnlinkChannel,
+  PubAtmoNotifyUpdateSettings,
 } from '@atmo/notifs-lexicons';
 
 import * as q from '../db/queries';
@@ -37,8 +37,8 @@ import { addMinutes, now, toIsoDatetime } from '../lib/time';
 export async function grant(
   env: Env,
   did: Did,
-  input: ToolsAtmoNotifsGrant.$input,
-): Promise<ToolsAtmoNotifsGrant.$output> {
+  input: PubAtmoNotifyGrant.$input,
+): Promise<PubAtmoNotifyGrant.$output> {
   await q.ensureUser(env.DB, did, now());
 
   // When granting from a pending request, copy its display metadata onto the
@@ -67,8 +67,8 @@ export async function grant(
 export async function revoke(
   env: Env,
   did: Did,
-  input: ToolsAtmoNotifsRevoke.$input,
-): Promise<ToolsAtmoNotifsRevoke.$output> {
+  input: PubAtmoNotifyRevoke.$input,
+): Promise<PubAtmoNotifyRevoke.$output> {
   const revoked = await q.deleteGrant(env.DB, did, input.sender);
   // The pending request (if any) for this pair is now irrelevant.
   await q.deletePendingByPair(env.DB, did, input.sender);
@@ -79,8 +79,8 @@ export async function revoke(
 export async function denyPending(
   env: Env,
   did: Did,
-  input: ToolsAtmoNotifsDenyPending.$input,
-): Promise<ToolsAtmoNotifsDenyPending.$output> {
+  input: PubAtmoNotifyDenyPending.$input,
+): Promise<PubAtmoNotifyDenyPending.$output> {
   // Delete the pending request without granting. Does not blocklist the sender;
   // they may request again once rate limits allow.
   const denied = await q.deletePendingById(env.DB, input.requestId, did);
@@ -91,8 +91,8 @@ export async function denyPending(
 export async function muteGrant(
   env: Env,
   did: Did,
-  input: ToolsAtmoNotifsMuteGrant.$input,
-): Promise<ToolsAtmoNotifsMuteGrant.$output> {
+  input: PubAtmoNotifyMuteGrant.$input,
+): Promise<PubAtmoNotifyMuteGrant.$output> {
   await q.setGrantMuted(env.DB, did, input.sender, input.muted);
 
   return { muted: input.muted };
@@ -101,8 +101,8 @@ export async function muteGrant(
 export async function linkChannel(
   env: Env,
   did: Did,
-  input: ToolsAtmoNotifsLinkChannel.$input,
-): Promise<ToolsAtmoNotifsLinkChannel.$output> {
+  input: PubAtmoNotifyLinkChannel.$input,
+): Promise<PubAtmoNotifyLinkChannel.$output> {
   await q.ensureUser(env.DB, did, now());
   const token = newLinkToken();
   await q.insertLinkToken(env.DB, {
@@ -119,8 +119,8 @@ export async function linkChannel(
 export async function unlinkChannel(
   env: Env,
   did: Did,
-  input: ToolsAtmoNotifsUnlinkChannel.$input,
-): Promise<ToolsAtmoNotifsUnlinkChannel.$output> {
+  input: PubAtmoNotifyUnlinkChannel.$input,
+): Promise<PubAtmoNotifyUnlinkChannel.$output> {
   const unlinked = await q.deleteChannel(env.DB, did, input.platform);
 
   return { unlinked };
@@ -129,8 +129,8 @@ export async function unlinkChannel(
 export async function updateSettings(
   env: Env,
   did: Did,
-  input: ToolsAtmoNotifsUpdateSettings.$input,
-): Promise<ToolsAtmoNotifsUpdateSettings.$output> {
+  input: PubAtmoNotifyUpdateSettings.$input,
+): Promise<PubAtmoNotifyUpdateSettings.$output> {
   await q.ensureUser(env.DB, did, now());
 
   // Partial PATCH: only touch fields present in the input.
@@ -150,7 +150,7 @@ export async function updateSettings(
 export async function listGrants(
   env: Env,
   did: Did,
-): Promise<ToolsAtmoNotifsListGrants.$output> {
+): Promise<PubAtmoNotifyListGrants.$output> {
   const rows = await q.listGrantsForRecipient(env.DB, did);
 
   return {
@@ -172,7 +172,7 @@ export async function listGrants(
 export async function listPending(
   env: Env,
   did: Did,
-): Promise<ToolsAtmoNotifsListPending.$output> {
+): Promise<PubAtmoNotifyListPending.$output> {
   const rows = await q.listPendingForRecipient(env.DB, did, now());
 
   return {
@@ -196,7 +196,7 @@ export async function listPending(
 export async function listChannels(
   env: Env,
   did: Did,
-): Promise<ToolsAtmoNotifsListChannels.$output> {
+): Promise<PubAtmoNotifyListChannels.$output> {
   const rows = await q.listChannelsForDid(env.DB, did);
 
   return {
@@ -211,7 +211,7 @@ export async function listChannels(
 export async function getSettings(
   env: Env,
   did: Did,
-): Promise<ToolsAtmoNotifsGetSettings.$output> {
+): Promise<PubAtmoNotifyGetSettings.$output> {
   // Ensure the row exists so we return stored defaults rather than guessing.
   await q.ensureUser(env.DB, did, now());
   const user = await q.getUser(env.DB, did);

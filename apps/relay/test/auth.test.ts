@@ -24,7 +24,7 @@ beforeAll(() => {
 // exercises the user-JWT verifier now that the management methods moved to the
 // service binding. A valid body is sent in every case so the request reaches the
 // auth check rather than tripping schema validation first.
-const REQ = 'tools.atmo.notifs.requestPermission';
+const REQ = 'pub.atmo.notify.requestPermission';
 const SENDER: Did = 'did:plc:authsender';
 const BODY = { senderDid: SENDER, title: 'Test' };
 
@@ -69,7 +69,7 @@ it('rejects a JWT scoped to a different lexicon method', async () => {
   const user = await makeIdentity('did:plc:authlxm');
   mockPlc(user);
   // Token authorizes `send`, but we call `requestPermission`.
-  const jwt = await makeJwt(user, { lxm: 'tools.atmo.notifs.send' });
+  const jwt = await makeJwt(user, { lxm: 'pub.atmo.notify.send' });
 
   const res = await call(xrpcPost(REQ, jwt, BODY));
 

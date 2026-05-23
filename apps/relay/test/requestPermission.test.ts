@@ -13,7 +13,7 @@ beforeAll(() => {
   makeBskyProfileMock();
 });
 
-const REQ = 'tools.atmo.notifs.requestPermission';
+const REQ = 'pub.atmo.notify.requestPermission';
 // requestPermission is now user-authenticated; the sender is a plain DID in the body.
 const SENDER: Did = 'did:plc:somesender';
 

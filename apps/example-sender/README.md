@@ -1,7 +1,7 @@
 # Atmo Notifs — example sender
 
 A tiny reference app showing how any AT Protocol app sends notifications through
-[Atmo Notifs](https://notifs.atmo.tools). One page, two auth mechanisms.
+[Atmo Notifs](https://relay.atmo.pub). One page, two auth mechanisms.
 
 ## The two auth mechanisms
 

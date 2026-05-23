@@ -1,6 +1,6 @@
 {
   "lexicon": 1,
-  "id": "tools.atmo.notifs.getSettings",
+  "id": "pub.atmo.notify.getSettings",
   "defs": {
     "main": {
       "type": "query",

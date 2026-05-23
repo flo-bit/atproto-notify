@@ -1,6 +1,6 @@
 {
   "lexicon": 1,
-  "id": "tools.atmo.notifs.listChannels",
+  "id": "pub.atmo.notify.listChannels",
   "defs": {
     "main": {
       "type": "query",

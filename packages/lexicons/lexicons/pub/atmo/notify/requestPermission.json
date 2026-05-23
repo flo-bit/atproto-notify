@@ -1,6 +1,6 @@
 {
   "lexicon": 1,
-  "id": "tools.atmo.notifs.requestPermission",
+  "id": "pub.atmo.notify.requestPermission",
   "defs": {
     "main": {
       "type": "procedure",

@@ -93,7 +93,7 @@
 		<h1 class="text-2xl font-semibold tracking-tight text-fg">{PROJECT_NAME}</h1>
 		<p class="mt-3 max-w-prose text-sm leading-relaxed text-muted">
 			A demo app showing how any AT&nbsp;Protocol app can send notifications through
-			notify.atmo.tools. The code is open source — it wires up both auth mechanisms (user-OAuth
+			atmo.pub. The code is open source — it wires up both auth mechanisms (user-OAuth
 			for requesting permission, sender-DID for sending) in ~300 lines.
 		</p>
 
@@ -154,7 +154,7 @@
 							class="text-accent hover:underline"
 							href={DASHBOARD_ORIGIN}
 							target="_blank"
-							rel="noreferrer">notify.atmo.tools</a
+							rel="noreferrer">atmo.pub</a
 						>, where you can also connect Telegram. Already approved? Skip to Step 2.
 					</p>
 				{/if}
@@ -186,14 +186,14 @@
 					<p class={noticeWarn}>
 						⚠ Sent, but you have no delivery channels linked. Connect Telegram at
 						<a class="underline" href={DASHBOARD_ORIGIN} target="_blank" rel="noreferrer"
-							>notify.atmo.tools</a
+							>atmo.pub</a
 						>.
 					</p>
 				{:else}
 					<p class={noticeWarn}>
 						⚠ Approve this app first at
 						<a class="underline" href={DASHBOARD_ORIGIN} target="_blank" rel="noreferrer"
-							>notify.atmo.tools</a
+							>atmo.pub</a
 						>, then try again.
 					</p>
 				{/if}
@@ -207,7 +207,7 @@
 		<a class="hover:text-fg" href={GITHUB_URL} target="_blank" rel="noreferrer">{GITHUB_URL}</a>.
 		Powered by
 		<a class="hover:text-fg" href={DASHBOARD_ORIGIN} target="_blank" rel="noreferrer"
-			>notify.atmo.tools</a
+			>atmo.pub</a
 		>.
 	</footer>
 </main>

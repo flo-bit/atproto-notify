@@ -2,7 +2,7 @@ import { P256PrivateKeyExportable } from '@atcute/crypto';
 import type { Did, Nsid } from '@atcute/lexicons';
 import { createServiceJwt } from '@atcute/xrpc-server/auth';
 
-export const RELAY_DID = 'did:web:notifs.atmo.tools';
+export const RELAY_DID = 'did:web:relay.atmo.pub';
 
 // ---------------------------------------------------------------------------
 // Outbound fetch mocking
@@ -140,7 +140,7 @@ export function makeJwt(identity: TestIdentity, options: JwtOptions): Promise<st
 
 /** Build an XRPC POST request with a bearer token and JSON body. */
 export function xrpcPost(nsid: string, jwt: string, body: unknown): Request {
-  return new Request(`https://notifs.atmo.tools/xrpc/${nsid}`, {
+  return new Request(`https://relay.atmo.pub/xrpc/${nsid}`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -152,7 +152,7 @@ export function xrpcPost(nsid: string, jwt: string, body: unknown): Request {
 
 /** Build an XRPC GET (query) request with a bearer token. */
 export function xrpcGet(nsid: string, jwt: string): Request {
-  return new Request(`https://notifs.atmo.tools/xrpc/${nsid}`, {
+  return new Request(`https://relay.atmo.pub/xrpc/${nsid}`, {
     method: 'GET',
     headers: { authorization: `Bearer ${jwt}` },
   });

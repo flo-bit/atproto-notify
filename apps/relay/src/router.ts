@@ -1,4 +1,4 @@
-import { ToolsAtmoNotifsRequestPermission, ToolsAtmoNotifsSend } from '@atmo/notifs-lexicons';
+import { PubAtmoNotifyRequestPermission, PubAtmoNotifySend } from '@atmo/notifs-lexicons';
 import { XRPCRouter } from '@atcute/xrpc-server';
 
 import { getVerifier } from './auth/verifier';
@@ -30,8 +30,8 @@ export function buildRouter(env: Env, ctx: ExecutionContext): XRPCRouter {
     },
   });
 
-  router.addProcedure(ToolsAtmoNotifsRequestPermission.mainSchema, makeRequestPermission(app));
-  router.addProcedure(ToolsAtmoNotifsSend.mainSchema, makeSend(app));
+  router.addProcedure(PubAtmoNotifyRequestPermission.mainSchema, makeRequestPermission(app));
+  router.addProcedure(PubAtmoNotifySend.mainSchema, makeSend(app));
 
   return router;
 }

@@ -15,13 +15,13 @@ import type {
 	CategoryRoute,
 	MarkReadInput,
 	PushSubscriptionInput,
-	ToolsAtmoNotifsDenyPending,
-	ToolsAtmoNotifsGrant,
-	ToolsAtmoNotifsLinkChannel,
-	ToolsAtmoNotifsMuteGrant,
-	ToolsAtmoNotifsRevoke,
-	ToolsAtmoNotifsUnlinkChannel,
-	ToolsAtmoNotifsUpdateSettings
+	PubAtmoNotifyDenyPending,
+	PubAtmoNotifyGrant,
+	PubAtmoNotifyLinkChannel,
+	PubAtmoNotifyMuteGrant,
+	PubAtmoNotifyRevoke,
+	PubAtmoNotifyUnlinkChannel,
+	PubAtmoNotifyUpdateSettings
 } from '@atmo/notifs-lexicons';
 
 /**
@@ -45,13 +45,13 @@ export function relayFor(platform: App.Platform | undefined, did: Did | null) {
 		listPending: () => svc.listPending(did),
 		listChannels: () => svc.listChannels(did),
 		getSettings: () => svc.getSettings(did),
-		grant: (input: ToolsAtmoNotifsGrant.$input) => svc.grant(did, input),
-		revoke: (input: ToolsAtmoNotifsRevoke.$input) => svc.revoke(did, input),
-		denyPending: (input: ToolsAtmoNotifsDenyPending.$input) => svc.denyPending(did, input),
-		muteGrant: (input: ToolsAtmoNotifsMuteGrant.$input) => svc.muteGrant(did, input),
-		linkChannel: (input: ToolsAtmoNotifsLinkChannel.$input) => svc.linkChannel(did, input),
-		unlinkChannel: (input: ToolsAtmoNotifsUnlinkChannel.$input) => svc.unlinkChannel(did, input),
-		updateSettings: (input: ToolsAtmoNotifsUpdateSettings.$input) =>
+		grant: (input: PubAtmoNotifyGrant.$input) => svc.grant(did, input),
+		revoke: (input: PubAtmoNotifyRevoke.$input) => svc.revoke(did, input),
+		denyPending: (input: PubAtmoNotifyDenyPending.$input) => svc.denyPending(did, input),
+		muteGrant: (input: PubAtmoNotifyMuteGrant.$input) => svc.muteGrant(did, input),
+		linkChannel: (input: PubAtmoNotifyLinkChannel.$input) => svc.linkChannel(did, input),
+		unlinkChannel: (input: PubAtmoNotifyUnlinkChannel.$input) => svc.unlinkChannel(did, input),
+		updateSettings: (input: PubAtmoNotifyUpdateSettings.$input) =>
 			svc.updateSettings(did, input),
 		registerWebPush: (sub: PushSubscriptionInput) => svc.registerWebPush(did, sub),
 		unregisterWebPush: (endpoint: string) => svc.unregisterWebPush(did, endpoint),

@@ -1,6 +1,6 @@
 {
   "lexicon": 1,
-  "id": "tools.atmo.notifs.muteGrant",
+  "id": "pub.atmo.notify.muteGrant",
   "defs": {
     "main": {
       "type": "procedure",

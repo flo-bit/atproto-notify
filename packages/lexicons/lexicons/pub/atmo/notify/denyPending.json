@@ -1,17 +1,17 @@
 {
   "lexicon": 1,
-  "id": "tools.atmo.notifs.unlinkChannel",
+  "id": "pub.atmo.notify.denyPending",
   "defs": {
     "main": {
       "type": "procedure",
-      "description": "Unlink a delivery channel from the authenticated user. User-authenticated.",
+      "description": "Delete a pending permission request without granting it. Does not blocklist the sender. User-authenticated.",
       "input": {
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["platform"],
+          "required": ["requestId"],
           "properties": {
-            "platform": { "type": "string", "enum": ["telegram"] }
+            "requestId": { "type": "string" }
           }
         }
       },
@@ -19,9 +19,9 @@
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["unlinked"],
+          "required": ["denied"],
           "properties": {
-            "unlinked": { "type": "boolean" }
+            "denied": { "type": "boolean" }
           }
         }
       }
