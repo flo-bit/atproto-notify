@@ -4,6 +4,9 @@
 	"version": "0.0.1",
 	"type": "module",
 	"scripts": {
+		"atproto:setup": "atproto-oauth setup",
+		"atproto:keygen": "atproto-oauth keygen",
+		"atproto:secret": "atproto-oauth secret",
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
@@ -36,5 +39,10 @@
 		"typescript": "^6.0.2",
 		"typescript-eslint": "^8.58.1",
 		"vite": "^8.0.7"
+	},
+	"dependencies": {
+		"@atcute/atproto": "^4.0.0",
+		"@svelte-atproto/oauth": "^0.3.0",
+		"valibot": "^1.0.0"
 	}
 }

@@ -13,6 +13,16 @@ importers:
         version: 5.9.3
 
   apps/example-sender:
+    dependencies:
+      '@atcute/atproto':
+        specifier: ^4.0.0
+        version: 4.0.0(@atcute/lexicons@2.0.0)
+      '@svelte-atproto/oauth':
+        specifier: ^0.3.0
+        version: 0.3.0(@atcute/identity@2.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3))(@sveltejs/kit@2.60.1(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.55.9(@typescript-eslint/types@8.59.4))(vite@8.0.14(@types/node@22.19.19)(esbuild@0.27.3)(jiti@2.7.0)))(svelte@5.55.9(@typescript-eslint/types@8.59.4))(typescript@6.0.3)(vite@8.0.14(@types/node@22.19.19)(esbuild@0.27.3)(jiti@2.7.0)))(svelte@5.55.9(@typescript-eslint/types@8.59.4))(typescript@6.0.3)
+      valibot:
+        specifier: ^1.0.0
+        version: 1.4.0(typescript@6.0.3)
     devDependencies:
       '@eslint/compat':
         specifier: ^2.0.4
@@ -235,10 +245,20 @@ packages:
     peerDependencies:
       '@atcute/lexicons': ^1.0.0
 
+  '@atcute/atproto@4.0.0':
+    resolution: {integrity: sha512-Rd21kW0tl/QEXhyPkJXRpUV8HYs7sMOmmXRu2z1sKMZbm1tqvHz1L3CQeTFcC/Xf/5cg7S6ITGIKRP0++zu0aw==}
+    peerDependencies:
+      '@atcute/lexicons': ^2.0.0
+
   '@atcute/bluesky@3.3.5':
     resolution: {integrity: sha512-DmzdCQ1VkPRBsIMr79EDxLWLpg0UNWVahFjMelfzau717r+I3ceJm9SxfOK/of+biLOUj4rlr00tNZT+BRe6Ww==}
     peerDependencies:
       '@atcute/lexicons': ^1.0.0
+
+  '@atcute/bluesky@4.0.2':
+    resolution: {integrity: sha512-CWe4P/FYfY1CQ4GUYyOVGDqDJ/VvtaG6T4Jtaep0ur8IwUpUTVWoiwM9qDp1EA8NWsb4y+KcdcOm8CZD0tMMwg==}
+    peerDependencies:
+      '@atcute/lexicons': ^2.0.0
 
   '@atcute/car@6.0.0':
     resolution: {integrity: sha512-v3lhHfqxBi/wxq3q4N9f3/9ed44xqwKI0VAlgPge9NKjJ2xuJcEvj12v4m+P2FB758cioCsghKy58tz2s20eAA==}
@@ -327,6 +347,12 @@ packages:
       '@atcute/identity-resolver': ^1.0.0
       '@atcute/lexicons': ^1.0.0
 
+  '@atcute/oauth-browser-client@4.0.0':
+    resolution: {integrity: sha512-rvxmRcA6WOZz5TfcKp1kVtxUioogMzQH5OdCrW3Fm+ldEPPe2ZEyP7x1PzRWo6Es3F8lm4Q7BCJJgJFkQp2a5Q==}
+    peerDependencies:
+      '@atcute/identity-resolver': ^2.0.0
+      '@atcute/lexicons': ^2.0.0
+
   '@atcute/oauth-crypto@0.1.0':
     resolution: {integrity: sha512-qZYDCNLF/4B6AndYT1rsQelN8621AC5u/sL5PHvlr/qqAbmmUwCBGjEgRSyZtHE1AqD60VNiSMlOgAuEQTSl3w==}
 
@@ -342,8 +368,17 @@ packages:
       '@atcute/identity-resolver': ^1.0.0
       '@atcute/lexicons': ^1.0.0
 
+  '@atcute/oauth-node-client@2.0.0':
+    resolution: {integrity: sha512-1+q7eszInPXR/aTmYyyhW6RD+rnNTpHXF3vgum3mmCt44oSCTeKuzCBrR538LORpspgNwhopotvKJ1AN5UD4kQ==}
+    peerDependencies:
+      '@atcute/identity-resolver': ^2.0.0
+      '@atcute/lexicons': ^2.0.0
+
   '@atcute/oauth-types@0.1.1':
     resolution: {integrity: sha512-u+3KMjse3Uc/9hDyilu1QVN7IpcnjVXgRzhddzBB8Uh6wePHNVBDdi9wQvFTVVA3zmxtMJVptXRyLLg6Ou9bqg==}
+
+  '@atcute/oauth-types@1.0.0':
+    resolution: {integrity: sha512-YOpjLU8H5PG6oKfgau+dx7rSmGsLxIA36MeGL7BDeopcyq80RqPSBAzOasEEsmbMRJ/nTsMRJhnmGkp3RCa/Zw==}
 
   '@atcute/repo@1.0.0':
     resolution: {integrity: sha512-3s6VDKMimmYxVXn9OTlYQ7bJGPRcZRyFZ+oF/IFdfm3PsEUxwwSXajw1bG0HVXns1rNgNnDUT0PqMlUd2GnjqA==}
@@ -1017,6 +1052,13 @@ packages:
 
   '@svelte-atproto/oauth@0.1.0':
     resolution: {integrity: sha512-jLQcadl9c03/+PFhyzYI+kHS5mh0dDKwyZlDYq+UrwPzQ7F0peHa4Hz0B0UgFB4H732QKgY827Yuuo255Qi/hQ==}
+    hasBin: true
+    peerDependencies:
+      '@sveltejs/kit': ^2.0.0
+      svelte: ^5.0.0
+
+  '@svelte-atproto/oauth@0.3.0':
+    resolution: {integrity: sha512-Tijm4GGMg15NrA2EH715GoGE0yHxPBL4dk8h+Zmb3L7ea/TLKayjVso3OgNg5drvBjrgrthO0oI3BYSudTbT0A==}
     hasBin: true
     peerDependencies:
       '@sveltejs/kit': ^2.0.0
@@ -2316,10 +2358,19 @@ snapshots:
     dependencies:
       '@atcute/lexicons': 1.3.1
 
+  '@atcute/atproto@4.0.0(@atcute/lexicons@2.0.0)':
+    dependencies:
+      '@atcute/lexicons': 2.0.0
+
   '@atcute/bluesky@3.3.5(@atcute/lexicons@1.3.1)':
     dependencies:
       '@atcute/atproto': 3.1.12(@atcute/lexicons@1.3.1)
       '@atcute/lexicons': 1.3.1
+
+  '@atcute/bluesky@4.0.2(@atcute/lexicons@2.0.0)':
+    dependencies:
+      '@atcute/atproto': 4.0.0(@atcute/lexicons@2.0.0)
+      '@atcute/lexicons': 2.0.0
 
   '@atcute/car@6.0.0(@atcute/cbor@2.3.3(@atcute/cid@2.4.1))(@atcute/cid@2.4.1)':
     dependencies:
@@ -2351,6 +2402,13 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
+  '@atcute/client@5.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3)':
+    dependencies:
+      '@atcute/identity': 2.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3)
+      '@atcute/lexicons': 2.0.0
+    transitivePeerDependencies:
+      - typescript
+
   '@atcute/crypto@2.4.1':
     dependencies:
       '@atcute/multibase': 1.2.0
@@ -2373,6 +2431,15 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
+  '@atcute/identity-resolver@2.0.0(@atcute/identity@2.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3))(@atcute/lexicons@2.0.0)(typescript@6.0.3)':
+    dependencies:
+      '@atcute/identity': 2.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3)
+      '@atcute/lexicons': 2.0.0
+      '@atcute/util-fetch': 2.0.0(typescript@6.0.3)
+      valibot: 1.4.0(typescript@6.0.3)
+    transitivePeerDependencies:
+      - typescript
+
   '@atcute/identity@1.1.5(@atcute/lexicons@1.3.1)':
     dependencies:
       '@atcute/lexicons': 1.3.1
@@ -2382,6 +2449,13 @@ snapshots:
     dependencies:
       '@atcute/lexicons': 2.0.0
       valibot: 1.4.0(typescript@5.9.3)
+    transitivePeerDependencies:
+      - typescript
+
+  '@atcute/identity@2.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3)':
+    dependencies:
+      '@atcute/lexicons': 2.0.0
+      valibot: 1.4.0(typescript@6.0.3)
     transitivePeerDependencies:
       - typescript
 
@@ -2463,6 +2537,18 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
+  '@atcute/oauth-browser-client@4.0.0(@atcute/identity-resolver@2.0.0(@atcute/identity@2.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3))(@atcute/lexicons@2.0.0)(typescript@6.0.3))(@atcute/lexicons@2.0.0)(typescript@6.0.3)':
+    dependencies:
+      '@atcute/client': 5.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3)
+      '@atcute/identity-resolver': 2.0.0(@atcute/identity@2.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3))(@atcute/lexicons@2.0.0)(typescript@6.0.3)
+      '@atcute/lexicons': 2.0.0
+      '@atcute/multibase': 1.2.0
+      '@atcute/oauth-crypto': 1.0.0(typescript@6.0.3)
+      '@atcute/oauth-types': 1.0.0(typescript@6.0.3)
+      nanoid: 5.1.11
+    transitivePeerDependencies:
+      - typescript
+
   '@atcute/oauth-crypto@0.1.0':
     dependencies:
       '@atcute/multibase': 1.2.0
@@ -2500,12 +2586,36 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
+  '@atcute/oauth-node-client@2.0.0(@atcute/identity-resolver@2.0.0(@atcute/identity@2.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3))(@atcute/lexicons@2.0.0)(typescript@6.0.3))(@atcute/lexicons@2.0.0)(typescript@6.0.3)':
+    dependencies:
+      '@atcute/client': 5.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3)
+      '@atcute/identity': 2.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3)
+      '@atcute/identity-resolver': 2.0.0(@atcute/identity@2.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3))(@atcute/lexicons@2.0.0)(typescript@6.0.3)
+      '@atcute/lexicons': 2.0.0
+      '@atcute/oauth-crypto': 1.0.0(typescript@6.0.3)
+      '@atcute/oauth-keyset': 0.1.1(typescript@6.0.3)
+      '@atcute/oauth-types': 1.0.0(typescript@6.0.3)
+      '@atcute/util-fetch': 2.0.0(typescript@6.0.3)
+      nanoid: 5.1.11
+      valibot: 1.4.0(typescript@6.0.3)
+    transitivePeerDependencies:
+      - typescript
+
   '@atcute/oauth-types@0.1.1(typescript@6.0.3)':
     dependencies:
       '@atcute/identity': 1.1.5(@atcute/lexicons@1.3.1)
       '@atcute/lexicons': 1.3.1
       '@atcute/oauth-keyset': 0.1.1(typescript@6.0.3)
       '@badrap/valita': 0.4.6
+    transitivePeerDependencies:
+      - typescript
+
+  '@atcute/oauth-types@1.0.0(typescript@6.0.3)':
+    dependencies:
+      '@atcute/identity': 2.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3)
+      '@atcute/lexicons': 2.0.0
+      '@atcute/oauth-keyset': 0.1.1(typescript@6.0.3)
+      valibot: 1.4.0(typescript@6.0.3)
     transitivePeerDependencies:
       - typescript
 
@@ -2534,6 +2644,12 @@ snapshots:
   '@atcute/util-fetch@2.0.0(typescript@5.9.3)':
     dependencies:
       valibot: 1.4.0(typescript@5.9.3)
+    transitivePeerDependencies:
+      - typescript
+
+  '@atcute/util-fetch@2.0.0(typescript@6.0.3)':
+    dependencies:
+      valibot: 1.4.0(typescript@6.0.3)
     transitivePeerDependencies:
       - typescript
 
@@ -3011,6 +3127,22 @@ snapshots:
       '@atcute/lexicons': 1.3.1
       '@atcute/oauth-browser-client': 3.0.1(@atcute/identity-resolver@1.2.3(@atcute/identity@1.1.5(@atcute/lexicons@1.3.1))(@atcute/lexicons@1.3.1))(@atcute/lexicons@1.3.1)(typescript@6.0.3)
       '@atcute/oauth-node-client': 1.1.1(@atcute/identity-resolver@1.2.3(@atcute/identity@1.1.5(@atcute/lexicons@1.3.1))(@atcute/lexicons@1.3.1))(@atcute/lexicons@1.3.1)(typescript@6.0.3)
+      '@atcute/tid': 1.1.2
+      '@sveltejs/kit': 2.60.1(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.55.9(@typescript-eslint/types@8.59.4))(vite@8.0.14(@types/node@22.19.19)(esbuild@0.27.3)(jiti@2.7.0)))(svelte@5.55.9(@typescript-eslint/types@8.59.4))(typescript@6.0.3)(vite@8.0.14(@types/node@22.19.19)(esbuild@0.27.3)(jiti@2.7.0))
+      svelte: 5.55.9(@typescript-eslint/types@8.59.4)
+    transitivePeerDependencies:
+      - '@atcute/identity'
+      - typescript
+
+  '@svelte-atproto/oauth@0.3.0(@atcute/identity@2.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3))(@sveltejs/kit@2.60.1(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.55.9(@typescript-eslint/types@8.59.4))(vite@8.0.14(@types/node@22.19.19)(esbuild@0.27.3)(jiti@2.7.0)))(svelte@5.55.9(@typescript-eslint/types@8.59.4))(typescript@6.0.3)(vite@8.0.14(@types/node@22.19.19)(esbuild@0.27.3)(jiti@2.7.0)))(svelte@5.55.9(@typescript-eslint/types@8.59.4))(typescript@6.0.3)':
+    dependencies:
+      '@atcute/atproto': 4.0.0(@atcute/lexicons@2.0.0)
+      '@atcute/bluesky': 4.0.2(@atcute/lexicons@2.0.0)
+      '@atcute/client': 5.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3)
+      '@atcute/identity-resolver': 2.0.0(@atcute/identity@2.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3))(@atcute/lexicons@2.0.0)(typescript@6.0.3)
+      '@atcute/lexicons': 2.0.0
+      '@atcute/oauth-browser-client': 4.0.0(@atcute/identity-resolver@2.0.0(@atcute/identity@2.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3))(@atcute/lexicons@2.0.0)(typescript@6.0.3))(@atcute/lexicons@2.0.0)(typescript@6.0.3)
+      '@atcute/oauth-node-client': 2.0.0(@atcute/identity-resolver@2.0.0(@atcute/identity@2.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3))(@atcute/lexicons@2.0.0)(typescript@6.0.3))(@atcute/lexicons@2.0.0)(typescript@6.0.3)
       '@atcute/tid': 1.1.2
       '@sveltejs/kit': 2.60.1(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.55.9(@typescript-eslint/types@8.59.4))(vite@8.0.14(@types/node@22.19.19)(esbuild@0.27.3)(jiti@2.7.0)))(svelte@5.55.9(@typescript-eslint/types@8.59.4))(typescript@6.0.3)(vite@8.0.14(@types/node@22.19.19)(esbuild@0.27.3)(jiti@2.7.0))
       svelte: 5.55.9(@typescript-eslint/types@8.59.4)
