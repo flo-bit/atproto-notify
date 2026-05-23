@@ -12,6 +12,7 @@ import type { Did } from '@atcute/lexicons';
 import type {
 	AlertRoute,
 	AppRoute,
+	Capability,
 	CategoryRoute,
 	MarkReadInput,
 	PushSubscriptionInput,
@@ -64,6 +65,7 @@ export function relayFor(platform: App.Platform | undefined, did: Did | null) {
 		setRouting: (sender: Did, category: string, route: CategoryRoute) =>
 			svc.setRouting(did, sender, category, route),
 		setAppRouting: (sender: Did, route: AppRoute) => svc.setAppRouting(did, sender, route),
-		setDefaultRoute: (route: AlertRoute) => svc.setDefaultRoute(did, route)
+		setDefaultRoute: (route: AlertRoute) => svc.setDefaultRoute(did, route),
+		setGrantManage: (sender: Did, manage: Capability) => svc.setGrantManage(did, sender, manage)
 	};
 }

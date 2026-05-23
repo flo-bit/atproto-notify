@@ -1,35 +1,31 @@
 import { PubAtmoNotifySetRouting } from '@atmo/notifs-lexicons';
 import { json, type ProcedureConfig } from '@atcute/xrpc-server';
 
-import { verifySenderRequest, verifyServiceToken } from '../auth/sender';
+import { verifyManagementCall } from '../auth/management';
 import * as q from '../db/queries';
 import type { AppContext } from '../env';
-import { notAuthorized } from '../lib/errors';
 
 const LXM = 'pub.atmo.notify.setRouting';
 
 /**
  * Let an app change how *its own* notifications are routed for a user.
  *
- * Dual-authenticated: the app proves its identity with its service-auth JWT in
- * the Authorization header (→ `senderDid`), and the user proves consent with a
- * fresh user-issued service-auth JWT in `userToken` (→ `userDid`). Both are
- * scoped to this method. We then require an active grant from the user to the
- * app, and only ever touch routing rows keyed by (userDid, senderDid) — so an
- * app can never reach the account default, other apps, or channels.
+ * A self-scoped management write (see MANAGEMENT-AUTH.md): the app is
+ * authenticated by its service-auth bearer and the user by the body `userToken`;
+ * `verifyManagementCall` enforces the (user, app) capability + self-write policy.
+ * Only ever touches routing rows keyed by (userDid, senderDid) — never the
+ * account default, other apps, or channels.
  */
 export function makeSetRouting(
   app: AppContext,
 ): ProcedureConfig<PubAtmoNotifySetRouting.mainSchema> {
   return {
     handler: async ({ request, input }) => {
-      const { senderDid } = await verifySenderRequest(app.verifier, request, LXM);
-      const { did: userDid } = await verifyServiceToken(app.verifier, input.userToken, LXM);
-
-      // The two tokens must be distinct identities, and the user must have an
-      // active grant for this app (i.e. the app is approved to notify them).
-      if (userDid === senderDid) throw notAuthorized();
-      if ((await q.getGrant(app.env.DB, userDid, senderDid)) === null) throw notAuthorized();
+      const { appDid: senderDid, userDid } = await verifyManagementCall(app, request, input, {
+        scope: 'self',
+        write: true,
+        lxm: LXM,
+      });
 
       if (input.route !== undefined) {
         if (input.route === 'default') {

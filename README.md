@@ -37,3 +37,5 @@ implementation of both flows (live at https://example.atmo.pub).
   generated types.
 
 Running, configuring, and deploying everything: **[DEVELOPMENT.md](DEVELOPMENT.md)**.
+Want notifications for your own app without depending on atmo.pub? Run the relay
+yourself: **[SELF-HOSTING.md](SELF-HOSTING.md)**.

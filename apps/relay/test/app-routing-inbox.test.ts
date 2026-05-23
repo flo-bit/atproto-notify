@@ -46,13 +46,18 @@ function grant(recipient: Did, sender: Did): Promise<void> {
   });
 }
 
-/** A mock app + user identity pair (both DID docs resolvable), with the app granted. */
+/**
+ * A mock app + user identity pair (both DID docs resolvable), granted and
+ * designated `self` — so self-writes are admitted under the default policy.
+ * (The capability gate itself is exercised in management-auth.test.ts.)
+ */
 async function granted(tag: string): Promise<{ app: TestIdentity; user: TestIdentity }> {
   const app = await makeIdentity(`did:plc:${tag}-app`);
   const user = await makeIdentity(`did:plc:${tag}-user`);
   mockPlc(app);
   mockPlc(user);
   await grant(user.did, app.did);
+  await q.setGrantManage(env.DB, user.did, app.did, 'self');
   return { app, user };
 }
 

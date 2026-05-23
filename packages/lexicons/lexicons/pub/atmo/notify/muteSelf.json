@@ -1,0 +1,36 @@
+{
+  "lexicon": 1,
+  "id": "pub.atmo.notify.muteSelf",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Let an app mute or unmute its *own* notifications for a user from inside the app. Muted = recorded to the inbox but no alert channels fire. Dual-authenticated like setRouting (app JWT + a user-issued `userToken`). Self-scoped: only ever affects the calling app's own grant.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["userToken", "muted"],
+          "properties": {
+            "userToken": {
+              "type": "string",
+              "description": "A user-issued atproto service-auth JWT (com.atproto.server.getServiceAuth) with aud = the relay's DID and lxm = pub.atmo.notify.muteSelf."
+            },
+            "muted": {
+              "type": "boolean",
+              "description": "true = mute this app's notifications; false = unmute."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["ok"],
+          "properties": { "ok": { "type": "boolean" } }
+        }
+      },
+      "errors": [{ "name": "NotAuthorized" }]
+    }
+  }
+}

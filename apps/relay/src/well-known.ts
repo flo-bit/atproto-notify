@@ -1,7 +1,10 @@
 import getRouting from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/getRouting.json';
 import listNotifications from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/listNotifications.json';
+import manage from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/manage.json';
 import markRead from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/markRead.json';
+import muteSelf from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/muteSelf.json';
 import requestPermission from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/requestPermission.json';
+import revokeSelf from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/revokeSelf.json';
 import send from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/send.json';
 import setRouting from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/setRouting.json';
 import subscriberChanged from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/subscriberChanged.json';
@@ -19,7 +22,10 @@ const LEXICONS: Record<string, unknown> = {
   'pub.atmo.notify.setRouting': setRouting,
   'pub.atmo.notify.getRouting': getRouting,
   'pub.atmo.notify.listNotifications': listNotifications,
+  'pub.atmo.notify.manage': manage,
   'pub.atmo.notify.markRead': markRead,
+  'pub.atmo.notify.revokeSelf': revokeSelf,
+  'pub.atmo.notify.muteSelf': muteSelf,
   'pub.atmo.notify.subscriberChanged': subscriberChanged,
 };
 
@@ -27,7 +33,7 @@ const LEXICONS: Record<string, unknown> = {
 // service-auth JWTs the relay issues (e.g. the `subscriberChanged` callback,
 // ENABLE-FROM-WEB.md). Its private half is the RELAY_PRIVATE_KEY secret. Rotate
 // both together via `relay:keygen`.
-const RELAY_PUBLIC_KEY_MULTIBASE = 'zDnaeZB4zYA9upEh4bXkxXjsQJJhdq9zuNVtmk9QXhrno5yhd';
+const RELAY_PUBLIC_KEY_MULTIBASE = 'zDnaebFbH5Q6PhQE8g7ZryvijrstP3oFARmivjPHpneFd8W9t';
 
 /**
  * `GET /.well-known/did.json` — the relay's `did:web` document. Publishes an

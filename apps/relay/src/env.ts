@@ -65,6 +65,12 @@ export interface Env {
   /** Telegram bot username, used to build deep links (var). */
   BOT_USERNAME: string;
 
+  /** Self-management admission policy for *undesignated* granted apps (var).
+   *  'off'|'relay-allowlist'|'user-allowlist'|'open'. See MANAGEMENT-AUTH.md.
+   *  Defaults in code: reads → 'open', writes → 'user-allowlist'. */
+  MANAGEMENT_SELF_READ_POLICY?: string;
+  MANAGEMENT_SELF_WRITE_POLICY?: string;
+
   /** Relay's P-256 signing key as a private multikey (secret) — for outbound
    *  service-auth JWTs (e.g. the subscriberChanged callback). `relay:keygen`. */
   RELAY_PRIVATE_KEY: string;

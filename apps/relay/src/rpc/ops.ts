@@ -9,6 +9,7 @@ import type {
   AlertRoute,
   AppInfo,
   AppRoute,
+  Capability,
   CategoryRoute,
   DeviceView,
   ListNotificationsResult,
@@ -372,6 +373,7 @@ export async function getRouting(env: Env, did: Did): Promise<RoutingConfig> {
     sender: g.sender_did,
     title: g.title ?? g.display_name ?? g.handle ?? g.sender_did,
     route: (appRouteBy.get(g.sender_did) ?? 'default') as AppRoute,
+    manage: g.manage as Capability,
     categories: (catsBySender.get(g.sender_did) ?? []).map((c) => ({
       category: c.category,
       description: c.description ?? undefined,
@@ -418,6 +420,17 @@ export async function setDefaultRoute(
 ): Promise<{ ok: boolean }> {
   await q.ensureUser(env.DB, did, now());
   await q.setDefaultRoute(env.DB, did, route);
+  return { ok: true };
+}
+
+/** Designate an app's management capability for this user. See MANAGEMENT-AUTH.md. */
+export async function setGrantManage(
+  env: Env,
+  did: Did,
+  sender: Did,
+  manage: Capability,
+): Promise<{ ok: boolean }> {
+  await q.setGrantManage(env.DB, did, sender, manage);
   return { ok: true };
 }
 

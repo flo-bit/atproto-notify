@@ -55,6 +55,8 @@ export interface GrantRow {
   title: string | null;
   description: string | null;
   icon_url: string | null;
+  /** Management capability the user designated for this app: 'none'|'self'|'full'. */
+  manage: string;
 }
 
 /** A grant joined with the (optional) cached Bluesky profile (`s.*`). */
@@ -383,6 +385,20 @@ export async function setGrantMuted(
   const result = await db
     .prepare('UPDATE grants SET muted = ? WHERE recipient_did = ? AND sender_did = ?')
     .bind(toInt(muted), recipientDid, senderDid)
+    .run();
+  return changed(result);
+}
+
+/** Set a grant's management capability ('none'|'self'|'full'). See MANAGEMENT-AUTH.md. */
+export async function setGrantManage(
+  db: D1Database,
+  recipientDid: Did,
+  senderDid: Did,
+  manage: 'none' | 'self' | 'full',
+): Promise<boolean> {
+  const result = await db
+    .prepare('UPDATE grants SET manage = ? WHERE recipient_did = ? AND sender_did = ?')
+    .bind(manage, recipientDid, senderDid)
     .run();
   return changed(result);
 }

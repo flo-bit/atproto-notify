@@ -20,6 +20,11 @@ export function notAuthorized(message = 'Not authorized to notify this recipient
   return new XRPCError({ status: 403, error: 'NotAuthorized', message });
 }
 
+/** 400 `InvalidRequest` — e.g. an unknown management method in the envelope. */
+export function invalidRequest(message = 'Invalid request'): XRPCError {
+  return new XRPCError({ status: 400, error: 'InvalidRequest', message });
+}
+
 /**
  * 429 `RateLimitExceeded` with a `Retry-After` header (whole seconds, min 1).
  */

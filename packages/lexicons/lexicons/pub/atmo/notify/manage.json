@@ -1,0 +1,52 @@
+{
+  "lexicon": 1,
+  "id": "pub.atmo.notify.manage",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Whole-account notification management for a designated *manager* app (see MANAGEMENT-AUTH.md). One envelope over every account-management operation `web/` performs — grants, pending, channels, devices, settings, routing, inbox. Requires `full` capability for (user, app): the app must be a relay-wide manager or per-user designated. The app authenticates with its service-auth bearer; the user is identified by a body `userToken` (dual-auth) or, for a standing designation, a vouched `did` (e.g. lite-session users). `method` selects the operation and `params` carries its arguments; `result` is that operation's output.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["method"],
+          "properties": {
+            "method": {
+              "type": "string",
+              "description": "Operation name, e.g. 'listGrants', 'grant', 'revoke', 'getSettings', 'updateSettings', 'setDefaultRoute'. See MANAGEMENT-AUTH.md's per-method table."
+            },
+            "userToken": {
+              "type": "string",
+              "description": "A user-issued service-auth JWT (aud = relay, lxm = pub.atmo.notify.manage) — dual-auth. Omit to vouch via `did` (only honored for a designated manager)."
+            },
+            "did": {
+              "type": "string",
+              "format": "did",
+              "description": "The user being managed, when vouching (no userToken). Ignored if userToken is present (the user is taken from the token)."
+            },
+            "params": {
+              "type": "unknown",
+              "description": "Arguments for `method` (shape depends on the operation)."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "type": "unknown",
+              "description": "The selected operation's return value (absent for void operations)."
+            }
+          }
+        }
+      },
+      "errors": [
+        { "name": "NotAuthorized" },
+        { "name": "InvalidRequest", "description": "Unknown or malformed method." }
+      ]
+    }
+  }
+}

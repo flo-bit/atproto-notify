@@ -1,17 +1,16 @@
 import { PubAtmoNotifyGetRouting } from '@atmo/notifs-lexicons';
 import { json, type ProcedureConfig } from '@atcute/xrpc-server';
 
-import { verifySenderRequest, verifyServiceToken } from '../auth/sender';
+import { verifyManagementCall } from '../auth/management';
 import * as q from '../db/queries';
 import type { AppContext } from '../env';
-import { notAuthorized } from '../lib/errors';
 
 const LXM = 'pub.atmo.notify.getRouting';
 
 /**
  * Read how the calling app's own notifications are currently routed for a user,
- * so the app can render an accurate in-app settings UI. Dual-authenticated and
- * grant-gated exactly like setRouting; returns only this app's slice plus the
+ * so the app can render an accurate in-app settings UI. A self-scoped management
+ * read (see MANAGEMENT-AUTH.md); returns only this app's slice plus the
  * account-default value (so 'default'/'app' can be labelled by the caller).
  */
 export function makeGetRouting(
@@ -19,11 +18,11 @@ export function makeGetRouting(
 ): ProcedureConfig<PubAtmoNotifyGetRouting.mainSchema> {
   return {
     handler: async ({ request, input }) => {
-      const { senderDid } = await verifySenderRequest(app.verifier, request, LXM);
-      const { did: userDid } = await verifyServiceToken(app.verifier, input.userToken, LXM);
-
-      if (userDid === senderDid) throw notAuthorized();
-      if ((await q.getGrant(app.env.DB, userDid, senderDid)) === null) throw notAuthorized();
+      const { appDid: senderDid, userDid } = await verifyManagementCall(app, request, input, {
+        scope: 'self',
+        write: false,
+        lxm: LXM,
+      });
 
       const [user, appRoute, cats, routes] = await Promise.all([
         q.getUser(app.env.DB, userDid),

@@ -75,6 +75,9 @@ export type AppRoute = AlertRoute | 'default';
 /** Per-category route: a concrete route, or 'app' (inherit the app-wide route). */
 export type CategoryRoute = AlertRoute | 'app';
 
+/** Management capability the user designated for an app. See MANAGEMENT-AUTH.md. */
+export type Capability = 'none' | 'self' | 'full';
+
 export interface RoutingCategory {
   category: string;
   description?: string;
@@ -85,6 +88,8 @@ export interface RoutingApp {
   title: string;
   /** App-wide route applied to everything from this app (and to categories set to 'app'). */
   route: AppRoute;
+  /** What this app may manage on the user's behalf ('none'|'self'|'full'). */
+  manage: Capability;
   categories: RoutingCategory[];
 }
 export interface RoutingConfig {
@@ -148,6 +153,9 @@ export interface NotifsRpc {
   ): Promise<{ ok: boolean }>;
   setAppRouting(did: Did, sender: Did, route: AppRoute): Promise<{ ok: boolean }>;
   setDefaultRoute(did: Did, route: AlertRoute): Promise<{ ok: boolean }>;
+
+  /** Designate an app's management capability for this user ('none'|'self'|'full'). */
+  setGrantManage(did: Did, sender: Did, manage: Capability): Promise<{ ok: boolean }>;
 
   /**
    * Cross-app login: verify a `pub.atmo.auth` service-auth JWT (issued by the

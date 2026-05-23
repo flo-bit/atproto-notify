@@ -1,0 +1,32 @@
+{
+  "lexicon": 1,
+  "id": "pub.atmo.notify.revokeSelf",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Let an app revoke its *own* notification grant for a user — i.e. turn itself off from inside the app. Dual-authenticated like setRouting (app JWT in the Authorization header + a user-issued `userToken`). Self-scoped: only ever removes the calling app's own grant.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["userToken"],
+          "properties": {
+            "userToken": {
+              "type": "string",
+              "description": "A user-issued atproto service-auth JWT (com.atproto.server.getServiceAuth) with aud = the relay's DID and lxm = pub.atmo.notify.revokeSelf."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["ok"],
+          "properties": { "ok": { "type": "boolean" } }
+        }
+      },
+      "errors": [{ "name": "NotAuthorized" }]
+    }
+  }
+}

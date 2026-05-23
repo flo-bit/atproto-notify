@@ -5,6 +5,7 @@ import type {
   AlertRoute,
   AppInfo,
   AppRoute,
+  Capability,
   CategoryRoute,
   DeviceView,
   ListNotificationsResult,
@@ -101,6 +102,9 @@ export class RelayRpc extends WorkerEntrypoint<Env> implements NotifsRpc {
   }
   setDefaultRoute(did: Did, route: AlertRoute) {
     return ops.setDefaultRoute(this.env, did, route);
+  }
+  setGrantManage(did: Did, sender: Did, manage: Capability) {
+    return ops.setGrantManage(this.env, did, sender, manage);
   }
   verifyAppLogin(token: string): Promise<{ did: Did }> {
     return ops.verifyAppLogin(this.env, token);

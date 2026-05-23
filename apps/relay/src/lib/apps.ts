@@ -19,6 +19,13 @@ export interface RegisteredApp {
   callbackUrl?: string;
   /** Auto-grant at `requestPermission` (skips the pending step). */
   trusted?: boolean;
+  /**
+   * Relay-wide management designation (see MANAGEMENT-AUTH.md). 'full' = a
+   * first-party manager that may manage any user's whole account; 'self' =
+   * relay-allowlisted to manage its own slice for any user. Omit → none
+   * (users may still designate per-grant).
+   */
+  manage?: 'self' | 'full';
 }
 
 export const APPS: readonly RegisteredApp[] = [
@@ -28,12 +35,20 @@ export const APPS: readonly RegisteredApp[] = [
     description: 'Demo app showing the atmo.pub integration.',
     // For local end-to-end testing, point this at your local example-sender.
     callbackUrl: 'https://example.atmo.pub',
+    // Relay-allowlisted for self-management so the example's "Step 3" demo works
+    // without a per-user designation UI (which lands in a later slice).
+    manage: 'self',
   },
 ];
 
 /** Auto-grant senders (the former TRUSTED_SENDERS). */
 export function isTrustedSender(did: Did): boolean {
   return APPS.some((app) => app.did === did && app.trusted === true);
+}
+
+/** Relay-wide management designation for `did`, if any ('self' | 'full'). */
+export function relayManageFor(did: string): 'self' | 'full' | undefined {
+  return APPS.find((app) => app.did === did)?.manage;
 }
 
 /** The registered app for `did`, if it has a callback URL configured. */

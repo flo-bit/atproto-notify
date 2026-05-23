@@ -1,8 +1,8 @@
 <script lang="ts">
-	import type { AppRoute, CategoryRoute } from '@atmo/notifs-lexicons';
+	import type { AppRoute, Capability, CategoryRoute } from '@atmo/notifs-lexicons';
 	import { invalidateAll } from '$app/navigation';
 	import AppMark from '$lib/components/AppMark.svelte';
-	import { setAppRouting, setRouting } from '$lib/remote/notifs.remote';
+	import { setAppRouting, setManage, setRouting } from '$lib/remote/notifs.remote';
 	import { APP_ROUTES, CATEGORY_ROUTES, ROUTE_LABELS } from '$lib/routes';
 	import type { PageData } from './$types';
 
@@ -33,6 +33,18 @@
 		const sender = data.app?.sender;
 		if (sender) run(category, () => setRouting({ sender, category, route }));
 	}
+
+	function changeManage(manage: Capability) {
+		const sender = data.app?.sender;
+		if (sender) run('__manage', () => setManage({ sender, manage }));
+	}
+
+	const CAPABILITIES: Capability[] = ['none', 'self', 'full'];
+	const CAP_LABELS: Record<Capability, string> = {
+		none: 'No access',
+		self: 'Manage its own settings',
+		full: 'Manage your whole account'
+	};
 
 	const selectClass =
 		'shrink-0 rounded-md border border-line bg-surface-2 px-2 py-1.5 text-sm text-fg disabled:opacity-50';
@@ -133,6 +145,36 @@
 					{/each}
 				</ul>
 			{/if}
+		</section>
+
+		<!-- Management access (capability designation; see MANAGEMENT-AUTH.md) -->
+		<section class="mt-8 max-w-2xl">
+			<h2 class="mb-3 font-mono text-[0.7rem] tracking-wide text-muted-2 uppercase">
+				Management access
+			</h2>
+			<div class="rounded-card border border-line bg-surface p-4">
+				<div class="flex items-center justify-between gap-4">
+					<div class="min-w-0">
+						<div class="text-sm font-medium text-fg">Let this app change your settings</div>
+						<p class="mt-1 text-xs text-muted">
+							<span class="font-medium text-fg">Manage its own settings</span> lets the app adjust how
+							<em>its</em> notifications reach you, from inside the app.
+							<span class="font-medium text-fg">Manage your whole account</span> lets it act as a full
+							dashboard — every app, channel and setting. Grant full access only to apps you trust.
+						</p>
+					</div>
+					<select
+						class={selectClass}
+						value={data.app.manage}
+						disabled={busy['__manage']}
+						onchange={(e) => changeManage(e.currentTarget.value as Capability)}
+					>
+						{#each CAPABILITIES as c (c)}
+							<option value={c}>{CAP_LABELS[c]}</option>
+						{/each}
+					</select>
+				</div>
+			</div>
 		</section>
 	{/if}
 </div>

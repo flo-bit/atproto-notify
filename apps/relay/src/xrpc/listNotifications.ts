@@ -1,30 +1,29 @@
 import { PubAtmoNotifyListNotifications } from '@atmo/notifs-lexicons';
 import { json, type ProcedureConfig } from '@atcute/xrpc-server';
 
-import { verifySenderRequest, verifyServiceToken } from '../auth/sender';
+import { verifyManagementCall } from '../auth/management';
 import * as q from '../db/queries';
 import type { AppContext } from '../env';
-import { notAuthorized } from '../lib/errors';
 
 const LXM = 'pub.atmo.notify.listNotifications';
 const DEFAULT_LIMIT = 50;
 
 /**
  * Let an app page the notifications *it* sent to a user, with read state and
- * the per-notification delivery count. Dual-authenticated and grant-gated like
- * setRouting; results are scoped to (userDid, senderDid) so an app only ever
- * sees its own notifications. Cursor is the `created_at` of the last row.
+ * the per-notification delivery count. A self-scoped management read (see
+ * MANAGEMENT-AUTH.md); results are scoped to (userDid, senderDid) so an app only
+ * ever sees its own notifications. Cursor is the `created_at` of the last row.
  */
 export function makeListNotifications(
   app: AppContext,
 ): ProcedureConfig<PubAtmoNotifyListNotifications.mainSchema> {
   return {
     handler: async ({ request, input }) => {
-      const { senderDid } = await verifySenderRequest(app.verifier, request, LXM);
-      const { did: userDid } = await verifyServiceToken(app.verifier, input.userToken, LXM);
-
-      if (userDid === senderDid) throw notAuthorized();
-      if ((await q.getGrant(app.env.DB, userDid, senderDid)) === null) throw notAuthorized();
+      const { appDid: senderDid, userDid } = await verifyManagementCall(app, request, input, {
+        scope: 'self',
+        write: false,
+        lxm: LXM,
+      });
 
       const limit = input.limit ?? DEFAULT_LIMIT;
       let before: number | undefined;

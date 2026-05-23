@@ -113,6 +113,13 @@ export const setAppRouting = command(
 	}
 );
 
+export const setManage = command(
+	v.object({ sender: didSchema, manage: v.picklist(['none', 'self', 'full']) }),
+	async ({ sender, manage }) => {
+		await requireRelay().setGrantManage(sender as Did, manage);
+	}
+);
+
 export const setAutoAllow = command(
 	v.object({ autoAllow: v.picklist(['all', 'trusted', 'none']) }),
 	async ({ autoAllow }) => {
