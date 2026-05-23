@@ -1,0 +1,37 @@
+{
+  "lexicon": 1,
+  "id": "tools.atmo.notifs.listPending",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "List pending permission requests awaiting the authenticated user's decision. User-authenticated.",
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["pending"],
+          "properties": {
+            "pending": {
+              "type": "array",
+              "items": { "type": "ref", "ref": "#pendingView" }
+            }
+          }
+        }
+      }
+    },
+    "pendingView": {
+      "type": "object",
+      "required": ["id", "sender", "createdAt", "expiresAt"],
+      "properties": {
+        "id": { "type": "string" },
+        "sender": { "type": "string", "format": "did" },
+        "senderHandle": { "type": "string" },
+        "senderDisplayName": { "type": "string" },
+        "senderAvatar": { "type": "string" },
+        "reason": { "type": "string" },
+        "createdAt": { "type": "string", "format": "datetime" },
+        "expiresAt": { "type": "string", "format": "datetime" }
+      }
+    }
+  }
+}

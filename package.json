@@ -1,0 +1,20 @@
+{
+  "name": "atproto-notifs",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.2.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @atmo/notifs-relay dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "generate": "pnpm --filter @atmo/notifs-lexicons generate",
+    "db:migrate": "pnpm --filter @atmo/notifs-relay db:migrate",
+    "typecheck": "tsc -b"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

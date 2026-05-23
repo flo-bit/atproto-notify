@@ -1,0 +1,47 @@
+{
+  "lexicon": 1,
+  "id": "tools.atmo.notifs.requestPermission",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Ask a recipient for permission to send them notifications. Sender-authenticated.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["recipient"],
+          "properties": {
+            "recipient": {
+              "type": "string",
+              "format": "did",
+              "description": "DID of the user the sender wants to notify."
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Human-readable reason shown to the user when approving."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["id", "status"],
+          "properties": {
+            "id": { "type": "string" },
+            "status": {
+              "type": "string",
+              "enum": ["pending", "alreadyGranted"]
+            }
+          }
+        }
+      },
+      "errors": [
+        { "name": "NotAuthorized" },
+        { "name": "RateLimitExceeded" }
+      ]
+    }
+  }
+}

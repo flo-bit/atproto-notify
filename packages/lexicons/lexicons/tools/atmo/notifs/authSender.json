@@ -1,0 +1,22 @@
+{
+  "lexicon": 1,
+  "id": "tools.atmo.notifs.authSender",
+  "defs": {
+    "main": {
+      "type": "permission-set",
+      "title": "Send notifications",
+      "detail": "Allow this app to request permission to send you notifications and to deliver them to your linked channels (like Telegram).",
+      "permissions": [
+        {
+          "type": "permission",
+          "resource": "rpc",
+          "inheritAud": true,
+          "lxm": [
+            "tools.atmo.notifs.requestPermission",
+            "tools.atmo.notifs.send"
+          ]
+        }
+      ]
+    }
+  }
+}

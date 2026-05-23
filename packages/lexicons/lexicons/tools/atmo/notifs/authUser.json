@@ -1,0 +1,31 @@
+{
+  "lexicon": 1,
+  "id": "tools.atmo.notifs.authUser",
+  "defs": {
+    "main": {
+      "type": "permission-set",
+      "title": "Manage your notifications",
+      "detail": "Allow this app to view and manage which apps can send you notifications, link delivery channels, and adjust your notification settings.",
+      "permissions": [
+        {
+          "type": "permission",
+          "resource": "rpc",
+          "inheritAud": true,
+          "lxm": [
+            "tools.atmo.notifs.grant",
+            "tools.atmo.notifs.revoke",
+            "tools.atmo.notifs.denyPending",
+            "tools.atmo.notifs.muteGrant",
+            "tools.atmo.notifs.listGrants",
+            "tools.atmo.notifs.listPending",
+            "tools.atmo.notifs.linkChannel",
+            "tools.atmo.notifs.unlinkChannel",
+            "tools.atmo.notifs.listChannels",
+            "tools.atmo.notifs.getSettings",
+            "tools.atmo.notifs.updateSettings"
+          ]
+        }
+      ]
+    }
+  }
+}

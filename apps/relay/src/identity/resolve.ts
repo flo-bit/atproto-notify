@@ -1,0 +1,56 @@
+import {
+  CompositeDidDocumentResolver,
+  type DidDocumentResolver,
+  PlcDidDocumentResolver,
+  type ResolveDidDocumentOptions,
+  WebDidDocumentResolver,
+} from '@atcute/identity-resolver';
+import type { Did } from '@atcute/lexicons';
+
+// The resolved DID document type, derived from the resolver interface so we
+// don't need a direct dependency on `@atcute/identity` just for the type.
+type DidDocument = Awaited<ReturnType<DidDocumentResolver['resolve']>>;
+
+const DID_DOC_CACHE_TTL_SECONDS = 5 * 60; // 5 minutes (see README "Configuration")
+
+/**
+ * Wraps an inner DID-document resolver with a KV cache. DID documents change
+ * rarely, so a short TTL massively cuts PLC/web lookups during JWT verification.
+ */
+export class CachedDidDocumentResolver implements DidDocumentResolver {
+  readonly #inner: DidDocumentResolver;
+  readonly #cache: KVNamespace;
+
+  constructor(inner: DidDocumentResolver, cache: KVNamespace) {
+    this.#inner = inner;
+    this.#cache = cache;
+  }
+
+  async resolve(did: Did, options?: ResolveDidDocumentOptions): Promise<DidDocument> {
+    const key = `diddoc:${did}`;
+
+    if (!options?.noCache) {
+      const cached = await this.#cache.get<DidDocument>(key, 'json');
+      if (cached !== null) {
+        return cached;
+      }
+    }
+
+    const doc = await this.#inner.resolve(did, options);
+    await this.#cache.put(key, JSON.stringify(doc), {
+      expirationTtl: DID_DOC_CACHE_TTL_SECONDS,
+    });
+    return doc;
+  }
+}
+
+/** Build the plc+web composite resolver, wrapped in the KV cache. */
+export function makeResolver(cache: KVNamespace): DidDocumentResolver {
+  const composite = new CompositeDidDocumentResolver({
+    methods: {
+      plc: new PlcDidDocumentResolver(),
+      web: new WebDidDocumentResolver(),
+    },
+  });
+  return new CachedDidDocumentResolver(composite, cache);
+}

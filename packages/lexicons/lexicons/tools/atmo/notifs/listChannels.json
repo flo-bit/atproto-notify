@@ -1,0 +1,32 @@
+{
+  "lexicon": 1,
+  "id": "tools.atmo.notifs.listChannels",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "List the delivery channels linked by the authenticated user. User-authenticated.",
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["channels"],
+          "properties": {
+            "channels": {
+              "type": "array",
+              "items": { "type": "ref", "ref": "#channelView" }
+            }
+          }
+        }
+      }
+    },
+    "channelView": {
+      "type": "object",
+      "required": ["platform", "linkedAt"],
+      "properties": {
+        "platform": { "type": "string" },
+        "linkedAt": { "type": "string", "format": "datetime" },
+        "displayName": { "type": "string" }
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "lexicon": 1,
+  "id": "tools.atmo.notifs.unlinkChannel",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Unlink a delivery channel from the authenticated user. User-authenticated.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["platform"],
+          "properties": {
+            "platform": { "type": "string", "enum": ["telegram"] }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["unlinked"],
+          "properties": {
+            "unlinked": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}

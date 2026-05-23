@@ -1,0 +1,35 @@
+{
+  "lexicon": 1,
+  "id": "tools.atmo.notifs.listGrants",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "List the senders the authenticated user has granted notification permission to. User-authenticated.",
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["grants"],
+          "properties": {
+            "grants": {
+              "type": "array",
+              "items": { "type": "ref", "ref": "#grantView" }
+            }
+          }
+        }
+      }
+    },
+    "grantView": {
+      "type": "object",
+      "required": ["sender", "grantedAt", "muted"],
+      "properties": {
+        "sender": { "type": "string", "format": "did" },
+        "senderHandle": { "type": "string" },
+        "senderDisplayName": { "type": "string" },
+        "senderAvatar": { "type": "string" },
+        "grantedAt": { "type": "string", "format": "datetime" },
+        "muted": { "type": "boolean" }
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "@atmo/notifs-relay",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -b",
+    "db:migrate": "wrangler d1 migrations apply notifs-relay"
+  },
+  "dependencies": {
+    "@atcute/client": "^5.0.0",
+    "@atcute/identity-resolver": "^2.0.0",
+    "@atcute/lexicons": "^2.0.0",
+    "@atcute/xrpc-server": "^2.0.0",
+    "@atmo/notifs-lexicons": "workspace:*",
+    "nanoid": "^5.1.11"
+  },
+  "devDependencies": {
+    "@atcute/crypto": "^2.4.1",
+    "@cloudflare/vitest-pool-workers": "^0.16.9",
+    "@cloudflare/workers-types": "^4.20260522.1",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.7",
+    "wrangler": "^4.94.0"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/lexicons" },
+    { "path": "./apps/relay" }
+  ]
+}

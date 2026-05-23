@@ -1,0 +1,42 @@
+name = "notifs-relay"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Custom domains bind the whole hostname (no path/wildcard); the Worker's own
+# router dispatches paths internally.
+routes = [{ pattern = "notifs.atmo.tools", custom_domain = true }]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "notifs-relay"
+database_id = "c83e2e03-0081-4fc4-b25f-6897a614e169"
+migrations_dir = "migrations"
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "8b1baa80a28c468c83da20f3f6dec3b6"
+
+[[queues.producers]]
+binding = "notifs_dispatch"
+queue = "notifs-dispatch"
+
+[[queues.consumers]]
+queue = "notifs-dispatch"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 3
+
+[triggers]
+crons = ["0 3 * * *"]
+
+[observability]
+enabled = true
+
+[vars]
+RELAY_DID = "did:web:notifs.atmo.tools"
+BOT_USERNAME = "atmo_notify_bot"        # e.g. "atmonotifsbot"
+
+# Secrets set via `wrangler secret put`:
+# - TELEGRAM_BOT_TOKEN
+# - TELEGRAM_WEBHOOK_SECRET

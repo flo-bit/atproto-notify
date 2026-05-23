@@ -1,0 +1,31 @@
+{
+  "lexicon": 1,
+  "id": "tools.atmo.notifs.muteGrant",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Mute or unmute an existing grant. Muted senders' notifications are accepted but not delivered. User-authenticated.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["sender", "muted"],
+          "properties": {
+            "sender": { "type": "string", "format": "did" },
+            "muted": { "type": "boolean" }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["muted"],
+          "properties": {
+            "muted": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}

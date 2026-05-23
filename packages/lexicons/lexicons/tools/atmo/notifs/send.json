@@ -1,0 +1,48 @@
+{
+  "lexicon": 1,
+  "id": "tools.atmo.notifs.send",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Send a notification to a recipient who has granted the sender permission. Sender-authenticated.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["recipient", "title", "body"],
+          "properties": {
+            "recipient": { "type": "string", "format": "did" },
+            "title": { "type": "string", "maxLength": 100 },
+            "body": { "type": "string", "maxLength": 500 },
+            "uri": {
+              "type": "string",
+              "description": "Optional link opened when the notification is tapped."
+            },
+            "threadKey": {
+              "type": "string",
+              "description": "Optional opaque key for grouping related notifications."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["id", "delivered"],
+          "properties": {
+            "id": { "type": "string" },
+            "delivered": {
+              "type": "integer",
+              "description": "Number of channels the notification was dispatched to."
+            }
+          }
+        }
+      },
+      "errors": [
+        { "name": "NotAuthorized" },
+        { "name": "RateLimitExceeded" }
+      ]
+    }
+  }
+}

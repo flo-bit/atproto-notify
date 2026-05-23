@@ -1,0 +1,20 @@
+{
+  "lexicon": 1,
+  "id": "tools.atmo.notifs.getSettings",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get the authenticated user's notification settings. User-authenticated.",
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["notifyPendingViaTelegram"],
+          "properties": {
+            "notifyPendingViaTelegram": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}
