@@ -13,14 +13,16 @@ CREATE TABLE users (
 );
 
 CREATE TABLE channels (
+  device_id TEXT NOT NULL,         -- migration 0003: telegram = chat id; mobile = generated
   did TEXT NOT NULL,
-  platform TEXT NOT NULL,
-  platform_user_id TEXT NOT NULL,
-  display_name TEXT,
+  platform TEXT NOT NULL,          -- 'telegram' | 'ios' | 'android'
+  platform_user_id TEXT NOT NULL,  -- telegram chat id, or native APNs/FCM push token
+  display_name TEXT,               -- device name (mobile) or telegram account label
   linked_at INTEGER NOT NULL,
-  PRIMARY KEY (did, platform)
+  PRIMARY KEY (did, platform, device_id)
 );
 CREATE UNIQUE INDEX channels_by_platform_user ON channels (platform, platform_user_id);
+CREATE INDEX channels_by_did ON channels (did);
 
 CREATE TABLE link_tokens (
   token TEXT PRIMARY KEY,
@@ -71,7 +73,10 @@ CREATE TABLE delivery_log (
   recipient_did TEXT NOT NULL,
   sender_did TEXT NOT NULL,
   title TEXT,
+  body TEXT,                    -- migration 0003: stored for the mobile inbox
+  uri TEXT,                     -- migration 0003
   delivered_count INTEGER NOT NULL,
   created_at INTEGER NOT NULL
 );
 CREATE INDEX delivery_by_recipient ON delivery_log (recipient_did, created_at DESC);
+CREATE INDEX delivery_by_recipient_sender ON delivery_log (recipient_did, sender_did, created_at DESC);

@@ -6,6 +6,7 @@ allowBuilds:
   sharp: false
   workerd: true
   "@tailwindcss/oxide": true
+  core-js: set this to true or false
 minimumReleaseAgeExclude:
   - "@cloudflare/vitest-pool-workers@0.16.9"
   - "@cloudflare/workers-types@4.20260522.1"

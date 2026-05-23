@@ -14,7 +14,7 @@ export function makeUnlinkChannel(
     handler: async ({ request, input }) => {
       const { userDid } = await verifyUserRequest(app.verifier, request, LXM);
 
-      const unlinked = await q.deleteChannel(app.env.DB, userDid, input.platform);
+      const unlinked = await q.deleteChannelByDevice(app.env.DB, userDid, input.deviceId);
 
       return json({ unlinked });
     },

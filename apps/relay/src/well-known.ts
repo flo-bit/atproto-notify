@@ -4,8 +4,10 @@ import grant from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/grant.json';
 import linkChannel from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/linkChannel.json';
 import listChannels from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/listChannels.json';
 import listGrants from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/listGrants.json';
+import listNotifications from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/listNotifications.json';
 import listPending from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/listPending.json';
 import muteGrant from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/muteGrant.json';
+import registerDevice from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/registerDevice.json';
 import requestPermission from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/requestPermission.json';
 import revoke from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/revoke.json';
 import send from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/send.json';
@@ -28,6 +30,8 @@ const LEXICONS: Record<string, unknown> = {
   'tools.atmo.notifs.linkChannel': linkChannel,
   'tools.atmo.notifs.unlinkChannel': unlinkChannel,
   'tools.atmo.notifs.listChannels': listChannels,
+  'tools.atmo.notifs.listNotifications': listNotifications,
+  'tools.atmo.notifs.registerDevice': registerDevice,
   'tools.atmo.notifs.getSettings': getSettings,
   'tools.atmo.notifs.updateSettings': updateSettings,
 };

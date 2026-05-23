@@ -11,6 +11,7 @@ export interface UserRow {
 }
 
 export interface ChannelRow {
+  device_id: string;
   did: Did;
   platform: string;
   platform_user_id: string;
@@ -119,6 +120,7 @@ export function getChannelByPlatformUser(
 }
 
 export interface UpsertChannelInput {
+  deviceId: string;
   did: Did;
   platform: string;
   platformUserId: string;
@@ -129,21 +131,47 @@ export interface UpsertChannelInput {
 /**
  * Insert/replace a channel. `INSERT OR REPLACE` also clears any existing row
  * that collides on the `(platform, platform_user_id)` unique index, so linking
- * a Telegram account that was previously tied to another DID moves it cleanly.
+ * a Telegram account (or a push token) previously tied to another DID moves it
+ * cleanly.
  */
 export async function upsertChannel(db: D1Database, input: UpsertChannelInput): Promise<void> {
   await db
     .prepare(
-      'INSERT OR REPLACE INTO channels (did, platform, platform_user_id, display_name, linked_at) VALUES (?, ?, ?, ?, ?)',
+      'INSERT OR REPLACE INTO channels (device_id, did, platform, platform_user_id, display_name, linked_at) VALUES (?, ?, ?, ?, ?, ?)',
     )
-    .bind(input.did, input.platform, input.platformUserId, input.displayName, input.linkedAt)
+    .bind(
+      input.deviceId,
+      input.did,
+      input.platform,
+      input.platformUserId,
+      input.displayName,
+      input.linkedAt,
+    )
     .run();
 }
 
-export async function deleteChannel(db: D1Database, did: Did, platform: string): Promise<boolean> {
+/** Refresh an existing device's `linked_at` (and `display_name` if provided). */
+export async function touchChannel(
+  db: D1Database,
+  input: { did: Did; deviceId: string; displayName: string | null; linkedAt: number },
+): Promise<void> {
+  await db
+    .prepare(
+      'UPDATE channels SET linked_at = ?, display_name = COALESCE(?, display_name) WHERE did = ? AND device_id = ?',
+    )
+    .bind(input.linkedAt, input.displayName, input.did, input.deviceId)
+    .run();
+}
+
+/** Unlink a single device, scoped to its owner (no cross-user deletes). */
+export async function deleteChannelByDevice(
+  db: D1Database,
+  did: Did,
+  deviceId: string,
+): Promise<boolean> {
   const result = await db
-    .prepare('DELETE FROM channels WHERE did = ? AND platform = ?')
-    .bind(did, platform)
+    .prepare('DELETE FROM channels WHERE did = ? AND device_id = ?')
+    .bind(did, deviceId)
     .run();
   return changed(result);
 }
@@ -419,6 +447,8 @@ export interface InsertDeliveryLogInput {
   recipientDid: Did;
   senderDid: Did;
   title: string | null;
+  body: string | null;
+  uri: string | null;
   deliveredCount: number;
   createdAt: number;
 }
@@ -426,10 +456,74 @@ export interface InsertDeliveryLogInput {
 export async function insertDeliveryLog(db: D1Database, input: InsertDeliveryLogInput): Promise<void> {
   await db
     .prepare(
-      'INSERT INTO delivery_log (id, recipient_did, sender_did, title, delivered_count, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO delivery_log (id, recipient_did, sender_did, title, body, uri, delivered_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     )
-    .bind(input.id, input.recipientDid, input.senderDid, input.title, input.deliveredCount, input.createdAt)
+    .bind(
+      input.id,
+      input.recipientDid,
+      input.senderDid,
+      input.title,
+      input.body,
+      input.uri,
+      input.deliveredCount,
+      input.createdAt,
+    )
     .run();
+}
+
+/** A delivery_log row joined with the (optional) cached sender profile. */
+export interface DeliveryWithSenderRow {
+  id: string;
+  sender_did: Did;
+  title: string | null;
+  body: string | null;
+  uri: string | null;
+  created_at: number;
+  handle: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+}
+
+export interface ListNotificationsInput {
+  recipientDid: Did;
+  limit: number;
+  /** Keyset cursor: rows strictly older than (createdAt, id). */
+  cursor?: { createdAt: number; id: string };
+  senderDid?: Did;
+}
+
+/**
+ * Page the recipient's delivery history newest-first, joined to cached sender
+ * profiles. Keyset pagination on (created_at, id) so it's stable under inserts.
+ */
+export async function listNotificationsForRecipient(
+  db: D1Database,
+  input: ListNotificationsInput,
+): Promise<DeliveryWithSenderRow[]> {
+  const clauses = ['d.recipient_did = ?'];
+  const binds: unknown[] = [input.recipientDid];
+  if (input.senderDid !== undefined) {
+    clauses.push('d.sender_did = ?');
+    binds.push(input.senderDid);
+  }
+  if (input.cursor !== undefined) {
+    clauses.push('(d.created_at < ? OR (d.created_at = ? AND d.id < ?))');
+    binds.push(input.cursor.createdAt, input.cursor.createdAt, input.cursor.id);
+  }
+  binds.push(input.limit);
+  const { results } = await db
+    .prepare(
+      `SELECT d.id, d.sender_did, d.title, d.body, d.uri, d.created_at,
+              s.handle, s.display_name, s.avatar_url
+       FROM delivery_log d
+       LEFT JOIN senders s ON s.did = d.sender_did
+       WHERE ${clauses.join(' AND ')}
+       ORDER BY d.created_at DESC, d.id DESC
+       LIMIT ?`,
+    )
+    .bind(...binds)
+    .all<DeliveryWithSenderRow>();
+  return results;
 }
 
 export async function deleteOldDeliveryLog(db: D1Database, beforeMs: number): Promise<number> {

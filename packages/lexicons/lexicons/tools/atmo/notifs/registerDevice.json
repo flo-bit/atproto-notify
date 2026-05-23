@@ -1,0 +1,39 @@
+{
+  "lexicon": 1,
+  "id": "tools.atmo.notifs.registerDevice",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Register a mobile device for push delivery (APNs/FCM). User-authenticated.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["platform", "token"],
+          "properties": {
+            "platform": { "type": "string", "enum": ["ios", "android"] },
+            "token": {
+              "type": "string",
+              "description": "Native APNs or FCM device token (not an Expo push token)."
+            },
+            "deviceName": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Human-readable device label, e.g. \"iPhone 15 · iOS 17\"."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["deviceId"],
+          "properties": {
+            "deviceId": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

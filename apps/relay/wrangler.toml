@@ -39,6 +39,15 @@ enabled = true
 RELAY_DID = "did:web:notifs.atmo.tools"
 BOT_USERNAME = "atmo_notify_bot"        # e.g. "atmonotifsbot"
 
+# APNs (iOS push). APNS_BUNDLE_ID is also the APNs topic + the app's bundle id.
+APNS_KEY_ID = "REPLACE_ME"
+APNS_TEAM_ID = "REPLACE_ME"
+APNS_BUNDLE_ID = "tools.atmo.notifs.app"
+# FCM (Android push). Matches `project_id` in the service-account JSON.
+FCM_PROJECT_ID = "REPLACE_ME"
+
 # Secrets set via `wrangler secret put`:
 # - TELEGRAM_BOT_TOKEN
 # - TELEGRAM_WEBHOOK_SECRET
+# - APNS_PRIVATE_KEY            (contents of the .p8 auth key, PKCS#8 PEM)
+# - FCM_SERVICE_ACCOUNT_JSON    (the full Firebase service-account JSON)

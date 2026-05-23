@@ -67,6 +67,7 @@ it('enqueues and reports delivered=1 with a linked channel', async () => {
     iconUrl: null
   });
   await q.upsertChannel(env.DB, {
+    deviceId: '12345',
     did: RECIPIENT,
     platform: 'telegram',
     platformUserId: '12345',
@@ -99,6 +100,7 @@ it('accepts silently with delivered=0 when the grant is muted', async () => {
   });
   await q.setGrantMuted(env.DB, RECIPIENT, sender.did, true);
   await q.upsertChannel(env.DB, {
+    deviceId: '54321',
     did: RECIPIENT,
     platform: 'telegram',
     platformUserId: '54321',

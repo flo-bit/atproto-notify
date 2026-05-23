@@ -1,0 +1,15 @@
+# Expo
+.expo/
+dist/
+web-build/
+
+# Native
+ios/
+android/
+
+# Metro
+.metro-health-check*
+
+# Misc
+*.log
+.DS_Store

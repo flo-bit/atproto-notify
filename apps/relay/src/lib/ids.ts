@@ -5,6 +5,11 @@ export function newId(): string {
   return nanoid();
 }
 
+/** Generate a 16-char device id (a stable handle for one registered mobile device). */
+export function newDeviceId(): string {
+  return nanoid(16);
+}
+
 /**
  * Generate a 32-character URL-safe link token.
  *

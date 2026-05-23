@@ -53,7 +53,7 @@ dashboard, example sender). For the high-level overview see
 └── packages/
     └── lexicons/
         ├── lex.config.js         # @atcute/lex-cli config
-        ├── lexicons/tools/atmo/notifs/*.json   # 13 lexicons
+        ├── lexicons/tools/atmo/notifs/*.json   # 15 lexicons
         └── src/index.ts          # re-exports generated types
 ```
 
@@ -135,6 +135,9 @@ re-home the relay, change them everywhere listed below.
 | `requestPermission` rate limits | 50 / hour / recipient & 100 / hour / sender | `apps/relay/src/xrpc/requestPermission.ts` (`PER_RECIPIENT_LIMIT`, `PER_SENDER_LIMIT`, `WINDOW_SECONDS`) |
 | `send` rate limits | 1 / sec & 100 / day / pair | `apps/relay/src/xrpc/send.ts` (`PER_SECOND_*`, `PER_DAY_*`) |
 | Bot username | `atmo_notify_bot` | `apps/relay/wrangler.toml` (`[vars].BOT_USERNAME`) → deep links in `linkChannel` |
+| Mobile bundle id / package | `tools.atmo.notifs.app` | `apps/mobile/lib/config.ts`; `apps/mobile/app.config.ts`; relay `[vars].APNS_BUNDLE_ID` (= APNs topic) |
+| Mobile OAuth client_id | `https://notify.atmo.tools/mobile/oauth-client-metadata.json` | `apps/web/static/mobile/oauth-client-metadata.json`; `apps/mobile/lib/auth/client-metadata.ts` (must match) |
+| Mobile redirect scheme | `tools.atmo.notify://oauth/callback` | reverse-DNS of the OAuth host; `apps/mobile/app.config.ts` (`scheme`) + the metadata `redirect_uris` |
 
 > **Auth model:** `requestPermission` is **user-authenticated** (the user OAuths
 > into the requesting app, granting the relay's `requestPermission` rpc scope);
@@ -242,6 +245,37 @@ The example sender also needs a sender keypair for `send` — see
 > number`), breaking OAuth sign-in **only once deployed**. The `workerd` condition
 > selects the Buffer-free Web builds. Don't add `browser` to the list (it makes
 > other deps pull browser builds that reference `window`).
+
+## Push notifications (mobile)
+
+The relay delivers to iOS via APNs and Android via FCM (in addition to Telegram).
+The mobile app (`apps/mobile`) registers its native push token with
+`registerDevice`; the dispatcher fans out per channel. Set these up before mobile
+push works end to end.
+
+**APNs (iOS):**
+
+1. Apple Developer account ($99/yr) — required before TestFlight / App Store.
+2. Certificates, Identifiers & Profiles → create an App ID with the
+   **Push Notifications** capability for `tools.atmo.notifs.app`.
+3. Keys → create a key with **APNs** enabled, download the `.p8` (one time only),
+   and note the **Key ID** and your **Team ID**.
+4. Set `APNS_KEY_ID`, `APNS_TEAM_ID` in `apps/relay/wrangler.toml` (`APNS_BUNDLE_ID`
+   is already `tools.atmo.notifs.app`).
+5. Store the key: `pnpm exec wrangler secret put APNS_PRIVATE_KEY < AuthKey_XXXXXX.p8`
+
+**FCM (Android):**
+
+1. Create a Firebase project (free).
+2. Add an Android app with package `tools.atmo.notifs.app`.
+3. Project Settings → Service Accounts → **Generate new private key** (downloads JSON).
+4. Set `FCM_PROJECT_ID` in `wrangler.toml` to the JSON's `project_id`.
+5. Store the JSON: `pnpm exec wrangler secret put FCM_SERVICE_ACCOUNT_JSON < service-account.json`
+
+The relay caches the APNs provider token in memory (~20 min) and the FCM OAuth2
+access token in KV (~55 min). Dead tokens (APNs 410 / `BadDeviceToken`, FCM
+`UNREGISTERED`) cause the dispatcher to prune the channel row. See
+[`apps/mobile/README.md`](apps/mobile/README.md) for the app side.
 
 ## For sender developers
 

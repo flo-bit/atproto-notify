@@ -21,11 +21,15 @@
     },
     "channelView": {
       "type": "object",
-      "required": ["platform", "linkedAt"],
+      "required": ["deviceId", "platform", "linkedAt"],
       "properties": {
+        "deviceId": { "type": "string" },
         "platform": { "type": "string" },
         "linkedAt": { "type": "string", "format": "datetime" },
-        "displayName": { "type": "string" }
+        "displayName": {
+          "type": "string",
+          "description": "Device name for mobile channels; Telegram account label otherwise."
+        }
       }
     }
   }

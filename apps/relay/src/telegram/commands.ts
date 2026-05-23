@@ -64,6 +64,8 @@ async function handleStart(env: Env, message: TelegramMessage, token: string): P
   const username = message.from?.username ?? null;
   await q.ensureUser(env.DB, did, now());
   await q.upsertChannel(env.DB, {
+    // Telegram has one channel per chat, so the chat id doubles as the device id.
+    deviceId: String(chatId),
     did,
     platform: PLATFORM,
     platformUserId: String(chatId),

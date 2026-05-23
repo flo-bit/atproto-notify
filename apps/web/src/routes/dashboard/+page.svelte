@@ -11,7 +11,7 @@
 		revoke,
 		setMuted,
 		setNotifyPending,
-		unlinkTelegram
+		unlinkChannel
 	} from '$lib/remote/notifs.remote';
 	import type { PageData } from './$types';
 
@@ -206,7 +206,7 @@
 		</EmptyState>
 	{:else}
 		<ul class="space-y-3">
-			{#each data.channels as channel (channel.platform)}
+			{#each data.channels as channel (channel.deviceId)}
 				<li
 					class="flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-surface p-4"
 				>
@@ -219,8 +219,8 @@
 					</div>
 					<button
 						class={btnGhost}
-						disabled={busy[`unlink:${channel.platform}`]}
-						onclick={() => run(`unlink:${channel.platform}`, () => unlinkTelegram())}
+						disabled={busy[`unlink:${channel.deviceId}`]}
+						onclick={() => run(`unlink:${channel.deviceId}`, () => unlinkChannel({ deviceId: channel.deviceId }))}
 					>
 						Unlink
 					</button>

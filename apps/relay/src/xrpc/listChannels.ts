@@ -18,6 +18,7 @@ export function makeListChannels(
 
       return json({
         channels: rows.map((row) => ({
+          deviceId: row.device_id,
           platform: row.platform,
           linkedAt: toIsoDatetime(row.linked_at),
           displayName: row.display_name ?? undefined,

@@ -51,6 +51,6 @@ export const linkTelegram = command(async () => {
 	return { deepLink };
 });
 
-export const unlinkTelegram = command(async () => {
-	await relay.unlinkChannel(requireClient(), { platform: 'telegram' });
+export const unlinkChannel = command(v.object({ deviceId: v.string() }), async ({ deviceId }) => {
+	await relay.unlinkChannel(requireClient(), { deviceId });
 });

@@ -1,0 +1,51 @@
+{
+  "lexicon": 1,
+  "id": "tools.atmo.notifs.listNotifications",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "List notifications delivered to the authenticated user, newest first. User-authenticated.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "limit": { "type": "integer", "default": 50, "minimum": 1, "maximum": 100 },
+          "cursor": { "type": "string" },
+          "senderDid": {
+            "type": "string",
+            "format": "did",
+            "description": "Filter to a single sender (per-app history)."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["notifications"],
+          "properties": {
+            "notifications": {
+              "type": "array",
+              "items": { "type": "ref", "ref": "#notificationView" }
+            },
+            "cursor": { "type": "string" }
+          }
+        }
+      }
+    },
+    "notificationView": {
+      "type": "object",
+      "required": ["id", "sender", "title", "body", "createdAt"],
+      "properties": {
+        "id": { "type": "string" },
+        "sender": { "type": "string", "format": "did" },
+        "senderHandle": { "type": "string" },
+        "senderDisplayName": { "type": "string" },
+        "senderAvatar": { "type": "string" },
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "uri": { "type": "string" },
+        "createdAt": { "type": "string", "format": "datetime" }
+      }
+    }
+  }
+}

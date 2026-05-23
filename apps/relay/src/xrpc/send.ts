@@ -31,7 +31,7 @@ export function makeSend(app: AppContext): ProcedureConfig<ToolsAtmoNotifsSend.m
         throw notAuthorized();
       }
       if (grant.muted === 1) {
-        await logDelivery(app, id, recipient, senderDid, input.title, 0);
+        await logDelivery(app, id, recipient, senderDid, input, 0);
         return json({ id, delivered: 0 });
       }
 
@@ -58,31 +58,35 @@ export function makeSend(app: AppContext): ProcedureConfig<ToolsAtmoNotifsSend.m
       // 4. No linked channels → accept but deliver to nobody.
       const channels = await q.listChannelsForDid(app.env.DB, recipient);
       if (channels.length === 0) {
-        await logDelivery(app, id, recipient, senderDid, input.title, 0);
+        await logDelivery(app, id, recipient, senderDid, input, 0);
         return json({ id, delivered: 0 });
       }
 
-      // 5. Enqueue one dispatch job per channel.
-      const jobs = channels
-        .filter((channel) => channel.platform === 'telegram')
-        .map(
-          (channel): { body: DispatchJob } => ({
-            body: {
-              kind: 'notification',
-              channel: { platform: 'telegram', platformUserId: channel.platform_user_id },
-              title: input.title,
-              body: input.body,
-              uri: input.uri,
-              senderDid,
+      // 5. Enqueue one dispatch job per channel (telegram + mobile). The sender's
+      // handle (if cached) rides along so the device can render it before sync.
+      const sender = await q.getSender(app.env.DB, senderDid);
+      const senderHandle = sender?.handle ?? undefined;
+      const jobs = channels.map(
+        (channel): { body: DispatchJob } => ({
+          body: {
+            kind: 'notification',
+            channel: {
+              platform: channel.platform as DispatchJob['channel']['platform'],
+              platformUserId: channel.platform_user_id,
             },
-          }),
-        );
-      if (jobs.length > 0) {
-        await app.env.DISPATCH_QUEUE.sendBatch(jobs);
-      }
+            notifId: id,
+            title: input.title,
+            body: input.body,
+            uri: input.uri,
+            senderDid,
+            senderHandle,
+          },
+        }),
+      );
+      await app.env.DISPATCH_QUEUE.sendBatch(jobs);
 
       // 6. Record the delivery.
-      await logDelivery(app, id, recipient, senderDid, input.title, channels.length);
+      await logDelivery(app, id, recipient, senderDid, input, channels.length);
       return json({ id, delivered: channels.length });
     },
   };
@@ -93,14 +97,16 @@ function logDelivery(
   id: string,
   recipient: Did,
   senderDid: Did,
-  title: string,
+  input: { title: string; body: string; uri?: string },
   deliveredCount: number,
 ): Promise<void> {
   return q.insertDeliveryLog(app.env.DB, {
     id,
     recipientDid: recipient,
     senderDid,
-    title,
+    title: input.title,
+    body: input.body,
+    uri: input.uri ?? null,
     deliveredCount,
     createdAt: now(),
   });

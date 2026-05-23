@@ -4,14 +4,14 @@
   "defs": {
     "main": {
       "type": "procedure",
-      "description": "Unlink a delivery channel from the authenticated user. User-authenticated.",
+      "description": "Unlink a delivery channel (by device id) from the authenticated user. User-authenticated.",
       "input": {
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["platform"],
+          "required": ["deviceId"],
           "properties": {
-            "platform": { "type": "string", "enum": ["telegram"] }
+            "deviceId": { "type": "string" }
           }
         }
       },

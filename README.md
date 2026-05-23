@@ -33,7 +33,9 @@ implementation of both flows (live at https://example.notify.atmo.tools).
   No firehose, no repo records, no signing.
 - **`apps/web`** — the SvelteKit dashboard at `notify.atmo.tools` (+ `/docs`).
 - **`apps/example-sender`** — one-page sender demo at `example.notify.atmo.tools`.
-- **`packages/lexicons`** — the shared `tools.atmo.notifs.*` lexicons (13) and
+- **`apps/mobile`** — the iOS + Android app (Expo / React Native): inbox, apps,
+  requests, settings, push. See [`apps/mobile/README.md`](apps/mobile/README.md).
+- **`packages/lexicons`** — the shared `tools.atmo.notifs.*` lexicons (15) and
   generated types.
 
 Running, configuring, and deploying everything: **[DEVELOPMENT.md](DEVELOPMENT.md)**.
