@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { PROJECT_NAME } from '$lib/config';
+	import { GITHUB_URL, PROJECT_NAME } from '$lib/config';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -54,6 +54,23 @@
 			<em>the user authorized this request</em> (user OAuth);
 			<code class="font-mono text-fg">send</code> proves
 			<em>the sender identity</em> (your app's own DID key).
+		</p>
+		<p class="mt-3 max-w-prose rounded-card border border-line bg-accent-soft p-3 text-sm text-muted">
+			<strong class="text-fg">Prefer a working example?</strong> A complete, ~300-line app wiring up
+			both flows is live at
+			<a
+				class="text-accent hover:underline"
+				href="https://example.notify.atmo.tools"
+				target="_blank"
+				rel="noreferrer">example.notify.atmo.tools</a
+			>
+			— try it, then read the
+			<a
+				class="text-accent hover:underline"
+				href={`${GITHUB_URL}/tree/main/apps/example-sender`}
+				target="_blank"
+				rel="noreferrer">source ↗</a
+			>.
 		</p>
 	</header>
 
