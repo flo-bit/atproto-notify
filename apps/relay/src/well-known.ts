@@ -4,6 +4,7 @@ import markRead from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/markRead.js
 import requestPermission from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/requestPermission.json';
 import send from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/send.json';
 import setRouting from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/setRouting.json';
+import subscriberChanged from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/subscriberChanged.json';
 
 import type { Env } from './env';
 
@@ -19,18 +20,37 @@ const LEXICONS: Record<string, unknown> = {
   'pub.atmo.notify.getRouting': getRouting,
   'pub.atmo.notify.listNotifications': listNotifications,
   'pub.atmo.notify.markRead': markRead,
+  'pub.atmo.notify.subscriberChanged': subscriberChanged,
 };
 
+// Relay's public signing key (multikey), published so apps can verify outbound
+// service-auth JWTs the relay issues (e.g. the `subscriberChanged` callback,
+// ENABLE-FROM-WEB.md). Its private half is the RELAY_PRIVATE_KEY secret. Rotate
+// both together via `relay:keygen`.
+const RELAY_PUBLIC_KEY_MULTIBASE = 'zDnaeZB4zYA9upEh4bXkxXjsQJJhdq9zuNVtmk9QXhrno5yhd';
+
 /**
- * `GET /.well-known/did.json` — the relay's `did:web` document. No
- * `verificationMethod`: the relay verifies inbound JWTs but never signs anything.
- * The service endpoint is derived from `RELAY_DID` so config has one source.
+ * `GET /.well-known/did.json` — the relay's `did:web` document. Publishes an
+ * `#atproto` verification method so apps can verify the JWTs the relay signs for
+ * its outbound callbacks. The service endpoint is derived from `RELAY_DID` so
+ * config has one source.
  */
 export function handleWellKnownDid(env: Env): Response {
   const host = env.RELAY_DID.replace(/^did:web:/, '');
   const doc = {
-    '@context': ['https://www.w3.org/ns/did/v1'],
+    '@context': [
+      'https://www.w3.org/ns/did/v1',
+      'https://w3id.org/security/multikey/v1',
+    ],
     id: env.RELAY_DID,
+    verificationMethod: [
+      {
+        id: `${env.RELAY_DID}#atproto`,
+        type: 'Multikey',
+        controller: env.RELAY_DID,
+        publicKeyMultibase: RELAY_PUBLIC_KEY_MULTIBASE,
+      },
+    ],
     service: [
       {
         id: '#notif_relay',

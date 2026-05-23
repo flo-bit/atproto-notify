@@ -29,6 +29,9 @@ importers:
       '@atcute/crypto':
         specifier: ^2.4.1
         version: 2.4.1
+      '@atcute/identity-resolver':
+        specifier: ^2.0.0
+        version: 2.0.0(@atcute/identity@2.0.0(@atcute/lexicons@2.0.0)(typescript@6.0.3))(@atcute/lexicons@2.0.0)(typescript@6.0.3)
       '@atcute/lexicons':
         specifier: ^2.0.0
         version: 2.0.0
@@ -190,6 +193,9 @@ importers:
       '@atcute/client':
         specifier: ^5.0.0
         version: 5.0.0(@atcute/lexicons@2.0.0)(typescript@5.9.3)
+      '@atcute/crypto':
+        specifier: ^2.4.1
+        version: 2.4.1
       '@atcute/identity-resolver':
         specifier: ^2.0.0
         version: 2.0.0(@atcute/identity@2.0.0(@atcute/lexicons@2.0.0)(typescript@5.9.3))(@atcute/lexicons@2.0.0)(typescript@5.9.3)
@@ -206,9 +212,6 @@ importers:
         specifier: ^5.1.11
         version: 5.1.11
     devDependencies:
-      '@atcute/crypto':
-        specifier: ^2.4.1
-        version: 2.4.1
       '@cloudflare/vitest-pool-workers':
         specifier: ^0.16.9
         version: 0.16.9(@cloudflare/workers-types@4.20260522.1)(@vitest/runner@4.1.7)(@vitest/snapshot@4.1.7)(vitest@4.1.7(@types/node@22.19.19)(vite@8.0.14(@types/node@22.19.19)(esbuild@0.27.3)(jiti@2.7.0)))

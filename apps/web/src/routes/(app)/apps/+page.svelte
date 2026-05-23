@@ -228,4 +228,49 @@
 			</ul>
 		{/if}
 	</section>
+
+	<!-- Apps you can enable (hardcoded catalog) -->
+	{#if data.discover.length > 0}
+		<section class="mt-8">
+			<h2 class="mb-3 font-mono text-[0.7rem] tracking-wide text-muted-2 uppercase">
+				Apps you can enable · {data.discover.length}
+			</h2>
+			<ul class="overflow-hidden rounded-card border border-line bg-surface">
+				{#each data.discover as app, i (app.did)}
+					<li class="p-4 {i < data.discover.length - 1 ? 'border-b border-line-2' : ''}">
+						<div class="flex items-start gap-3">
+							{#if app.iconUrl}
+								<img
+									src={app.iconUrl}
+									alt=""
+									class="size-10 shrink-0 rounded-[0.6rem] bg-surface-2 object-cover"
+								/>
+							{:else}
+								<AppMark id={app.title || app.did} size={40} />
+							{/if}
+							<div class="min-w-0 flex-1">
+								<span class="truncate text-sm font-semibold text-fg">{app.title}</span>
+								<div class="truncate font-mono text-xs text-muted-2" title={app.did}>
+									{shortDid(app.did)}
+								</div>
+								{#if app.description}
+									<p class="mt-1 text-sm leading-relaxed text-muted">{app.description}</p>
+								{/if}
+							</div>
+							<button
+								class="shrink-0 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
+								disabled={busy[`enable:${app.did}`]}
+								onclick={() => run(`enable:${app.did}`, () => approve({ sender: app.did }))}
+							>
+								{busy[`enable:${app.did}`] ? 'Enabling…' : 'Enable'}
+							</button>
+						</div>
+					</li>
+				{/each}
+			</ul>
+			<p class="mt-2 text-xs text-muted-2">
+				Enabling notifies the app directly — you don't need to visit it first.
+			</p>
+		</section>
+	{/if}
 </div>

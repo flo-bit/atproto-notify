@@ -1,5 +1,9 @@
+import type { Did, Nsid } from '@atcute/lexicons';
+
+import { mintRelayJwt } from '../auth/relay-signer';
 import { deleteChannelByPlatformUser, deletePushSubscription } from '../db/queries';
 import type { DispatchJob, Env } from '../env';
+import { callbackAppFor } from '../lib/apps';
 
 import {
   escapeMd,
@@ -8,6 +12,8 @@ import {
   TelegramApiError,
 } from './telegram';
 import { sendWebPush, WebPushError } from './webpush';
+
+const SUBSCRIBER_CHANGED_LXM = 'pub.atmo.notify.subscriberChanged' as Nsid;
 
 /**
  * Queue consumer. Each message is an independent delivery; we ack on success and
@@ -32,6 +38,13 @@ export async function handleQueue(batch: MessageBatch<DispatchJob>, env: Env): P
 
 /** If `err` means the target is permanently undeliverable, reap it and return true. */
 async function reapIfDead(env: Env, job: DispatchJob, err: unknown): Promise<boolean> {
+  // Relay→app callback has no `channel`. A 4xx means the app rejected the call
+  // (bad/forged token, unknown method) — retrying won't help, so drop it; 5xx /
+  // network errors fall through to retry.
+  if (job.kind === 'subscriberChanged') {
+    return err instanceof SubscriberCallbackError && err.statusCode >= 400 && err.statusCode < 500;
+  }
+
   const { channel } = job;
   if (channel.platform === 'telegram' && err instanceof TelegramApiError && isDeadChannel(err)) {
     // The user blocked the bot or the chat is gone.
@@ -64,7 +77,49 @@ function isDeadChannel(err: TelegramApiError): boolean {
   return false;
 }
 
+/** Non-2xx response from an app's subscriberChanged endpoint. */
+class SubscriberCallbackError extends Error {
+  constructor(readonly statusCode: number) {
+    super(`subscriberChanged callback failed: ${statusCode}`);
+    this.name = 'SubscriberCallbackError';
+  }
+}
+
+/**
+ * Relay → app callback: tell `job.sender` that `job.recipient` enabled/disabled
+ * notifications. Signed with the relay's own key (the app verifies `iss` is the
+ * relay). Idempotent state, so retries are safe.
+ */
+async function sendSubscriberCallback(
+  env: Env,
+  job: Extract<DispatchJob, { kind: 'subscriberChanged' }>,
+): Promise<void> {
+  const app = callbackAppFor(job.sender);
+  if (app?.callbackUrl === undefined) {
+    // Deregistered between enqueue and delivery — nothing to do.
+    return;
+  }
+  const jwt = await mintRelayJwt(env, job.sender as Did, SUBSCRIBER_CHANGED_LXM);
+  const res = await fetch(`${app.callbackUrl}/xrpc/${SUBSCRIBER_CHANGED_LXM}`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      recipient: job.recipient,
+      enabled: job.enabled,
+      changedAt: job.changedAt,
+    }),
+  });
+  if (!res.ok) {
+    throw new SubscriberCallbackError(res.status);
+  }
+}
+
 async function dispatch(env: Env, job: DispatchJob): Promise<void> {
+  if (job.kind === 'subscriberChanged') {
+    await sendSubscriberCallback(env, job);
+    return;
+  }
+
   if (job.kind === 'notification') {
     if (job.channel.platform === 'webpush') {
       await sendWebPush(env, job.channel, {

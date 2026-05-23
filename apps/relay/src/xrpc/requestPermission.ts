@@ -9,7 +9,7 @@ import type { AppContext } from '../env';
 import { rateLimited } from '../lib/errors';
 import { newId } from '../lib/ids';
 import { addDays, now } from '../lib/time';
-import { isTrustedSender } from '../lib/trusted';
+import { isTrustedSender } from '../lib/apps';
 import { ensureSenderProfile } from '../profile/fetch';
 import { checkAndIncrement } from '../ratelimit';
 

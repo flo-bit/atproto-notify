@@ -35,6 +35,9 @@ async function postRelay(jwt: string, lxm: string, body: object): Promise<unknow
 	const data: unknown = text ? JSON.parse(text) : {};
 	if (!res.ok) {
 		const d = data as { error?: string; message?: string };
+		// Surface the relay's exact reason in the example's dev terminal — handy
+		// when debugging auth (401) vs authorization (403) failures.
+		console.error(`[relay] ${lxm} → ${res.status}`, d.error, d.message);
 		const err = new Error(d.message ?? d.error ?? 'Relay call failed') as RelayError;
 		err.error = d.error;
 		err.status = res.status;

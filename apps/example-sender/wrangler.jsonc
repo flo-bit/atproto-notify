@@ -20,13 +20,15 @@
 	"kv_namespaces": [
 		{ "binding": "OAUTH_SESSIONS", "id": "fc20e9a60f454bc4936859f86a73347f" },
 		{ "binding": "OAUTH_STATES", "id": "3466c423dfb2426abb4d397e86e17f1b" }
-	]
+	],
+
+	// Custom domain — so the relay can resolve `did:web:example.atmo.pub` by
+	// fetching https://example.atmo.pub/.well-known/did.json. wrangler provisions
+	// this domain on deploy (the atmo.pub zone must be in this CF account).
+	"routes": [{ "pattern": "example.atmo.pub", "custom_domain": true }]
 
 	// Secrets (wrangler secret put):
 	//   COOKIE_SECRET         (atproto-oauth secret | wrangler secret put COOKIE_SECRET)
 	//   CLIENT_ASSERTION_KEY  (atproto-oauth keygen | wrangler secret put CLIENT_ASSERTION_KEY)
 	//   SENDER_PRIVATE_KEY    (pnpm sender:keygen → the private multikey; for `send`)
-	//
-	// Custom domain: bind it in the CF dashboard, or add:
-	//   "routes": [{ "pattern": "example.atmo.pub", "custom_domain": true }]
 }

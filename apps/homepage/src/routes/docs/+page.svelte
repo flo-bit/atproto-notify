@@ -154,7 +154,31 @@
 	</section>
 
 	<section class="space-y-3">
-		<h2 class="text-lg font-semibold text-fg">5. Rate limits</h2>
+		<h2 class="text-lg font-semibold text-fg">5. Let users enable you from atmo.pub (optional)</h2>
+		<p class="max-w-prose text-sm leading-relaxed text-muted">
+			Users can turn on notifications for your app from inside {PROJECT_NAME} — without visiting your
+			app first. When they do, the relay POSTs a <strong class="text-fg">relay-signed</strong>
+			<code class="font-mono text-fg">subscriberChanged</code> callback to
+			<code class="font-mono text-fg">/xrpc/pub.atmo.notify.subscriberChanged</code> on your service:
+			<code class="font-mono text-fg">&#123; recipient, enabled, changedAt &#125;</code>. Verify it's
+			really the relay, then start (or stop) sending to that user with
+			<code class="font-mono text-fg">send</code>.
+		</p>
+		{@render codeblock(data.code.enableCallback)}
+		<p class="max-w-prose text-sm leading-relaxed text-muted">
+			You trust the relay's word that the user consented (the same trust you already place in it to
+			deliver). Callbacks are idempotent state, so safe to retry; treat them as such. Apps are
+			curated for now — <a
+				class="text-accent hover:underline"
+				href={GITHUB_URL}
+				target="_blank"
+				rel="noreferrer">get in touch</a
+			> to be listed.
+		</p>
+	</section>
+
+	<section class="space-y-3">
+		<h2 class="text-lg font-semibold text-fg">6. Rate limits</h2>
 		<ul class="ml-5 list-disc space-y-1 text-sm text-muted">
 			<li>At most <strong class="text-fg">1 outstanding pending request</strong> per (sender, recipient).</li>
 			<li><code class="font-mono text-fg">requestPermission</code>: <strong class="text-fg">50 / hour</strong> per recipient and <strong class="text-fg">100 / hour</strong> per sender.</li>
@@ -163,7 +187,7 @@
 	</section>
 
 	<section class="space-y-3">
-		<h2 class="text-lg font-semibold text-fg">6. Error handling</h2>
+		<h2 class="text-lg font-semibold text-fg">7. Error handling</h2>
 		<p class="max-w-prose text-sm leading-relaxed text-muted">Common XRPC errors:</p>
 		<ul class="ml-5 list-disc space-y-1 text-sm text-muted">
 			<li><code class="font-mono text-fg">AuthenticationRequired</code> — missing/invalid JWT.</li>

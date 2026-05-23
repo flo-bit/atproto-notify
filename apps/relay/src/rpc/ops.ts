@@ -7,6 +7,7 @@ import type { Did } from '@atcute/lexicons';
 
 import type {
   AlertRoute,
+  AppInfo,
   AppRoute,
   CategoryRoute,
   DeviceView,
@@ -32,6 +33,7 @@ import type {
 import { verifyAppLoginToken } from '../auth/appLogin';
 import * as q from '../db/queries';
 import type { Env } from '../env';
+import { appCatalog, callbackAppFor } from '../lib/apps';
 import { newLinkToken } from '../lib/ids';
 import { addMinutes, now, toIsoDatetime } from '../lib/time';
 
@@ -62,7 +64,31 @@ export async function grant(
     await q.deletePendingById(env.DB, input.requestId, did);
   }
 
+  await notifySubscriberChanged(env, did, input.sender, true);
   return { granted: true };
+}
+
+/**
+ * If `sender` is a registered callback app, enqueue a relay→app `subscriberChanged`
+ * callback. Fire-and-forget via the dispatch queue (Queues handles retries); a
+ * delivery failure must not fail the grant/revoke the user just made.
+ */
+async function notifySubscriberChanged(
+  env: Env,
+  recipient: Did,
+  sender: Did,
+  enabled: boolean,
+): Promise<void> {
+  if (callbackAppFor(sender) === undefined) {
+    return;
+  }
+  await env.DISPATCH_QUEUE.send({
+    kind: 'subscriberChanged',
+    sender,
+    recipient,
+    enabled,
+    changedAt: toIsoDatetime(now()),
+  });
 }
 
 export async function revoke(
@@ -74,6 +100,9 @@ export async function revoke(
   // The pending request (if any) for this pair is now irrelevant.
   await q.deletePendingByPair(env.DB, did, input.sender);
 
+  if (revoked) {
+    await notifySubscriberChanged(env, did, input.sender, false);
+  }
   return { revoked };
 }
 
@@ -401,4 +430,9 @@ export async function verifyAppLogin(env: Env, token: string): Promise<{ did: Di
   const { did } = await verifyAppLoginToken(env, token);
   await q.ensureUser(env.DB, did, now());
   return { did };
+}
+
+/** The hardcoded catalog of enableable apps (see ../lib/apps). */
+export function listApps(): Promise<AppInfo[]> {
+  return Promise.resolve(appCatalog());
 }

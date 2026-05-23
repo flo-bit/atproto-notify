@@ -1,0 +1,42 @@
+{
+  "lexicon": 1,
+  "id": "pub.atmo.notify.subscriberChanged",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Relay-authenticated callback an app implements. The relay tells the app that a user's notification subscription to it changed (enabled/disabled). The token's `iss` is the relay DID — the app MUST verify the issuer is the relay, in addition to signature/aud/lxm.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["recipient", "enabled"],
+          "properties": {
+            "recipient": {
+              "type": "string",
+              "format": "did",
+              "description": "The user who enabled/disabled notifications from this app."
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "true = the user granted; false = revoked."
+            },
+            "changedAt": {
+              "type": "string",
+              "format": "datetime",
+              "description": "When the grant changed — lets the app resolve out-of-order callbacks."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}

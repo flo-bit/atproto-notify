@@ -3,6 +3,7 @@ import { WorkerEntrypoint } from 'cloudflare:workers';
 import type { Did } from '@atcute/lexicons';
 import type {
   AlertRoute,
+  AppInfo,
   AppRoute,
   CategoryRoute,
   DeviceView,
@@ -103,5 +104,8 @@ export class RelayRpc extends WorkerEntrypoint<Env> implements NotifsRpc {
   }
   verifyAppLogin(token: string): Promise<{ did: Did }> {
     return ops.verifyAppLogin(this.env, token);
+  }
+  listApps(): Promise<AppInfo[]> {
+    return ops.listApps();
   }
 }

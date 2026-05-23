@@ -92,6 +92,14 @@ export interface RoutingConfig {
   apps: RoutingApp[];
 }
 
+/** A catalog entry for an app the user can enable from the web (binding-only). */
+export interface AppInfo {
+  did: Did;
+  title: string;
+  description?: string;
+  iconUrl?: string;
+}
+
 export interface NotifsRpc {
   grant(did: Did, input: PubAtmoNotifyGrant.$input): Promise<PubAtmoNotifyGrant.$output>;
   revoke(did: Did, input: PubAtmoNotifyRevoke.$input): Promise<PubAtmoNotifyRevoke.$output>;
@@ -150,4 +158,12 @@ export interface NotifsRpc {
    * CROSS-APP-AUTH.md.
    */
   verifyAppLogin(token: string): Promise<{ did: Did }>;
+
+  /**
+   * The hardcoded catalog of apps a user can enable notifications for from the
+   * web. No leading `did` — the catalog is static. Enabling/disabling is just
+   * `grant`/`revoke`; the relay fires a `subscriberChanged` callback to the app
+   * (ENABLE-FROM-WEB.md).
+   */
+  listApps(): Promise<AppInfo[]>;
 }

@@ -67,9 +67,35 @@ export interface CodeBlock {
 	html: string;
 }
 
+const enableCallbackExample = `import { ServiceJwtVerifier } from '@atcute/xrpc-server/auth';
+import { CompositeDidDocumentResolver, PlcDidDocumentResolver,
+         WebDidDocumentResolver } from '@atcute/identity-resolver';
+
+// Endpoint the relay POSTs when a user enables/disables you from atmo.pub:
+//   POST /xrpc/pub.atmo.notify.subscriberChanged  { recipient, enabled, changedAt }
+const verifier = new ServiceJwtVerifier({
+  acceptAudiences: ['did:web:yourapp.example'],          // tokens addressed to you
+  resolver: new CompositeDidDocumentResolver({ methods: {
+    plc: new PlcDidDocumentResolver(), web: new WebDidDocumentResolver() } })
+});
+
+const { issuer } = await verifier.verifyRequest(request, {
+  lxm: 'pub.atmo.notify.subscriberChanged'
+});
+// CRITICAL: only the relay may tell you this — a valid signature isn't enough.
+if (issuer !== '${RELAY_DID}') throw new Error('issuer is not the relay');
+
+const { recipient, enabled } = await request.json();
+// enabled ? start sending to \`recipient\` via send : stop.`;
+
 // Highlight the (static) examples once per server instance, then reuse.
 let cached:
-	| Promise<Record<'request' | 'sendJwt' | 'sendAtcute' | 'sendCurl' | 'appLogin', CodeBlock>>
+	| Promise<
+			Record<
+				'request' | 'sendJwt' | 'sendAtcute' | 'sendCurl' | 'appLogin' | 'enableCallback',
+				CodeBlock
+			>
+	  >
 	| undefined;
 function buildBlocks() {
 	cached ??= (async () => {
@@ -83,7 +109,8 @@ function buildBlocks() {
 			sendJwt: await make(sendJwtExample, 'ts'),
 			sendAtcute: await make(sendAtcuteExample, 'ts'),
 			sendCurl: await make(sendCurlExample, 'bash'),
-			appLogin: await make(appLoginExample, 'ts')
+			appLogin: await make(appLoginExample, 'ts'),
+			enableCallback: await make(enableCallbackExample, 'ts')
 		};
 	})();
 	return cached;

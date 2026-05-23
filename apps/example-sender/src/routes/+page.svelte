@@ -370,6 +370,24 @@
 		</section>
 	{/if}
 
+	<section class={card}>
+		<h2 class="text-base font-semibold text-fg">Subscribers from atmo.pub</h2>
+		<p class="mt-2 text-sm leading-relaxed text-muted">
+			Users who enabled this app from inside atmo.pub. The relay tells us via a signed
+			<code class="font-mono text-fg">subscriberChanged</code> callback (we verify it's really the
+			relay), and a real app would start sending them notifications. Demo store is in-memory.
+		</p>
+		{#if data.subscribers.length === 0}
+			<p class="mt-3 text-sm text-muted-2">None yet — enable this app from atmo.pub's Apps screen.</p>
+		{:else}
+			<ul class="mt-3 space-y-1">
+				{#each data.subscribers as sub (sub)}
+					<li class="font-mono text-xs break-all text-fg">{sub}</li>
+				{/each}
+			</ul>
+		{/if}
+	</section>
+
 	<footer class="border-t border-line pt-6 text-xs text-muted-2">
 		Source:
 		<a class="hover:text-fg" href={GITHUB_URL} target="_blank" rel="noreferrer">{GITHUB_URL}</a>.

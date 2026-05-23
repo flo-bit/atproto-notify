@@ -43,6 +43,7 @@ export function relayFor(platform: App.Platform | undefined, did: Did | null) {
 	return {
 		listGrants: () => svc.listGrants(did),
 		listPending: () => svc.listPending(did),
+		listApps: () => svc.listApps(),
 		listChannels: () => svc.listChannels(did),
 		getSettings: () => svc.getSettings(did),
 		grant: (input: PubAtmoNotifyGrant.$input) => svc.grant(did, input),

@@ -40,6 +40,15 @@ export type DispatchJob =
       senderDescription?: string;
       senderIconUrl?: string;
       senderDid: string;
+    }
+  | {
+      // Relay → app callback: a user's notification subscription to `sender`
+      // changed. Has NO `channel` (unlike the others) — guard on `kind` first.
+      kind: 'subscriberChanged';
+      sender: string;
+      recipient: string;
+      enabled: boolean;
+      changedAt: string;
     };
 
 /** Cloudflare bindings + vars + secrets, as declared in `wrangler.toml`. */
@@ -55,6 +64,10 @@ export interface Env {
   RELAY_DID: string;
   /** Telegram bot username, used to build deep links (var). */
   BOT_USERNAME: string;
+
+  /** Relay's P-256 signing key as a private multikey (secret) — for outbound
+   *  service-auth JWTs (e.g. the subscriberChanged callback). `relay:keygen`. */
+  RELAY_PRIVATE_KEY: string;
 
   /** Telegram bot token (secret). */
   TELEGRAM_BOT_TOKEN: string;
