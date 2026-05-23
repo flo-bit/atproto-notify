@@ -27,6 +27,19 @@
 			"binding": "OAUTH_STATES",
 			"id": "a0f731098f5d4bdea2c3b9e622b13153"
 		}
+	],
+	// Private binding to the relay Worker's `RelayRpc` entrypoint. The relay's
+	// first-party management methods are reachable only this way (no public
+	// XRPC). `service` must match the relay's deployed Worker name (its
+	// wrangler.toml `name`); both Workers must be in the same Cloudflare account.
+	// For local `vite dev`, run the relay via `wrangler dev` so the adapter's
+	// platform proxy can wire this up.
+	"services": [
+		{
+			"binding": "RELAY",
+			"service": "notifs-relay",
+			"entrypoint": "RelayRpc"
+		}
 	]
 	// Secrets (set via `wrangler secret put`, never commit):
 	//   COOKIE_SECRET         (atproto-oauth secret | wrangler secret put COOKIE_SECRET)

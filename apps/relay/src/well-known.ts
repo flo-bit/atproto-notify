@@ -1,35 +1,15 @@
-import denyPending from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/denyPending.json';
-import getSettings from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/getSettings.json';
-import grant from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/grant.json';
-import linkChannel from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/linkChannel.json';
-import listChannels from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/listChannels.json';
-import listGrants from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/listGrants.json';
-import listPending from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/listPending.json';
-import muteGrant from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/muteGrant.json';
 import requestPermission from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/requestPermission.json';
-import revoke from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/revoke.json';
 import send from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/send.json';
-import unlinkChannel from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/unlinkChannel.json';
-import updateSettings from '@atmo/notifs-lexicons/lexicons/tools/atmo/notifs/updateSettings.json';
 
 import type { Env } from './env';
 
-// Lexicon JSONs are bundled into the Worker (imported as JSON modules) and served
-// statically from `/lexicons/:nsid`, keyed by NSID.
+// Only the *federated* lexicons are published here. The user-management methods
+// are no longer public XRPC — they live behind the `RelayRpc` service binding —
+// so their lexicon JSON is intentionally NOT served (the files remain in the
+// package purely as type-generation input). See src/rpc/entrypoint.ts.
 const LEXICONS: Record<string, unknown> = {
   'tools.atmo.notifs.requestPermission': requestPermission,
   'tools.atmo.notifs.send': send,
-  'tools.atmo.notifs.grant': grant,
-  'tools.atmo.notifs.revoke': revoke,
-  'tools.atmo.notifs.denyPending': denyPending,
-  'tools.atmo.notifs.muteGrant': muteGrant,
-  'tools.atmo.notifs.listGrants': listGrants,
-  'tools.atmo.notifs.listPending': listPending,
-  'tools.atmo.notifs.linkChannel': linkChannel,
-  'tools.atmo.notifs.unlinkChannel': unlinkChannel,
-  'tools.atmo.notifs.listChannels': listChannels,
-  'tools.atmo.notifs.getSettings': getSettings,
-  'tools.atmo.notifs.updateSettings': updateSettings,
 };
 
 /**

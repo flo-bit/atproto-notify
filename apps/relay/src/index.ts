@@ -10,6 +10,10 @@ import { buildRouter } from './router';
 import { handleTelegramWebhook } from './telegram/webhook';
 import { handleLexicon, handleWellKnownDid } from './well-known';
 
+// First-party management API, exposed only over a service binding (never as
+// public XRPC). The web app's server is the sole caller. See ./rpc/entrypoint.ts.
+export { RelayRpc } from './rpc/entrypoint';
+
 const TELEGRAM_WEBHOOK_RE = /^\/telegram\/webhook\/(.+)$/;
 const DELIVERY_LOG_RETENTION_MS = 30 * DAY_MS;
 

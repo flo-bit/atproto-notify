@@ -13,33 +13,19 @@ export const RELAY_DID = 'did:web:notifs.atmo.tools';
 /** Service-ref form (the relay's `#notif_relay` service). */
 export const RELAY_SERVICE_REF = `${RELAY_DID}#notif_relay`;
 
-/** Lexicon NSID prefix for all relay methods. */
+/** Lexicon NSID prefix for relay methods (still used by the /docs examples). */
 export const LEXICON_PREFIX = 'tools.atmo.notifs';
 
 /**
- * The user-management methods the website calls on the relay, requested directly
- * as individual `rpc` scopes (rather than a published permission set).
+ * OAuth scope: identity only.
+ *
+ * The website talks to the relay's management methods over a private Cloudflare
+ * service binding (see src/lib/server/relay.ts), passing the signed-in user's
+ * DID directly — it never mints service-auth JWTs on the user's behalf. So it
+ * needs no `rpc?lxm=…` scopes; plain `atproto` (identity) is sufficient, which
+ * also means a phished web OAuth grant yields nothing but the user's identity.
  */
-export const USER_LXMS = [
-	'grant',
-	'revoke',
-	'denyPending',
-	'muteGrant',
-	'listGrants',
-	'listPending',
-	'linkChannel',
-	'unlinkChannel',
-	'listChannels',
-	'getSettings',
-	'updateSettings'
-].map((method) => `${LEXICON_PREFIX}.${method}`);
-
-/**
- * OAuth scope: base `atproto` plus an `rpc` permission for the relay methods.
- * Format is `rpc?lxm=<nsid>&lxm=<nsid>…&aud=<aud>`. `aud=*` (any audience) so
- * service-auth tokens can be minted for the relay.
- */
-export const OAUTH_SCOPE = `atproto rpc?${USER_LXMS.map((lxm) => `lxm=${lxm}`).join('&')}&aud=*`;
+export const OAUTH_SCOPE = 'atproto';
 
 // --- Branding (placeholders — rename freely) -------------------------------
 

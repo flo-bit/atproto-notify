@@ -1,20 +1,20 @@
 import { redirect } from '@sveltejs/kit';
 
-import { relay } from '$lib/server/relay';
+import { relayFor } from '$lib/server/relay';
 
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
-	if (!locals.did || !locals.client) {
+export const load: PageServerLoad = async ({ locals, platform }) => {
+	if (!locals.did) {
 		redirect(303, '/');
 	}
-	const client = locals.client;
+	const relay = relayFor(platform, locals.did);
 
 	const [pending, grants, channels, settings] = await Promise.all([
-		relay.listPending(client),
-		relay.listGrants(client),
-		relay.listChannels(client),
-		relay.getSettings(client)
+		relay.listPending(),
+		relay.listGrants(),
+		relay.listChannels(),
+		relay.getSettings()
 	]);
 
 	// Treat relay responses defensively — render fallbacks rather than crash.

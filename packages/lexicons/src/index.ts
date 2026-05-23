@@ -9,3 +9,7 @@
 // Importing these modules also augments `@atcute/lexicons/ambient`'s
 // `XRPCQueries` / `XRPCProcedures` registries with our NSIDs.
 export * from './lexicons/index.js';
+
+// Hand-written: the first-party management contract shared by the relay's
+// service-binding entrypoint and the web app (see ./rpc.ts).
+export * from './rpc.js';

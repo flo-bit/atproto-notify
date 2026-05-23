@@ -1,31 +1,20 @@
 import type { Did } from '@atcute/lexicons';
-import { createExecutionContext, env, waitOnExecutionContext } from 'cloudflare:test';
-import { beforeAll, expect, it } from 'vitest';
+import { env } from 'cloudflare:test';
+import { expect, it } from 'vitest';
 
 import * as q from '../src/db/queries';
-import worker from '../src/index';
+import * as ops from '../src/rpc/ops';
 
-import { installFetchMock, makeIdentity, makeJwt, mockPlc, xrpcPost } from './helpers';
-
-beforeAll(() => {
-  installFetchMock();
-});
-
+// grant/revoke are no longer XRPC endpoints — they're first-party management ops
+// behind the service binding. The binding is the auth boundary, so these tests
+// exercise the operation logic directly (the `did` is the authenticated user).
 const SENDER: Did = 'did:plc:grantsender';
 
-async function call(req: Request): Promise<Response> {
-  const ctx = createExecutionContext();
-  const res = await worker.fetch(req, env, ctx);
-  await waitOnExecutionContext(ctx);
-  return res;
-}
-
 it('grant consumes the pending request and copies its metadata onto the grant', async () => {
-  const user = await makeIdentity('did:plc:grantuser');
-  mockPlc(user);
+  const user: Did = 'did:plc:grantuser';
   await q.insertPending(env.DB, {
     id: 'req-1',
-    recipientDid: user.did,
+    recipientDid: user,
     senderDid: SENDER,
     title: 'Bookhive',
     description: 'New comments on your books',
@@ -34,14 +23,12 @@ it('grant consumes the pending request and copies its metadata onto the grant', 
     expiresAt: Date.now() + 1_000_000,
   });
 
-  const jwt = await makeJwt(user, { lxm: 'tools.atmo.notifs.grant' });
-  const res = await call(xrpcPost('tools.atmo.notifs.grant', jwt, { sender: SENDER, requestId: 'req-1' }));
+  const out = await ops.grant(env, user, { sender: SENDER, requestId: 'req-1' });
 
-  expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ granted: true });
+  expect(out).toEqual({ granted: true });
   expect(await q.getPendingById(env.DB, 'req-1')).toBeNull();
 
-  const grant = await q.getGrant(env.DB, user.did, SENDER);
+  const grant = await q.getGrant(env.DB, user, SENDER);
   expect(grant).not.toBeNull();
   expect(grant?.title).toBe('Bookhive');
   expect(grant?.description).toBe('New comments on your books');
@@ -49,10 +36,9 @@ it('grant consumes the pending request and copies its metadata onto the grant', 
 });
 
 it('revoke removes the grant', async () => {
-  const user = await makeIdentity('did:plc:revokeuser');
-  mockPlc(user);
+  const user: Did = 'did:plc:revokeuser';
   await q.upsertGrant(env.DB, {
-    recipientDid: user.did,
+    recipientDid: user,
     senderDid: SENDER,
     grantedAt: Date.now(),
     title: null,
@@ -60,10 +46,8 @@ it('revoke removes the grant', async () => {
     iconUrl: null,
   });
 
-  const jwt = await makeJwt(user, { lxm: 'tools.atmo.notifs.revoke' });
-  const res = await call(xrpcPost('tools.atmo.notifs.revoke', jwt, { sender: SENDER }));
+  const out = await ops.revoke(env, user, { sender: SENDER });
 
-  expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ revoked: true });
-  expect(await q.getGrant(env.DB, user.did, SENDER)).toBeNull();
+  expect(out).toEqual({ revoked: true });
+  expect(await q.getGrant(env.DB, user, SENDER)).toBeNull();
 });
