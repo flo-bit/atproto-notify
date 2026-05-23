@@ -509,3 +509,109 @@ export async function deletePushSubscription(db: D1Database, endpoint: string): 
     .run();
   return changed(result);
 }
+
+// ---------------------------------------------------------------------------
+// notifications (inbox)
+// ---------------------------------------------------------------------------
+
+export interface NotificationRow {
+  id: string;
+  recipient_did: Did;
+  sender_did: Did;
+  category: string | null;
+  title: string;
+  body: string;
+  uri: string | null;
+  actors: string | null; // JSON array
+  created_at: number;
+  read_at: number | null;
+}
+
+export interface InsertNotificationInput {
+  id: string;
+  recipientDid: Did;
+  senderDid: Did;
+  category: string | null;
+  title: string;
+  body: string;
+  uri: string | null;
+  actors: string[] | null;
+  createdAt: number;
+}
+
+export async function insertNotification(db: D1Database, input: InsertNotificationInput): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO notifications
+         (id, recipient_did, sender_did, category, title, body, uri, actors, created_at, read_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+    )
+    .bind(
+      input.id,
+      input.recipientDid,
+      input.senderDid,
+      input.category,
+      input.title,
+      input.body,
+      input.uri,
+      input.actors ? JSON.stringify(input.actors) : null,
+      input.createdAt,
+    )
+    .run();
+}
+
+/** Page the inbox newest-first; `before` is a `created_at` cursor (exclusive). */
+export async function listNotificationsForRecipient(
+  db: D1Database,
+  recipientDid: Did,
+  limit: number,
+  before?: number,
+): Promise<NotificationRow[]> {
+  const sql =
+    before !== undefined
+      ? 'SELECT * FROM notifications WHERE recipient_did = ? AND created_at < ? ORDER BY created_at DESC LIMIT ?'
+      : 'SELECT * FROM notifications WHERE recipient_did = ? ORDER BY created_at DESC LIMIT ?';
+  const stmt =
+    before !== undefined
+      ? db.prepare(sql).bind(recipientDid, before, limit)
+      : db.prepare(sql).bind(recipientDid, limit);
+  const { results } = await stmt.all<NotificationRow>();
+  return results;
+}
+
+export function countUnreadNotifications(db: D1Database, recipientDid: Did): Promise<{ c: number } | null> {
+  return db
+    .prepare('SELECT COUNT(*) AS c FROM notifications WHERE recipient_did = ? AND read_at IS NULL')
+    .bind(recipientDid)
+    .first<{ c: number }>();
+}
+
+export async function markNotificationsRead(
+  db: D1Database,
+  recipientDid: Did,
+  ids: string[],
+  readAt: number,
+): Promise<number> {
+  if (ids.length === 0) return 0;
+  const placeholders = ids.map(() => '?').join(',');
+  const result = await db
+    .prepare(
+      `UPDATE notifications SET read_at = ?
+       WHERE recipient_did = ? AND read_at IS NULL AND id IN (${placeholders})`,
+    )
+    .bind(readAt, recipientDid, ...ids)
+    .run();
+  return result.meta.changes ?? 0;
+}
+
+export async function markAllNotificationsRead(
+  db: D1Database,
+  recipientDid: Did,
+  readAt: number,
+): Promise<number> {
+  const result = await db
+    .prepare('UPDATE notifications SET read_at = ? WHERE recipient_did = ? AND read_at IS NULL')
+    .bind(readAt, recipientDid)
+    .run();
+  return result.meta.changes ?? 0;
+}

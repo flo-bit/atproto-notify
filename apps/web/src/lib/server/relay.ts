@@ -10,6 +10,7 @@
 // `relayFor` throws a clear error rather than failing cryptically.
 import type { Did } from '@atcute/lexicons';
 import type {
+	MarkReadInput,
 	PushSubscriptionInput,
 	ToolsAtmoNotifsDenyPending,
 	ToolsAtmoNotifsGrant,
@@ -50,6 +51,8 @@ export function relayFor(platform: App.Platform | undefined, did: Did | null) {
 		updateSettings: (input: ToolsAtmoNotifsUpdateSettings.$input) =>
 			svc.updateSettings(did, input),
 		registerWebPush: (sub: PushSubscriptionInput) => svc.registerWebPush(did, sub),
-		unregisterWebPush: (endpoint: string) => svc.unregisterWebPush(did, endpoint)
+		unregisterWebPush: (endpoint: string) => svc.unregisterWebPush(did, endpoint),
+		listNotifications: (cursor?: string) => svc.listNotifications(did, cursor),
+		markRead: (input: MarkReadInput) => svc.markRead(did, input)
 	};
 }

@@ -65,3 +65,10 @@ export const registerPush = command(
 export const unregisterPush = command(v.object({ endpoint: v.string() }), async ({ endpoint }) => {
 	await requireRelay().unregisterWebPush(endpoint);
 });
+
+export const markNotificationsRead = command(
+	v.object({ ids: v.optional(v.array(v.string())), all: v.optional(v.boolean()) }),
+	async (input) => {
+		await requireRelay().markRead(input);
+	}
+);

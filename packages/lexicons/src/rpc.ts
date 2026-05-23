@@ -34,6 +34,31 @@ export interface PushSubscriptionInput {
   auth: string;
 }
 
+/** A notification as shown in the inbox (binding-only; no public lexicon). */
+export interface NotificationView {
+  id: string;
+  sender: Did;
+  category?: string;
+  title: string;
+  body: string;
+  uri?: string;
+  actors: string[];
+  createdAt: string;
+  read: boolean;
+}
+
+export interface ListNotificationsResult {
+  notifications: NotificationView[];
+  /** `created_at` cursor for the next (older) page; absent when there are no more. */
+  cursor?: string;
+  unread: number;
+}
+
+export interface MarkReadInput {
+  ids?: string[];
+  all?: boolean;
+}
+
 export interface NotifsRpc {
   grant(did: Did, input: ToolsAtmoNotifsGrant.$input): Promise<ToolsAtmoNotifsGrant.$output>;
   revoke(did: Did, input: ToolsAtmoNotifsRevoke.$input): Promise<ToolsAtmoNotifsRevoke.$output>;
@@ -65,4 +90,8 @@ export interface NotifsRpc {
   // Web push (binding-only; no public lexicon).
   registerWebPush(did: Did, sub: PushSubscriptionInput): Promise<{ registered: boolean }>;
   unregisterWebPush(did: Did, endpoint: string): Promise<{ unregistered: boolean }>;
+
+  // Inbox (binding-only; no public lexicon).
+  listNotifications(did: Did, cursor?: string): Promise<ListNotificationsResult>;
+  markRead(did: Did, input: MarkReadInput): Promise<{ marked: number }>;
 }

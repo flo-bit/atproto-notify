@@ -30,6 +30,21 @@ export function makeSend(app: AppContext): ProcedureConfig<ToolsAtmoNotifsSend.m
       if (grant === null) {
         throw notAuthorized();
       }
+
+      // Record in the inbox (full history) for every accepted send — mute/routing
+      // only affect which alert channels fire, not whether it's recorded.
+      await q.insertNotification(app.env.DB, {
+        id,
+        recipientDid: recipient,
+        senderDid,
+        category: input.category ?? null,
+        title: input.title,
+        body: input.body,
+        uri: input.uri ?? null,
+        actors: input.actors ?? null,
+        createdAt: now(),
+      });
+
       if (grant.muted === 1) {
         await logDelivery(app, id, recipient, senderDid, input.title, 0);
         return json({ id, delivered: 0 });

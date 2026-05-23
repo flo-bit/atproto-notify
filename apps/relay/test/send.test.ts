@@ -86,6 +86,25 @@ it('enqueues and reports delivered=1 with a linked channel', async () => {
   expect(log?.delivered_count).toBe(1);
 });
 
+it('records the notification in the inbox', async () => {
+  const sender = await makeIdentity('did:plc:sendinbox');
+  mockPlc(sender);
+  await q.upsertGrant(env.DB, {
+    recipientDid: RECIPIENT,
+    senderDid: sender.did,
+    grantedAt: Date.now(),
+    title: null,
+    description: null,
+    iconUrl: null
+  });
+  const jwt = await makeJwt(sender, { lxm: SEND });
+
+  await call(send(jwt));
+
+  const rows = await q.listNotificationsForRecipient(env.DB, RECIPIENT, 50);
+  expect(rows.some((r) => r.sender_did === sender.did && r.title === 'Hello')).toBe(true);
+});
+
 it('accepts silently with delivered=0 when the grant is muted', async () => {
   const sender = await makeIdentity('did:plc:sendmuted');
   mockPlc(sender);

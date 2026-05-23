@@ -6,6 +6,9 @@
 import type { Did } from '@atcute/lexicons';
 
 import type {
+  ListNotificationsResult,
+  MarkReadInput,
+  NotificationView,
   PushSubscriptionInput,
   ToolsAtmoNotifsDenyPending,
   ToolsAtmoNotifsGetSettings,
@@ -232,4 +235,48 @@ export async function unregisterWebPush(
 ): Promise<{ unregistered: boolean }> {
   const unregistered = await q.deletePushSubscriptionForDid(env.DB, did, endpoint);
   return { unregistered };
+}
+
+const INBOX_PAGE_SIZE = 30;
+
+function toNotificationView(row: q.NotificationRow): NotificationView {
+  return {
+    id: row.id,
+    sender: row.sender_did,
+    category: row.category ?? undefined,
+    title: row.title,
+    body: row.body,
+    uri: row.uri ?? undefined,
+    actors: row.actors ? (JSON.parse(row.actors) as string[]) : [],
+    createdAt: toIsoDatetime(row.created_at),
+    read: row.read_at !== null,
+  };
+}
+
+export async function listNotifications(
+  env: Env,
+  did: Did,
+  cursor?: string,
+): Promise<ListNotificationsResult> {
+  const before = cursor !== undefined ? Number(cursor) : undefined;
+  const rows = await q.listNotificationsForRecipient(env.DB, did, INBOX_PAGE_SIZE, before);
+  const unread = (await q.countUnreadNotifications(env.DB, did))?.c ?? 0;
+  const last = rows.at(-1);
+  return {
+    notifications: rows.map(toNotificationView),
+    unread,
+    cursor: rows.length === INBOX_PAGE_SIZE && last ? String(last.created_at) : undefined,
+  };
+}
+
+export async function markRead(
+  env: Env,
+  did: Did,
+  input: MarkReadInput,
+): Promise<{ marked: number }> {
+  const readAt = now();
+  const marked = input.all
+    ? await q.markAllNotificationsRead(env.DB, did, readAt)
+    : await q.markNotificationsRead(env.DB, did, input.ids ?? [], readAt);
+  return { marked };
 }

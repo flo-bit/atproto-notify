@@ -2,6 +2,8 @@ import { WorkerEntrypoint } from 'cloudflare:workers';
 
 import type { Did } from '@atcute/lexicons';
 import type {
+  ListNotificationsResult,
+  MarkReadInput,
   NotifsRpc,
   PushSubscriptionInput,
   ToolsAtmoNotifsDenyPending,
@@ -69,5 +71,11 @@ export class RelayRpc extends WorkerEntrypoint<Env> implements NotifsRpc {
   }
   unregisterWebPush(did: Did, endpoint: string) {
     return ops.unregisterWebPush(this.env, did, endpoint);
+  }
+  listNotifications(did: Did, cursor?: string): Promise<ListNotificationsResult> {
+    return ops.listNotifications(this.env, did, cursor);
+  }
+  markRead(did: Did, input: MarkReadInput) {
+    return ops.markRead(this.env, did, input);
   }
 }
