@@ -1,0 +1,312 @@
+# atmo.pub — notification integration guide (for LLMs)
+
+This is a complete, self-contained guide for adding notifications to an AT Protocol
+app via atmo.pub. It is written to be implemented from directly. atmo.pub is a
+notification *relay*: an app asks a user for permission, then sends notifications;
+the relay fans them out to the channels the user chose (web push, Telegram, …) and
+records them in the user's inbox.
+
+You integrate as a **sender** (the common case). Optionally you can also let users
+manage your app's settings from inside your app, and receive opt-in/opt-out
+callbacks.
+
+---
+
+## Constants
+
+- Relay XRPC base URL: `https://relay.atmo.pub`
+- Relay DID (the `aud` for every service-auth token): `did:web:relay.atmo.pub`
+- Lexicon NSID prefix: `pub.atmo.notify`
+- Any published lexicon doc: `GET https://relay.atmo.pub/lexicons/<nsid>`
+  (e.g. `…/lexicons/pub.atmo.notify.send`)
+
+Running your own relay instead? Everything below is identical — just substitute
+your relay's origin + DID. See the self-hosting guide.
+
+---
+
+## Identity & auth model (read this first)
+
+There are exactly two kinds of credential. Every call uses one or both.
+
+### 1. Your app's identity (an "app token")
+
+Your app needs its own **DID** and an **atproto P-256 signing key**.
+
+- Use a `did:web` you control, e.g. `did:web:yourapp.example`.
+- Publish a DID document at `https://yourapp.example/.well-known/did.json` that
+  contains your public key, so the relay can verify tokens you sign:
+
+```json
+{
+  "@context": ["https://www.w3.org/ns/did/v1", "https://w3id.org/security/multikey/v1"],
+  "id": "did:web:yourapp.example",
+  "verificationMethod": [
+    {
+      "id": "did:web:yourapp.example#atproto",
+      "type": "Multikey",
+      "controller": "did:web:yourapp.example",
+      "publicKeyMultibase": "z<your-public-multikey>"
+    }
+  ],
+  "service": [
+    {
+      "id": "#atmo_notify",
+      "type": "AtmoNotifsSender",
+      "serviceEndpoint": "https://yourapp.example"
+    }
+  ]
+}
+```
+
+An **app token** is an atproto service-auth JWT (ES256) that you sign with that key:
+- `iss` = your app DID
+- `aud` = `did:web:relay.atmo.pub`
+- `lxm` = the exact method being called (e.g. `pub.atmo.notify.send`)
+- short-lived: `exp` ≤ 300s from now (use ~60s)
+
+The signing key must stay server-side. Never ship it to a browser/PWA.
+
+### 2. The user's consent (a "user token")
+
+For calls that act on a user's behalf, you also need a service-auth JWT issued by
+**the user's** PDS (`iss` = the user's DID). You get one through the user's atproto
+OAuth session by calling `com.atproto.server.getServiceAuth`:
+- params: `{ aud: "did:web:relay.atmo.pub", lxm: "<the method>" }`
+- your OAuth client scope must include `rpc?lxm=<method>&aud=*` for each such method.
+
+A user token proves *which user* and *that they authorized this method*. It does
+NOT identify your app — that's why dual-auth methods (below) carry both tokens.
+
+### Why JWTs are accepted/rejected (HTTP 401)
+
+The relay verifies: signature (by resolving `iss`'s DID doc), `aud` ∈
+{`did:web:relay.atmo.pub`, `did:web:relay.atmo.pub#notif_relay`}, `lxm` equals the
+method, not expired, `iat`/`exp` within a 300s window (±5s skew). Any mismatch →
+`401`.
+
+---
+
+## The methods
+
+All are `POST https://relay.atmo.pub/xrpc/<nsid>` with
+`Content-Type: application/json`. The token(s) go in the `Authorization: Bearer …`
+header and/or the body as noted.
+
+### requestPermission — ask a user to allow your app
+
+Auth: **user token** in the header (`lxm=pub.atmo.notify.requestPermission`).
+
+Request body:
+```json
+{
+  "senderDid": "did:web:yourapp.example",   // required — what the user approves
+  "title": "Your App",                       // required, ≤50 — shown at approval
+  "description": "New replies on your posts",// optional, ≤200
+  "iconUrl": "https://yourapp.example/icon.png" // optional https
+}
+```
+Response: `{ "id": "<requestId>", "status": "pending" | "alreadyGranted" }`
+- `pending` → the user must approve it in atmo.pub (or it's auto-approved if the
+  relay trusts your DID). `alreadyGranted` → you can already send.
+Errors: `NotAuthorized` (401, bad user token), `RateLimitExceeded` (429),
+`InvalidRequest` (400).
+
+### send — deliver a notification
+
+Auth: **app token** in the header (`lxm=pub.atmo.notify.send`). No user token.
+Requires an active grant from `recipient` to your DID.
+
+Request body:
+```json
+{
+  "recipient": "did:plc:…",            // required — the user's DID
+  "title": "Alice replied",            // required, ≤100
+  "body": "“nice post!”",              // required, ≤500
+  "uri": "https://yourapp.example/p/1",// optional — opened on tap
+  "category": "reply",                 // optional, ≤64 — enables per-category routing
+  "categoryDescription": "Replies",    // optional, ≤200 — shown in routing UI
+  "threadKey": "post-1",               // optional — group related notifications
+  "actors": ["alice.bsky.social"]      // optional, ≤8 — handles/DIDs for avatars
+}
+```
+Response: `{ "id": "<id>", "delivered": <int> }`
+- `delivered` = number of channels it fanned out to. **`0` is normal** and not an
+  error: the notification is always saved to the inbox, but the user may have muted
+  you, routed you to "off", or have no channels connected.
+Errors: `NotAuthorized` (403 — no active grant; approve via requestPermission
+first), `RateLimitExceeded` (429, `Retry-After` header). Limits per (recipient,
+sender): 1/second and 100/day.
+
+### Self-management (let users tune *your* app from inside your app)
+
+These are **dual-auth**: the **app token** in the `Authorization` header AND a fresh
+**user token** in the body field `userToken` (both with `lxm` = that method). They
+only ever affect your app's own slice for that user; they require an active grant,
+and writes additionally require the relay to permit it (atmo.pub default: the user
+must have granted your app "manage its own settings" in the dashboard; reads are
+open). On a relay you run yourself, you can allow your own DID by default.
+
+- `setRouting` — body `{ userToken, route?, categories? }`
+  - `route`: `"push" | "telegram" | "push+telegram" | "off" | "default"` (app-wide;
+    `"default"` = inherit the user's account default)
+  - `categories`: `[{ "id": "<category>", "route": "push"|…|"off"|"app" }]`
+    (`"app"` = inherit the app-wide route)
+  - → `{ "ok": true }`
+- `getRouting` — body `{ userToken }` →
+  `{ "route": "<app-wide>", "defaultRoute": "<account default>",
+     "categories": [{ "id", "description?", "route" }] }`
+- `listNotifications` — body `{ userToken, limit?(1–100, default 50), cursor? }` →
+  `{ "notifications": [{ "id","title","body","uri?","category?",
+     "createdAt"(ISO datetime),"read"(bool),"delivered?"(int) }], "cursor?" }`
+- `markRead` — body `{ userToken, ids? }` (omit `ids` to mark all of yours) →
+  `{ "marked": <int> }`
+- `revokeSelf` — body `{ userToken }` → `{ "ok": true }` (your grant is removed)
+- `muteSelf` — body `{ userToken, muted: bool }` → `{ "ok": true }`
+Errors: `401` (bad token), `403` (no grant / not permitted).
+
+### subscriberChanged — a callback YOU implement (optional)
+
+Lets you keep a local subscriber list without polling: the relay POSTs your app
+when a user enables/disables notifications from you (e.g. from atmo.pub).
+
+- The relay calls `POST <your serviceEndpoint>/xrpc/pub.atmo.notify.subscriberChanged`
+  (serviceEndpoint comes from your DID doc) with `Authorization: Bearer <relay token>`.
+- Body: `{ "recipient": "did:…", "enabled": bool, "changedAt": "<ISO datetime>" }`.
+- You MUST verify the token: valid signature (resolve the relay DID), `aud` = your
+  DID, `lxm` = `pub.atmo.notify.subscriberChanged`, **and `iss` === `did:web:relay.atmo.pub`**
+  (the critical check — otherwise anyone could forge enrollments).
+- It's an idempotent state (`enabled`), safe to retry; use `changedAt` to order
+  rapid toggles. Respond `{ "ok": true }`; non-2xx is retried.
+
+### manage — whole-account dashboards (advanced, usually not for senders)
+
+`pub.atmo.notify.manage` is an envelope for building an alternative full dashboard
+(read/modify a user's grants, channels, devices, account-wide routing). It requires
+the user to designate your app a "full manager". Most senders never need this; see
+the management-auth design doc.
+
+---
+
+## Reference implementation (TypeScript, @atcute)
+
+```ts
+import { createServiceJwt } from '@atcute/xrpc-server/auth';
+import { P256PrivateKey, parsePrivateMultikey } from '@atcute/crypto';
+
+const RELAY_ORIGIN = 'https://relay.atmo.pub';
+const RELAY_DID = 'did:web:relay.atmo.pub';
+const SENDER_DID = 'did:web:yourapp.example';
+
+// --- app token: signed with YOUR key (server-side) -------------------------
+async function getKeypair() {
+  const { privateKeyBytes } = parsePrivateMultikey(process.env.SENDER_PRIVATE_KEY!);
+  return P256PrivateKey.importRaw(privateKeyBytes);
+}
+async function mintAppToken(lxm: string) {
+  return createServiceJwt({
+    keypair: await getKeypair(),
+    issuer: SENDER_DID,
+    audience: RELAY_DID,
+    lxm,
+    expiresIn: 60,
+  });
+}
+
+// --- generic XRPC POST -----------------------------------------------------
+async function call(lxm: string, bearer: string, body: object) {
+  const res = await fetch(`${RELAY_ORIGIN}/xrpc/${lxm}`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${bearer}`, 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = res.headers.get('content-type')?.includes('json') ? await res.json() : {};
+  if (!res.ok) throw Object.assign(new Error(`relay ${lxm} ${res.status}`), { status: res.status, data });
+  return data;
+}
+
+// --- send (app token only) -------------------------------------------------
+async function send(recipient: string, title: string, body: string) {
+  const lxm = 'pub.atmo.notify.send';
+  return call(lxm, await mintAppToken(lxm), { recipient, title, body });
+}
+
+// --- requestPermission (user token from the user's OAuth session) ----------
+// `client` is an authenticated @atcute OAuth client for the signed-in user.
+async function requestPermission(client: any) {
+  const lxm = 'pub.atmo.notify.requestPermission';
+  const auth = await client.get('com.atproto.server.getServiceAuth', {
+    params: { aud: RELAY_DID, lxm },
+  });
+  if (!auth.ok) throw new Error('could not mint user token');
+  return call(lxm, auth.data.token, { senderDid: SENDER_DID, title: 'Your App' });
+}
+
+// --- dual-auth example: change your app's routing for the user -------------
+async function setRouting(client: any, route: string) {
+  const lxm = 'pub.atmo.notify.setRouting';
+  const [appJwt, user] = await Promise.all([
+    mintAppToken(lxm),
+    client.get('com.atproto.server.getServiceAuth', { params: { aud: RELAY_DID, lxm } }),
+  ]);
+  return call(lxm, appJwt, { userToken: user.data.token, route }); // app token = header, user token = body
+}
+```
+
+Raw `send` with curl (app token in `$APP_JWT`):
+```bash
+curl -X POST https://relay.atmo.pub/xrpc/pub.atmo.notify.send \
+  -H "Authorization: Bearer $APP_JWT" -H "Content-Type: application/json" \
+  -d '{"recipient":"did:plc:…","title":"Hello","body":"World"}'
+```
+
+---
+
+## Implementation checklist
+
+1. Generate a P-256 keypair; keep the private multikey as a server secret.
+2. Publish `did:web:yourapp.example` with the public key (see DID doc above). Verify
+   `https://yourapp.example/.well-known/did.json` resolves and the key matches.
+3. Add atproto OAuth to your app (so users can sign in) and request the scopes you
+   need: at minimum `rpc?lxm=pub.atmo.notify.requestPermission&aud=*`; add one
+   `rpc?lxm=…&aud=*` per dual-auth method you call.
+4. Onboarding: call `requestPermission` for the signed-in user. If `pending`, point
+   them to atmo.pub to approve; if `alreadyGranted`, you're set.
+5. Sending: mint an app token and call `send` (handle `403` = not yet approved,
+   `429` = rate limited, `delivered:0` = accepted but no channels fired).
+6. (Optional) In-app settings via the dual-auth methods.
+7. (Optional) Implement the `subscriberChanged` callback to track enrollments.
+
+## OAuth scope reference
+
+```
+atproto
+rpc?lxm=pub.atmo.notify.requestPermission&aud=*
+rpc?lxm=pub.atmo.notify.setRouting&aud=*
+rpc?lxm=pub.atmo.notify.getRouting&aud=*
+rpc?lxm=pub.atmo.notify.listNotifications&aud=*
+rpc?lxm=pub.atmo.notify.markRead&aud=*
+rpc?lxm=pub.atmo.notify.revokeSelf&aud=*
+rpc?lxm=pub.atmo.notify.muteSelf&aud=*
+```
+Only include the ones you actually use. `send` needs NO scope (it uses your app key,
+not the user's OAuth).
+
+## Error codes
+
+- `400 InvalidRequest` — malformed body / failed schema validation.
+- `401` — token problem (bad signature, expired, wrong `aud`, wrong `lxm`,
+  unresolvable issuer DID).
+- `403 NotAuthorized` — no active grant, or the user hasn't permitted this action.
+- `429 RateLimitExceeded` — back off; honor the `Retry-After` header.
+
+## Notes & gotchas
+
+- Everything sent is always recorded in the inbox; routing only decides which alert
+  channels fire. `delivered: 0` is success-with-no-channels, not failure.
+- Tokens are method-scoped (`lxm`) and short-lived — mint per call.
+- The app signing key is server-only; a PWA/browser cannot send (it has no key).
+  Run a small backend for `send` and the callback.
+- Federation: a user may use atmo.pub AND other relays. To reach them everywhere,
+  send to each relay the user is enrolled with (same protocol, different
+  `aud`/origin); `subscriberChanged` callbacks tell you who's enrolled where.
