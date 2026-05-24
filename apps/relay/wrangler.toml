@@ -43,18 +43,18 @@ BOT_USERNAME = "atmo_notify_bot"        # e.g. "atmonotifsbot"
 VAPID_PUBLIC_KEY = "BF4pVUiFeh9wltn6Rj151RHA4WfidcRRv8kXp2aKcRATi_2gUgq0uGX8jVY1EczXqOvRtluqIxRj6Mtf5d1ImRw"
 VAPID_SUBJECT = "https://atmo.pub"
 # Email via comail (https://comail.at). COMAIL_DID = the account DID for the
-# X-Atmos-DID header; COMAIL_FROM = an enrolled sender address.
+# X-Atmos-DID header; COMAIL_FROM = an enrolled sender address — a BARE address,
+# no "Name <addr>" display name (comail rejects that; the relay strips it anyway).
 COMAIL_DID = "did:plc:jf3acz4zktzkaptswh5so43u"
-COMAIL_FROM = "atmo.pub <notify@atmo.pub>"
+COMAIL_FROM = "notify@atmo.pub"
 # Daily email caps (rolling 24h). Per-recipient = anti-spam/cost; global = keep
 # under the comail plan. Omit to use the defaults (10 / 100). See delivery/limits.ts.
 EMAIL_DAILY_PER_RECIPIENT = "10"
 EMAIL_DAILY_GLOBAL = "10"
-# Bluesky DM via a bot account. BLUESKY_DM_IDENTIFIER = the bot's handle or DID
-# (used for createSession); BLUESKY_DM_SERVICE = its PDS (defaults to
-# https://bsky.social if omitted). The app password is the BLUESKY_DM_APP_PASSWORD secret.
+# Bluesky DM via a bot account. BLUESKY_DM_IDENTIFIER = the bot's handle or DID;
+# its PDS is resolved at runtime (login + chat both use it), so there's no service
+# endpoint to set. The app password is the BLUESKY_DM_APP_PASSWORD secret.
 BLUESKY_DM_IDENTIFIER = "did:plc:jf3acz4zktzkaptswh5so43u"
-BLUESKY_DM_SERVICE = "https://bsky.social"
 
 # Secrets set via `wrangler secret put`:
 # - TELEGRAM_BOT_TOKEN

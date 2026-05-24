@@ -37,6 +37,11 @@ interface ComailResponse {
   code?: string;
 }
 
+/** comail requires a bare `from` address (no "Name <addr>"); unwrap it if present. */
+export function bareAddress(from: string): string {
+  return (/<([^>]+)>/.exec(from)?.[1] ?? from).trim();
+}
+
 /**
  * Send one email via comail. Resolves with the comail message id, or throws
  * {@link EmailError} on a non-2xx response or a rejected recipient.
@@ -50,7 +55,7 @@ export async function sendEmail(env: Env, msg: EmailMessage): Promise<{ messageI
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      from: env.COMAIL_FROM,
+      from: bareAddress(env.COMAIL_FROM),
       to: msg.to,
       subject: msg.subject,
       text: msg.text,

@@ -115,7 +115,8 @@ export interface Env {
   COMAIL_API_KEY: string;
   /** Account DID for the `X-Atmos-DID` header (var). */
   COMAIL_DID: string;
-  /** Enrolled sender address for the `from` field, e.g. "atmo.pub <notify@atmo.pub>" (var). */
+  /** Enrolled sender address for the `from` field — a bare address, e.g.
+   *  "notify@atmo.pub" (comail rejects "Name <addr>"; the relay strips it anyway) (var). */
   COMAIL_FROM: string;
   /** Max emails delivered to ONE recipient per rolling day (var; default 10). See delivery/limits.ts. */
   EMAIL_DAILY_PER_RECIPIENT?: string;
@@ -123,12 +124,11 @@ export interface Env {
   EMAIL_DAILY_GLOBAL?: string;
 
   // Bluesky DM delivery — the relay sends DMs from a configured bot account.
-  /** Bot handle or DID used for createSession (var). */
+  /** Bot handle or DID (var). The bot's PDS is resolved from this at runtime for
+   *  both login and chat — no service endpoint to configure. */
   BLUESKY_DM_IDENTIFIER: string;
   /** Bot app password (secret). */
   BLUESKY_DM_APP_PASSWORD: string;
-  /** Bot PDS service URL; defaults to https://bsky.social (var). */
-  BLUESKY_DM_SERVICE?: string;
 }
 
 /**

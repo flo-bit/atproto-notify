@@ -3,7 +3,8 @@
 // link an address (the `linkEmail` command rejects them too). Add DIDs here to
 // grant access. Kept server-side so the list never ships to the browser.
 const EMAIL_WHITELIST = new Set<string>([
-	// 'did:plc:257wekqxg4hyapkq6k47igmp',
+	'did:plc:257wekqxg4hyapkq6k47igmp',
+	'did:plc:dy67wyyakm7u4v2lthy5zwbn'
 ]);
 
 /** True if `did` may use the email delivery channel. */

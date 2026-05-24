@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:test';
 import { beforeEach, expect, it } from 'vitest';
 
-import { EmailError, sendEmail } from '../src/delivery/email';
+import { bareAddress, EmailError, sendEmail } from '../src/delivery/email';
 
 import { installFetchMock, mockComailError, mockComailOk, mockComailRejected } from './helpers';
 
@@ -27,4 +27,11 @@ it('throws EmailError on a comail error response', async () => {
 it('throws EmailError when the recipient is rejected (2xx, empty accepted)', async () => {
   mockComailRejected();
   await expect(sendEmail(env, msg)).rejects.toBeInstanceOf(EmailError);
+});
+
+it('bareAddress strips a display name (comail requires a bare from)', () => {
+  expect(bareAddress('atmo.pub <notify@atmo.pub>')).toBe('notify@atmo.pub');
+  expect(bareAddress('  Name <a@b.com> ')).toBe('a@b.com');
+  expect(bareAddress('notify@atmo.pub')).toBe('notify@atmo.pub');
+  expect(bareAddress('  notify@atmo.pub  ')).toBe('notify@atmo.pub');
 });

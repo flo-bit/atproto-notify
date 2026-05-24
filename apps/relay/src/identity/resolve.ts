@@ -1,9 +1,14 @@
 import {
+  type ActorResolver,
   CompositeDidDocumentResolver,
+  CompositeHandleResolver,
   type DidDocumentResolver,
+  DohJsonHandleResolver,
+  LocalActorResolver,
   PlcDidDocumentResolver,
   type ResolveDidDocumentOptions,
   WebDidDocumentResolver,
+  WellKnownHandleResolver,
 } from '@atcute/identity-resolver';
 import type { Did } from '@atcute/lexicons';
 
@@ -53,6 +58,25 @@ export function makeResolver(cache: KVNamespace): DidDocumentResolver {
     },
   });
   return new CachedDidDocumentResolver(composite, cache);
+}
+
+const DOH_URL = 'https://cloudflare-dns.com/dns-query';
+
+/**
+ * Resolve an actor (handle OR DID) to `{ did, handle, pds }`, reusing the
+ * KV-cached DID-document resolver (so the PDS lookup is cached ~5min). Used to
+ * find the DM bot's PDS at runtime — no hardcoded service endpoint needed.
+ */
+export function makeActorResolver(cache: KVNamespace): ActorResolver {
+  return new LocalActorResolver({
+    handleResolver: new CompositeHandleResolver({
+      methods: {
+        http: new WellKnownHandleResolver(),
+        dns: new DohJsonHandleResolver({ dohUrl: DOH_URL }),
+      },
+    }),
+    didDocumentResolver: makeResolver(cache),
+  });
 }
 
 /**

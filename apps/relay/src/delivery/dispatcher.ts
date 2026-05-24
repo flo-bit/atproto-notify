@@ -86,7 +86,7 @@ async function reapIfDead(env: Env, job: DispatchJob, err: unknown): Promise<boo
   ) {
     // Recipient blocks DMs from the bot, etc. — stop retrying this one; keep the
     // target (the user can fix their DM settings). 401 (bot auth) and 429/5xx retry.
-    console.error(`dispatch: dropping DM to ${channel.recipientDid} (${err.statusCode})`);
+    console.error(`dispatch: dropping DM to ${channel.recipientDid}: ${err.message}`);
     return true;
   }
   if (
