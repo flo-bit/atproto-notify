@@ -5,7 +5,17 @@ import { beforeAll, expect, it } from 'vitest';
 import * as q from '../src/db/queries';
 import worker from '../src/index';
 
-import { installFetchMock, makeIdentity, makeJwt, mockPlc, xrpcPost, type TestIdentity } from './helpers';
+import {
+  addPush,
+  addTelegram,
+  addVerifiedEmail,
+  installFetchMock,
+  makeIdentity,
+  makeJwt,
+  mockPlc,
+  xrpcPost,
+  type TestIdentity,
+} from './helpers';
 
 beforeAll(() => {
   installFetchMock();
@@ -35,7 +45,8 @@ async function dualCall(
   return call(xrpcPost(lxm, appJwt, { userToken, ...body }));
 }
 
-/** Granted but NOT designated (manage='none'). */
+/** Granted and explicitly designated 'none' (no management access). New grants
+ *  default to 'self', so pin it to 'none' to exercise the no-access tier. */
 async function plain(tag: string): Promise<{ app: TestIdentity; user: TestIdentity }> {
   const app = await makeIdentity(`did:plc:${tag}-app`);
   const user = await makeIdentity(`did:plc:${tag}-user`);
@@ -49,6 +60,7 @@ async function plain(tag: string): Promise<{ app: TestIdentity; user: TestIdenti
     description: null,
     iconUrl: null,
   });
+  await q.setGrantManage(env.DB, user.did, app.did, 'none');
   return { app, user };
 }
 
@@ -70,6 +82,20 @@ it('undesignated app: self-WRITE is denied (write policy defaults to user-allowl
   expect(res.status).toBe(403);
   // …and nothing was written.
   expect(await q.getAppRoute(env.DB, user.did, app.did)).toBeNull();
+});
+
+it('a fresh grant defaults to self-management', async () => {
+  const user = await makeIdentity('did:plc:mgmt-default-user');
+  const app = await makeIdentity('did:plc:mgmt-default-app');
+  await q.upsertGrant(env.DB, {
+    recipientDid: user.did,
+    senderDid: app.did,
+    grantedAt: Date.now(),
+    title: null,
+    description: null,
+    iconUrl: null,
+  });
+  expect((await q.getGrant(env.DB, user.did, app.did))?.manage).toBe('self');
 });
 
 it('designated `self`: self-WRITE is allowed', async () => {
@@ -116,4 +142,33 @@ it('a `full` designation also satisfies self-scoped writes', async () => {
   await designate(user.did, app.did, 'full');
   const res = await dualCall(SETROUTING, app, user, { route: 'push' });
   expect(res.status).toBe(200);
+});
+
+it('getRouting returns the target catalog with privacy-safe labels', async () => {
+  const { app, user } = await plain('mgmt-targets');
+  await addVerifiedEmail(env.DB, user.did, 'secret@example.com');
+  await addTelegram(env.DB, user.did, '424242', 'secrethandle');
+  await addPush(env.DB, user.did, 'https://push.example/dev', 'Chrome · macOS');
+
+  const res = await dualCall(GETROUTING, app, user);
+  expect(res.status).toBe(200);
+  const data = (await res.json()) as { targets: { type: string; id: string; label: string }[] };
+  const labelByType = Object.fromEntries(data.targets.map((t) => [t.type, t.label]));
+
+  expect(labelByType.email).toBe('Email'); // raw address NOT exposed
+  expect(labelByType.telegram).toBe('Telegram'); // raw @handle NOT exposed
+  expect(labelByType.push).toBe('Chrome · macOS'); // device label is fine
+  const dump = JSON.stringify(data.targets);
+  expect(dump).not.toContain('secret@example.com');
+  expect(dump).not.toContain('secrethandle');
+});
+
+it('getRouting exposes a user-chosen target name once renamed', async () => {
+  const { app, user } = await plain('mgmt-targets-named');
+  const emailId = await addVerifiedEmail(env.DB, user.did, 'me@example.com');
+  await q.renameDeliveryTargetById(env.DB, user.did, emailId, 'Work');
+
+  const res = await dualCall(GETROUTING, app, user);
+  const data = (await res.json()) as { targets: { type: string; label: string }[] };
+  expect(data.targets.find((t) => t.type === 'email')?.label).toBe('Work');
 });

@@ -1,10 +1,11 @@
 import type { Did, Nsid } from '@atcute/lexicons';
 
 import { mintRelayJwt } from '../auth/relay-signer';
-import { deleteChannelByPlatformUser, deletePushSubscription } from '../db/queries';
+import { deleteDeliveryTargetByRef } from '../db/queries';
 import type { DispatchJob, Env } from '../env';
 import { callbackAppFor } from '../lib/apps';
 
+import { BlueskyDMError, sendBlueskyDM } from './bluesky-dm';
 import { EmailError, sendEmail } from './email';
 import {
   escapeMd,
@@ -12,6 +13,7 @@ import {
   sendMessage,
   TelegramApiError,
 } from './telegram';
+import { sendWebhook, WebhookError } from './webhook';
 import { sendWebPush, WebPushError } from './webpush';
 
 const SUBSCRIBER_CHANGED_LXM = 'pub.atmo.notify.subscriberChanged' as Nsid;
@@ -49,7 +51,7 @@ async function reapIfDead(env: Env, job: DispatchJob, err: unknown): Promise<boo
   const { channel } = job;
   if (channel.platform === 'telegram' && err instanceof TelegramApiError && isDeadChannel(err)) {
     // The user blocked the bot or the chat is gone.
-    await deleteChannelByPlatformUser(env.DB, channel.platform, channel.platformUserId);
+    await deleteDeliveryTargetByRef(env.DB, 'telegram', channel.platformUserId);
     console.error(`dispatch: dropping dead telegram channel ${channel.platformUserId}: ${err.description}`);
     return true;
   }
@@ -59,7 +61,7 @@ async function reapIfDead(env: Env, job: DispatchJob, err: unknown): Promise<boo
     (err.statusCode === 404 || err.statusCode === 410)
   ) {
     // The push subscription expired or was unsubscribed.
-    await deletePushSubscription(env.DB, channel.endpoint);
+    await deleteDeliveryTargetByRef(env.DB, 'push', channel.endpoint);
     console.error(`dispatch: dropping dead push subscription (${err.statusCode})`);
     return true;
   }
@@ -72,6 +74,32 @@ async function reapIfDead(env: Env, job: DispatchJob, err: unknown): Promise<boo
     // Permanent (bad/rejected address) — stop retrying. The channel is kept so the
     // user can fix it; 429 (rate limit) and 5xx fall through to retry.
     console.error(`dispatch: dropping email to ${channel.address} (${err.statusCode} ${err.code})`);
+    return true;
+  }
+  if (
+    channel.platform === 'dm' &&
+    err instanceof BlueskyDMError &&
+    err.statusCode >= 400 &&
+    err.statusCode < 500 &&
+    err.statusCode !== 401 &&
+    err.statusCode !== 429
+  ) {
+    // Recipient blocks DMs from the bot, etc. — stop retrying this one; keep the
+    // target (the user can fix their DM settings). 401 (bot auth) and 429/5xx retry.
+    console.error(`dispatch: dropping DM to ${channel.recipientDid} (${err.statusCode})`);
+    return true;
+  }
+  if (
+    channel.platform === 'webhook' &&
+    err instanceof WebhookError &&
+    err.statusCode >= 400 &&
+    err.statusCode < 500 &&
+    err.statusCode !== 429
+  ) {
+    // The endpoint rejected the POST (4xx) — stop retrying. The user owns the URL,
+    // so we KEEP the target (never auto-reap it); they can fix or remove it.
+    // 429 and 5xx / network / timeout fall through to retry.
+    console.error(`dispatch: giving up on webhook (${err.statusCode}); keeping target`);
     return true;
   }
   return false;
@@ -148,6 +176,22 @@ async function dispatch(env: Env, job: DispatchJob): Promise<void> {
         to: job.channel.address,
         subject: job.title,
         text: job.uri !== undefined ? `${job.body}\n\n${job.uri}` : job.body,
+      });
+      return;
+    }
+
+    if (job.channel.platform === 'dm') {
+      const dmText = `${job.title}\n${job.body}${job.uri !== undefined ? `\n\n${job.uri}` : ''}`;
+      await sendBlueskyDM(env, job.channel.recipientDid, dmText);
+      return;
+    }
+
+    if (job.channel.platform === 'webhook') {
+      await sendWebhook(job.channel, {
+        title: job.title,
+        body: job.body,
+        uri: job.uri,
+        sender: job.senderDid,
       });
       return;
     }

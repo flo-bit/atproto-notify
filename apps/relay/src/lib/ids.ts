@@ -6,6 +6,15 @@ export function newId(): string {
 }
 
 /**
+ * Generate a short, stable id for a delivery target. It appears in route strings
+ * (`push:<id>`); nanoid's url-safe alphabet (A–Z a–z 0–9 _ -) never contains the
+ * `+`/`:` route separators, so it's safe to embed. 12 chars ≈ 71 bits.
+ */
+export function newTargetId(): string {
+  return nanoid(12);
+}
+
+/**
  * Generate a 32-character URL-safe link token.
  *
  * Uses `crypto.getRandomValues` (CSPRNG) rather than `Math.random`. 24 random

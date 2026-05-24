@@ -1,8 +1,8 @@
 // Authentication + authorization for notification *management* calls.
 // See MANAGEMENT-AUTH.md for the full model. In short:
 //   - The app is always authenticated by its own service-auth bearer (`iss`).
-//   - The user is identified by a body `userToken` (dual-auth) OR, for an app
-//     with a standing designation, a vouched body `did` (no user token).
+//   - The user is ALWAYS identified by a fresh body `userToken` (dual-auth) — there
+//     is no standing "vouch" path; every call needs per-call user consent.
 //   - Authorization = the (user, app) capability (relay-wide or per-grant) plus
 //     the relay's self-policy for the undesignated open end.
 import type { Did, Nsid } from '@atcute/lexicons';
@@ -61,24 +61,16 @@ export interface ManagementCall {
 export async function verifyManagementCall(
   app: AppContext,
   request: Request,
-  input: { userToken?: string; did?: string },
+  input: { userToken?: string },
   need: ManagementNeed,
 ): Promise<ManagementCall> {
   const lxm = need.lxm as Nsid;
   const { senderDid: appDid } = await verifySenderRequest(app.verifier, request, lxm);
 
-  // User identity: dual-auth (a user token) or vouch (a body DID, designation-gated).
-  let userDid: Did;
-  let vouched: boolean;
-  if (input.userToken !== undefined) {
-    ({ did: userDid } = await verifyServiceToken(app.verifier, input.userToken, lxm));
-    vouched = false;
-  } else if (input.did !== undefined) {
-    userDid = input.did as Did;
-    vouched = true;
-  } else {
-    throw notAuthorized();
-  }
+  // User identity is ALWAYS proven by a fresh user-issued token (no vouch path),
+  // so every management call carries per-call user consent.
+  if (input.userToken === undefined) throw notAuthorized();
+  const { did: userDid } = await verifyServiceToken(app.verifier, input.userToken, lxm);
   if (userDid === appDid) throw notAuthorized();
 
   const { cap, granted } = await resolveCapability(app.env, userDid, appDid);
@@ -87,18 +79,15 @@ export async function verifyManagementCall(
   const designated = (scope: 'self' | 'full') => RANK[cap] >= RANK[scope];
 
   if (need.scope === 'full') {
-    // Whole-account always needs a manager designation; vouch or dual both fine.
+    // Whole-account always needs a manager designation.
     if (!designated('full')) throw notAuthorized();
     return { appDid, userDid };
   }
 
-  // self scope
-  if (designated('self')) return { appDid, userDid }; // designated → vouch or dual ok
-
-  // Undesignated self: vouch is not allowed (no standing consent), and the
-  // relay's open-end policy must admit it.
-  if (vouched) throw notAuthorized();
+  // self scope: a designation passes; otherwise the relay's open-end policy must
+  // admit the undesignated app (reads default open, writes default user-allowlist).
+  if (designated('self')) return { appDid, userDid };
   const policy = need.write ? writePolicy(app.env) : readPolicy(app.env);
-  if (policy !== 'open') throw notAuthorized(); // relay/user allowlists are covered by `designated`
+  if (policy !== 'open') throw notAuthorized();
   return { appDid, userDid };
 }

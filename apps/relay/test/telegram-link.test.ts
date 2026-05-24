@@ -51,10 +51,38 @@ it('/start <valid token> links the Telegram channel and consumes the token', asy
   );
 
   expect(res.status).toBe(200);
-  const channel = await q.getChannelByPlatformUser(env.DB, 'telegram', '999');
+  const channel = await q.getDeliveryTargetByRef(env.DB, 'telegram', '999');
   expect(channel?.did).toBe(did);
-  expect(channel?.display_name).toBe('alice');
+  expect(channel?.label).toBe('alice');
   expect(await q.getLinkToken(env.DB, 'tok-valid')).toBeNull();
+});
+
+it('/start applies a label carried on the link token and marks it named', async () => {
+  const did: Did = 'did:plc:tglabeled';
+  await q.insertLinkToken(env.DB, {
+    token: 'tok-labeled',
+    did,
+    platform: 'telegram',
+    label: 'Work phone',
+    expiresAt: Date.now() + 600_000,
+  });
+
+  const res = await call(
+    webhook({
+      update_id: 5,
+      message: {
+        message_id: 5,
+        chat: { id: 555, type: 'private' },
+        from: { id: 555, username: 'carol' },
+        text: '/start tok-labeled',
+      },
+    }),
+  );
+
+  expect(res.status).toBe(200);
+  const channel = await q.getDeliveryTargetByRef(env.DB, 'telegram', '555');
+  expect(channel?.label).toBe('Work phone'); // user label, not the @username
+  expect(channel?.named).toBe(1);
 });
 
 it('/start <expired token> does not link', async () => {
@@ -79,7 +107,7 @@ it('/start <expired token> does not link', async () => {
   );
 
   expect(res.status).toBe(200);
-  expect(await q.getChannelByPlatformUser(env.DB, 'telegram', '888')).toBeNull();
+  expect(await q.getDeliveryTargetByRef(env.DB, 'telegram', '888')).toBeNull();
 });
 
 it('/start with no argument responds 200 without linking', async () => {
@@ -96,7 +124,7 @@ it('/start with no argument responds 200 without linking', async () => {
   );
 
   expect(res.status).toBe(200);
-  expect(await q.getChannelByPlatformUser(env.DB, 'telegram', '777')).toBeNull();
+  expect(await q.getDeliveryTargetByRef(env.DB, 'telegram', '777')).toBeNull();
 });
 
 it('rejects a webhook with the wrong secret', async () => {

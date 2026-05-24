@@ -46,3 +46,26 @@ it('markRead({ ids }) marks those; markRead({ all }) clears the rest', async () 
   expect((await ops.markRead(env, user, { all: true })).marked).toBe(1);
   expect((await ops.listNotifications(env, user)).unread).toBe(0);
 });
+
+it('clearNotificationsFromSender deletes only that app’s notifications', async () => {
+  const user = 'did:plc:inbox-clear' as Did;
+  const other: Did = 'did:plc:inbox-other-sender';
+  await seed(user, 'c1', 1000, null);
+  await seed(user, 'c2', 2000, null);
+  await q.insertNotification(env.DB, {
+    id: 'c-other',
+    recipientDid: user,
+    senderDid: other,
+    category: null,
+    title: 'keep',
+    body: 'b',
+    uri: null,
+    actors: null,
+    createdAt: 3000,
+  });
+
+  expect((await ops.clearNotificationsFromSender(env, user, SENDER)).deleted).toBe(2);
+
+  const rest = await ops.listNotifications(env, user);
+  expect(rest.notifications.map((n) => n.id)).toEqual(['c-other']);
+});

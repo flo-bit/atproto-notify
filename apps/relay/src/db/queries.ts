@@ -12,91 +12,13 @@ export interface UserRow {
   auto_allow: string;
 }
 
-export interface ChannelRow {
-  did: Did;
-  platform: string;
-  platform_user_id: string;
-  display_name: string | null;
-  linked_at: number;
-}
-
 export interface LinkTokenRow {
   token: string;
   did: Did;
   platform: string;
+  /** Optional user-chosen name carried through the linking round-trip. */
+  label: string | null;
   expires_at: number;
-}
-
-// --- email channel (one verified address per user) -------------------------
-
-export interface EmailChannelRow {
-  recipient_did: Did;
-  address: string;
-  verified: number;
-  verify_code: string | null;
-  verify_expires: number | null;
-  created_at: number;
-}
-
-export function getEmailChannel(db: D1Database, did: Did): Promise<EmailChannelRow | null> {
-  return db
-    .prepare('SELECT * FROM email_channels WHERE recipient_did = ?')
-    .bind(did)
-    .first<EmailChannelRow>();
-}
-
-/** Set (or replace) a user's pending email + verification code (resets verified). */
-export async function upsertEmailChannel(
-  db: D1Database,
-  input: { did: Did; address: string; verifyCode: string; verifyExpires: number; createdAt: number },
-): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO email_channels (recipient_did, address, verified, verify_code, verify_expires, created_at)
-       VALUES (?, ?, 0, ?, ?, ?)
-       ON CONFLICT(recipient_did) DO UPDATE SET
-         address = excluded.address,
-         verified = 0,
-         verify_code = excluded.verify_code,
-         verify_expires = excluded.verify_expires,
-         created_at = excluded.created_at`,
-    )
-    .bind(input.did, input.address, input.verifyCode, input.verifyExpires, input.createdAt)
-    .run();
-}
-
-/** Mark verified iff the code matches and hasn't expired. Returns true on success. */
-export async function verifyEmailChannel(
-  db: D1Database,
-  did: Did,
-  code: string,
-  nowMs: number,
-): Promise<boolean> {
-  const result = await db
-    .prepare(
-      `UPDATE email_channels SET verified = 1, verify_code = NULL, verify_expires = NULL
-       WHERE recipient_did = ? AND verified = 0 AND verify_code = ? AND verify_expires > ?`,
-    )
-    .bind(did, code, nowMs)
-    .run();
-  return changed(result);
-}
-
-export async function deleteEmailChannel(db: D1Database, did: Did): Promise<boolean> {
-  const result = await db
-    .prepare('DELETE FROM email_channels WHERE recipient_did = ?')
-    .bind(did)
-    .run();
-  return changed(result);
-}
-
-/** The user's verified email address, or null. Used by delivery. */
-export async function getVerifiedEmail(db: D1Database, did: Did): Promise<string | null> {
-  const row = await db
-    .prepare('SELECT address FROM email_channels WHERE recipient_did = ? AND verified = 1')
-    .bind(did)
-    .first<{ address: string }>();
-  return row?.address ?? null;
 }
 
 export interface SenderRow {
@@ -172,67 +94,228 @@ export async function setNotifyPending(db: D1Database, did: Did, value: boolean)
 }
 
 // ---------------------------------------------------------------------------
-// channels
+// delivery_targets (unified push / telegram / email)
 // ---------------------------------------------------------------------------
+//
+// One table for every delivery destination, discriminated by `channel`. `ref` is
+// the channel's natural dedup key (push endpoint / telegram chat id / email
+// address); `id` is the stable token a route uses to target one instance. See
+// migrations/0001_init.sql.
 
-export async function listChannelsForDid(db: D1Database, did: Did): Promise<ChannelRow[]> {
-  const { results } = await db
-    .prepare('SELECT * FROM channels WHERE did = ? ORDER BY linked_at DESC')
-    .bind(did)
-    .all<ChannelRow>();
-  return results;
-}
+export type DeliveryChannelKind = 'push' | 'telegram' | 'email' | 'dm' | 'webhook';
 
-export function getChannelByPlatformUser(
-  db: D1Database,
-  platform: string,
-  platformUserId: string,
-): Promise<ChannelRow | null> {
-  return db
-    .prepare('SELECT * FROM channels WHERE platform = ? AND platform_user_id = ?')
-    .bind(platform, platformUserId)
-    .first<ChannelRow>();
-}
-
-export interface UpsertChannelInput {
+export interface DeliveryTargetRow {
+  id: string;
   did: Did;
-  platform: string;
-  platformUserId: string;
-  displayName: string | null;
-  linkedAt: number;
+  channel: string;
+  ref: string;
+  label: string | null;
+  /** 1 once the user renamed it (so the auto label isn't exposed to apps). */
+  named: number;
+  verified: number;
+  config: string; // channel-specific JSON
+  created_at: number;
+}
+
+/** A delivery target with its `config` JSON parsed into channel-specific fields. */
+export type DeliveryInstance =
+  | { id: string; channel: 'push'; label: string; verified: boolean; endpoint: string; p256dh: string; auth: string }
+  | { id: string; channel: 'telegram'; label: string; verified: boolean; chatId: string }
+  | { id: string; channel: 'email'; label: string; verified: boolean; address: string }
+  | { id: string; channel: 'dm'; label: string; verified: boolean; recipientDid: string }
+  | { id: string; channel: 'webhook'; label: string; verified: boolean; url: string };
+
+const DEFAULT_LABEL: Record<DeliveryChannelKind, string> = {
+  push: 'Unknown device',
+  telegram: 'Telegram',
+  email: 'Email',
+  dm: 'Bluesky DM',
+  webhook: 'Webhook',
+};
+
+/** Parse a row into a typed instance, or null for an unknown channel. */
+export function toDeliveryInstance(row: DeliveryTargetRow): DeliveryInstance | null {
+  const verified = row.verified === 1;
+  if (row.channel === 'push') {
+    const cfg = JSON.parse(row.config || '{}') as { p256dh?: string; auth?: string };
+    return {
+      id: row.id,
+      channel: 'push',
+      label: row.label ?? DEFAULT_LABEL.push,
+      verified,
+      endpoint: row.ref,
+      p256dh: cfg.p256dh ?? '',
+      auth: cfg.auth ?? '',
+    };
+  }
+  if (row.channel === 'telegram') {
+    return { id: row.id, channel: 'telegram', label: row.label ?? DEFAULT_LABEL.telegram, verified, chatId: row.ref };
+  }
+  if (row.channel === 'email') {
+    return { id: row.id, channel: 'email', label: row.label ?? row.ref, verified, address: row.ref };
+  }
+  if (row.channel === 'dm') {
+    // ref = the recipient's own DID (DM to self); always verified on enable.
+    return { id: row.id, channel: 'dm', label: row.label ?? DEFAULT_LABEL.dm, verified, recipientDid: row.ref };
+  }
+  if (row.channel === 'webhook') {
+    // The destination URL lives in config (ref is a per-user dedup key, not the URL).
+    const cfg = JSON.parse(row.config || '{}') as { url?: string };
+    return { id: row.id, channel: 'webhook', label: row.label ?? DEFAULT_LABEL.webhook, verified, url: cfg.url ?? '' };
+  }
+  return null;
+}
+
+export interface UpsertDeliveryTargetInput {
+  id: string;
+  did: Did;
+  channel: DeliveryChannelKind;
+  ref: string;
+  label: string | null;
+  /** 1 when `label` is a user-chosen name (exposed to apps); 0 for an auto label. */
+  named?: boolean;
+  verified: boolean;
+  config: Record<string, unknown>;
+  createdAt: number;
 }
 
 /**
- * Insert/replace a channel. `INSERT OR REPLACE` also clears any existing row
- * that collides on the `(platform, platform_user_id)` unique index, so linking
- * a Telegram account that was previously tied to another DID moves it cleanly.
+ * Insert a target, deduped on the globally-unique (channel, ref). Re-linking the
+ * same ref — a push re-subscribe, or a Telegram account moving between accounts —
+ * updates the owner, keys and verified flag but KEEPS the original id, label and
+ * `named` flag, so routes pinned to that instance survive and a user-renamed
+ * device keeps its name. (Email enforces a single address per user in ops, not here.)
  */
-export async function upsertChannel(db: D1Database, input: UpsertChannelInput): Promise<void> {
+export async function upsertDeliveryTarget(
+  db: D1Database,
+  input: UpsertDeliveryTargetInput,
+): Promise<void> {
   await db
     .prepare(
-      'INSERT OR REPLACE INTO channels (did, platform, platform_user_id, display_name, linked_at) VALUES (?, ?, ?, ?, ?)',
+      `INSERT INTO delivery_targets (id, did, channel, ref, label, named, verified, config, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(channel, ref) DO UPDATE SET
+         did = excluded.did,
+         label = COALESCE(delivery_targets.label, excluded.label),
+         verified = excluded.verified,
+         config = excluded.config`,
     )
-    .bind(input.did, input.platform, input.platformUserId, input.displayName, input.linkedAt)
+    .bind(
+      input.id,
+      input.did,
+      input.channel,
+      input.ref,
+      input.label,
+      input.named ? 1 : 0,
+      input.verified ? 1 : 0,
+      JSON.stringify(input.config),
+      input.createdAt,
+    )
     .run();
 }
 
-export async function deleteChannel(db: D1Database, did: Did, platform: string): Promise<boolean> {
+/** All of a user's delivery targets, newest first. */
+export async function listDeliveryTargets(db: D1Database, did: Did): Promise<DeliveryTargetRow[]> {
+  const { results } = await db
+    .prepare('SELECT * FROM delivery_targets WHERE did = ? ORDER BY created_at DESC')
+    .bind(did)
+    .all<DeliveryTargetRow>();
+  return results;
+}
+
+/** A target by its globally-unique (channel, ref) — resolves a Telegram chat to its owner. */
+export function getDeliveryTargetByRef(
+  db: D1Database,
+  channel: DeliveryChannelKind,
+  ref: string,
+): Promise<DeliveryTargetRow | null> {
+  return db
+    .prepare('SELECT * FROM delivery_targets WHERE channel = ? AND ref = ?')
+    .bind(channel, ref)
+    .first<DeliveryTargetRow>();
+}
+
+export function countDeliveryTargets(
+  db: D1Database,
+  did: Did,
+  channel: DeliveryChannelKind,
+): Promise<{ c: number } | null> {
+  return db
+    .prepare('SELECT COUNT(*) AS c FROM delivery_targets WHERE did = ? AND channel = ?')
+    .bind(did, channel)
+    .first<{ c: number }>();
+}
+
+/** Rename a target owned by `did`, addressed by its stable id (any channel). */
+export async function renameDeliveryTargetById(
+  db: D1Database,
+  did: Did,
+  id: string,
+  label: string,
+): Promise<boolean> {
   const result = await db
-    .prepare('DELETE FROM channels WHERE did = ? AND platform = ?')
-    .bind(did, platform)
+    .prepare('UPDATE delivery_targets SET label = ?, named = 1 WHERE did = ? AND id = ?')
+    .bind(label, did, id)
     .run();
   return changed(result);
 }
 
-/** Used to reap a channel after Telegram reports the user blocked the bot. */
-export async function deleteChannelByPlatformUser(
+/** Remove a target owned by `did` by its stable id (any channel). */
+export async function deleteDeliveryTargetById(
   db: D1Database,
-  platform: string,
-  platformUserId: string,
+  did: Did,
+  id: string,
 ): Promise<boolean> {
   const result = await db
-    .prepare('DELETE FROM channels WHERE platform = ? AND platform_user_id = ?')
-    .bind(platform, platformUserId)
+    .prepare('DELETE FROM delivery_targets WHERE did = ? AND id = ?')
+    .bind(did, id)
+    .run();
+  return changed(result);
+}
+
+/** Delete a target owned by `did` by (channel, ref) — the push "disable this
+ *  browser" path, which knows the endpoint but not the id. */
+export async function deleteDeliveryTarget(
+  db: D1Database,
+  did: Did,
+  channel: DeliveryChannelKind,
+  ref: string,
+): Promise<boolean> {
+  const result = await db
+    .prepare('DELETE FROM delivery_targets WHERE did = ? AND channel = ? AND ref = ?')
+    .bind(did, channel, ref)
+    .run();
+  return changed(result);
+}
+
+/** Reap a dead target by (channel, ref), any owner (push 404/410, Telegram block). */
+export async function deleteDeliveryTargetByRef(
+  db: D1Database,
+  channel: DeliveryChannelKind,
+  ref: string,
+): Promise<boolean> {
+  const result = await db
+    .prepare('DELETE FROM delivery_targets WHERE channel = ? AND ref = ?')
+    .bind(channel, ref)
+    .run();
+  return changed(result);
+}
+
+/** Mark the user's pending email verified iff the code matches and is unexpired. */
+export async function verifyEmailTarget(
+  db: D1Database,
+  did: Did,
+  code: string,
+  nowMs: number,
+): Promise<boolean> {
+  const result = await db
+    .prepare(
+      `UPDATE delivery_targets SET verified = 1, config = '{}'
+       WHERE did = ? AND channel = 'email' AND verified = 0
+         AND json_extract(config, '$.code') = ?
+         AND json_extract(config, '$.expires') > ?`,
+    )
+    .bind(did, code, nowMs)
     .run();
   return changed(result);
 }
@@ -245,13 +328,15 @@ export interface InsertLinkTokenInput {
   token: string;
   did: Did;
   platform: string;
+  /** Optional user-chosen name, applied to the target on link completion. */
+  label?: string | null;
   expiresAt: number;
 }
 
 export async function insertLinkToken(db: D1Database, input: InsertLinkTokenInput): Promise<void> {
   await db
-    .prepare('INSERT INTO link_tokens (token, did, platform, expires_at) VALUES (?, ?, ?, ?)')
-    .bind(input.token, input.did, input.platform, input.expiresAt)
+    .prepare('INSERT INTO link_tokens (token, did, platform, label, expires_at) VALUES (?, ?, ?, ?, ?)')
+    .bind(input.token, input.did, input.platform, input.label ?? null, input.expiresAt)
     .run();
 }
 
@@ -528,104 +613,6 @@ export async function deleteOldDeliveryLog(db: D1Database, beforeMs: number): Pr
 }
 
 // ---------------------------------------------------------------------------
-// push_subscriptions (web push)
-// ---------------------------------------------------------------------------
-
-export interface PushSubscriptionRow {
-  endpoint: string;
-  did: Did;
-  p256dh: string;
-  auth: string;
-  label: string | null;
-  created_at: number;
-}
-
-export interface UpsertPushSubscriptionInput {
-  endpoint: string;
-  did: Did;
-  p256dh: string;
-  auth: string;
-  label: string | null;
-  createdAt: number;
-}
-
-/**
- * Register a subscription, keyed by its endpoint. Re-subscribing refreshes the
- * keys/owner but preserves a previously-set (e.g. user-renamed) label.
- */
-export async function upsertPushSubscription(
-  db: D1Database,
-  input: UpsertPushSubscriptionInput,
-): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO push_subscriptions (endpoint, did, p256dh, auth, label, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON CONFLICT(endpoint) DO UPDATE SET
-         did = excluded.did,
-         p256dh = excluded.p256dh,
-         auth = excluded.auth,
-         label = COALESCE(push_subscriptions.label, excluded.label)`,
-    )
-    .bind(input.endpoint, input.did, input.p256dh, input.auth, input.label, input.createdAt)
-    .run();
-}
-
-/** Rename a subscription owned by `did` (scoped). */
-export async function renamePushSubscription(
-  db: D1Database,
-  did: Did,
-  endpoint: string,
-  label: string,
-): Promise<boolean> {
-  const result = await db
-    .prepare('UPDATE push_subscriptions SET label = ? WHERE did = ? AND endpoint = ?')
-    .bind(label, did, endpoint)
-    .run();
-  return changed(result);
-}
-
-export async function listPushSubscriptionsForDid(
-  db: D1Database,
-  did: Did,
-): Promise<PushSubscriptionRow[]> {
-  const { results } = await db
-    .prepare('SELECT * FROM push_subscriptions WHERE did = ? ORDER BY created_at DESC')
-    .bind(did)
-    .all<PushSubscriptionRow>();
-  return results;
-}
-
-export function countPushSubscriptionsForDid(db: D1Database, did: Did): Promise<{ c: number } | null> {
-  return db
-    .prepare('SELECT COUNT(*) AS c FROM push_subscriptions WHERE did = ?')
-    .bind(did)
-    .first<{ c: number }>();
-}
-
-/** Unregister a subscription owned by `did` (scoped so a user can't drop another's). */
-export async function deletePushSubscriptionForDid(
-  db: D1Database,
-  did: Did,
-  endpoint: string,
-): Promise<boolean> {
-  const result = await db
-    .prepare('DELETE FROM push_subscriptions WHERE did = ? AND endpoint = ?')
-    .bind(did, endpoint)
-    .run();
-  return changed(result);
-}
-
-/** Reap a dead subscription by endpoint (push service returned 404/410). */
-export async function deletePushSubscription(db: D1Database, endpoint: string): Promise<boolean> {
-  const result = await db
-    .prepare('DELETE FROM push_subscriptions WHERE endpoint = ?')
-    .bind(endpoint)
-    .run();
-  return changed(result);
-}
-
-// ---------------------------------------------------------------------------
 // notifications (inbox)
 // ---------------------------------------------------------------------------
 
@@ -727,6 +714,19 @@ export async function markAllNotificationsRead(
   const result = await db
     .prepare('UPDATE notifications SET read_at = ? WHERE recipient_did = ? AND read_at IS NULL')
     .bind(readAt, recipientDid)
+    .run();
+  return result.meta.changes ?? 0;
+}
+
+/** Permanently delete all of one sender's notifications to a recipient. Returns the count. */
+export async function deleteNotificationsFromSender(
+  db: D1Database,
+  recipientDid: Did,
+  senderDid: Did,
+): Promise<number> {
+  const result = await db
+    .prepare('DELETE FROM notifications WHERE recipient_did = ? AND sender_did = ?')
+    .bind(recipientDid, senderDid)
     .run();
   return result.meta.changes ?? 0;
 }

@@ -8,6 +8,7 @@ import {
   sendMessage,
 } from '../delivery/telegram';
 import { resolveHandle } from '../identity/resolve';
+import { newTargetId } from '../lib/ids';
 import { now } from '../lib/time';
 
 import type { TelegramMessage } from './webhook';
@@ -15,7 +16,7 @@ import type { TelegramMessage } from './webhook';
 // Telegram linking lives in the web app's Channels settings (atmo.pub), not the
 // relay (relay.atmo.pub). Deep-link straight to that tab.
 const DASHBOARD_URL = 'https://atmo.pub/settings?tab=channels';
-const PLATFORM = 'telegram';
+const PLATFORM = 'telegram' as const;
 
 /** Dispatch a `/command` message to its handler. */
 export async function handleCommand(env: Env, message: TelegramMessage): Promise<void> {
@@ -63,13 +64,21 @@ async function handleStart(env: Env, message: TelegramMessage, token: string): P
 
   const did = row.did;
   const username = message.from?.username ?? null;
+  // A name the user typed in the web form (carried through the link token) wins
+  // and counts as user-chosen (named); otherwise fall back to the Telegram
+  // username as an auto label (hidden from apps).
+  const userLabel = row.label?.trim() || null;
   await q.ensureUser(env.DB, did, now());
-  await q.upsertChannel(env.DB, {
+  await q.upsertDeliveryTarget(env.DB, {
+    id: newTargetId(),
     did,
-    platform: PLATFORM,
-    platformUserId: String(chatId),
-    displayName: username, // the Telegram account label (for the channels list)
-    linkedAt: now(),
+    channel: PLATFORM,
+    ref: String(chatId),
+    label: userLabel ?? username,
+    named: userLabel !== null,
+    verified: true,
+    config: {},
+    createdAt: now(),
   });
   await q.deleteLinkToken(env.DB, token);
 
@@ -82,7 +91,7 @@ async function handleStart(env: Env, message: TelegramMessage, token: string): P
 }
 
 async function handleList(env: Env, chatId: number): Promise<void> {
-  const channel = await q.getChannelByPlatformUser(env.DB, PLATFORM, String(chatId));
+  const channel = await q.getDeliveryTargetByRef(env.DB, PLATFORM, String(chatId));
   if (channel === null) {
     await replyText(env, chatId, NOT_LINKED);
     return;
@@ -105,7 +114,7 @@ async function handleList(env: Env, chatId: number): Promise<void> {
 }
 
 async function handleRevoke(env: Env, chatId: number, arg: string): Promise<void> {
-  const channel = await q.getChannelByPlatformUser(env.DB, PLATFORM, String(chatId));
+  const channel = await q.getDeliveryTargetByRef(env.DB, PLATFORM, String(chatId));
   if (channel === null) {
     await replyText(env, chatId, NOT_LINKED);
     return;
@@ -131,7 +140,7 @@ async function handleRevoke(env: Env, chatId: number, arg: string): Promise<void
 }
 
 async function handleSettings(env: Env, chatId: number): Promise<void> {
-  const channel = await q.getChannelByPlatformUser(env.DB, PLATFORM, String(chatId));
+  const channel = await q.getDeliveryTargetByRef(env.DB, PLATFORM, String(chatId));
   if (channel === null) {
     await replyText(env, chatId, NOT_LINKED);
     return;

@@ -2,7 +2,107 @@ import { P256PrivateKeyExportable } from '@atcute/crypto';
 import type { Did, Nsid } from '@atcute/lexicons';
 import { createServiceJwt } from '@atcute/xrpc-server/auth';
 
+import * as q from '../src/db/queries';
+import { newTargetId } from '../src/lib/ids';
+
 export const RELAY_DID = 'did:web:relay.atmo.pub';
+
+// --- delivery-target seeding (unified push/telegram/email) ------------------
+
+/** Seed a verified Telegram chat for `did`; returns its stable target id. */
+export async function addTelegram(
+  db: D1Database,
+  did: Did,
+  chatId: string,
+  label: string | null = null,
+): Promise<string> {
+  const id = newTargetId();
+  await q.upsertDeliveryTarget(db, {
+    id,
+    did,
+    channel: 'telegram',
+    ref: chatId,
+    label,
+    verified: true,
+    config: {},
+    createdAt: Date.now(),
+  });
+  return id;
+}
+
+/** Seed a verified web-push device for `did`; returns its stable target id. */
+export async function addPush(
+  db: D1Database,
+  did: Did,
+  endpoint: string,
+  label: string | null = null,
+): Promise<string> {
+  const id = newTargetId();
+  await q.upsertDeliveryTarget(db, {
+    id,
+    did,
+    channel: 'push',
+    ref: endpoint,
+    label,
+    verified: true,
+    config: { p256dh: 'k', auth: 'a' },
+    createdAt: Date.now(),
+  });
+  return id;
+}
+
+/** Seed a verified email for `did`; returns its stable target id. */
+export async function addVerifiedEmail(db: D1Database, did: Did, address: string): Promise<string> {
+  const id = newTargetId();
+  await q.upsertDeliveryTarget(db, {
+    id,
+    did,
+    channel: 'email',
+    ref: address,
+    label: address,
+    verified: true,
+    config: {},
+    createdAt: Date.now(),
+  });
+  return id;
+}
+
+/** Seed a verified Bluesky DM target for `did` (recipient = the user); returns its id. */
+export async function addDMTarget(db: D1Database, did: Did): Promise<string> {
+  const id = newTargetId();
+  await q.upsertDeliveryTarget(db, {
+    id,
+    did,
+    channel: 'dm',
+    ref: did,
+    label: null,
+    verified: true,
+    config: {},
+    createdAt: Date.now(),
+  });
+  return id;
+}
+
+/** Seed a verified webhook target for `did`; returns its stable target id. */
+export async function addWebhookTarget(
+  db: D1Database,
+  did: Did,
+  url: string,
+  label = 'Webhook',
+): Promise<string> {
+  const id = newTargetId();
+  await q.upsertDeliveryTarget(db, {
+    id,
+    did,
+    channel: 'webhook',
+    ref: `${did} ${url}`,
+    label,
+    verified: true,
+    config: { url },
+    createdAt: Date.now(),
+  });
+  return id;
+}
 
 // ---------------------------------------------------------------------------
 // Outbound fetch mocking

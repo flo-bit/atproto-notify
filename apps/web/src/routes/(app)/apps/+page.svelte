@@ -2,15 +2,13 @@
 	import { invalidateAll } from '$app/navigation';
 	import AppMark from '$lib/components/AppMark.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import IOSToggle from '$lib/components/IOSToggle.svelte';
 	import RelativeTime from '$lib/components/RelativeTime.svelte';
-	import { approve, deny, revoke, setMuted } from '$lib/remote/notifs.remote';
+	import { approve, deny } from '$lib/remote/notifs.remote';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
 	let busy = $state<Record<string, boolean>>({});
-	let confirming = $state<Record<string, boolean>>({});
 	let errorMsg = $state('');
 
 	/** Run a mutation, refresh page data, and surface errors. */
@@ -38,7 +36,8 @@
 	<header class="border-b border-line pb-4">
 		<h1 class="text-2xl font-bold tracking-tight text-fg">Apps</h1>
 		<p class="mt-1 text-sm text-muted">
-			{data.grants.length} connected · {data.pending.length} pending
+			{data.grants.length} connected{#if data.pending.length > 0}
+				· {data.pending.length} pending{/if}
 		</p>
 	</header>
 
@@ -52,24 +51,15 @@
 	{/if}
 	<div aria-live="polite" class="sr-only">{errorMsg}</div>
 
-	<!-- Pending requests -->
-	<section class="mt-6">
-		<h2 class="mb-3 font-mono text-[0.7rem] tracking-wide text-muted-2 uppercase">
-			Pending requests · {data.pending.length}
-		</h2>
-		{#if data.pending.length === 0}
-			<div class="rounded-card border border-dashed border-line px-6 py-8 text-center">
-				<p class="text-sm font-medium text-fg">No pending requests</p>
-				<p class="mx-auto mt-1 max-w-sm text-sm text-muted">
-					When an app asks to notify you, it'll show up here for approval.
-				</p>
-			</div>
-		{:else}
+	<!-- Pending requests (hidden when there are none) -->
+	{#if data.pending.length > 0}
+		<section class="mt-6">
+			<h2 class="mb-3 font-mono text-[0.7rem] tracking-wide text-muted-2 uppercase">
+				Pending requests · {data.pending.length}
+			</h2>
 			<ul class="grid gap-3 sm:grid-cols-2">
 				{#each data.pending as p (p.id)}
-					<li
-						class="rounded-card border border-accent bg-surface p-4 ring-3 ring-accent-soft"
-					>
+					<li class="rounded-card border border-accent bg-surface p-4 ring-3 ring-accent-soft">
 						<div class="flex items-start gap-3">
 							{#if p.iconUrl ?? p.senderBskyAvatar}
 								<img
@@ -118,7 +108,8 @@
 							<button
 								class="flex-[1.2] rounded-md bg-accent px-3 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
 								disabled={busy[`approve:${p.id}`] || busy[`deny:${p.id}`]}
-								onclick={() => run(`approve:${p.id}`, () => approve({ sender: p.sender, requestId: p.id }))}
+								onclick={() =>
+									run(`approve:${p.id}`, () => approve({ sender: p.sender, requestId: p.id }))}
 							>
 								Approve
 							</button>
@@ -126,8 +117,8 @@
 					</li>
 				{/each}
 			</ul>
-		{/if}
-	</section>
+		</section>
+	{/if}
 
 	<!-- Your apps (granted) -->
 	<section class="mt-8">
@@ -138,91 +129,32 @@
 			<div class="rounded-card border border-dashed border-line px-6 py-10 text-center">
 				<p class="text-sm font-medium text-fg">No apps yet</p>
 				<p class="mx-auto mt-1 max-w-sm text-sm text-muted">
-					When you approve an app, it shows up here. You can mute or revoke it any time.
+					When you approve an app, it shows up here. Tap one to manage its routing, mute, or revoke
+					it.
 				</p>
 			</div>
 		{:else}
-			<ul class="overflow-hidden rounded-card border border-line bg-surface">
-				{#each data.grants as g, i (g.sender)}
-					<li class="p-4 {i < data.grants.length - 1 ? 'border-b border-line-2' : ''}">
-						<div class="flex items-start gap-3">
+			<ul class="grid grid-cols-3 gap-1 sm:grid-cols-4 md:grid-cols-6">
+				{#each data.grants as g (g.sender)}
+					<li>
+						<a
+							href={`/apps/${encodeURIComponent(g.sender)}`}
+							class="flex flex-col items-center gap-2 rounded-card p-3 text-center transition-colors hover:bg-surface-2"
+							title={g.title}
+						>
 							{#if g.iconUrl ?? g.senderBskyAvatar}
 								<img
 									src={g.iconUrl ?? g.senderBskyAvatar}
 									alt=""
-									class="size-10 shrink-0 rounded-[0.6rem] bg-surface-2 object-cover {g.muted
-										? 'opacity-60'
+									class="size-14 rounded-[0.9rem] bg-surface-2 object-cover {g.muted
+										? 'opacity-50'
 										: ''}"
 								/>
 							{:else}
-								<AppMark id={g.title || g.sender} size={40} dim={g.muted} />
+								<AppMark id={g.title || g.sender} size={56} dim={g.muted} />
 							{/if}
-							<div class="min-w-0 flex-1">
-								<div class="flex items-center gap-2">
-									<span
-										class="truncate text-sm font-semibold {g.muted ? 'text-muted' : 'text-fg'}"
-									>
-										{g.title}
-									</span>
-									{#if g.muted}
-										<span class="text-muted-2"><Icon name="bell-off" size={13} /></span>
-									{/if}
-								</div>
-								<div class="truncate font-mono text-xs text-muted-2" title={g.sender}>
-									{g.senderHandle ? `@${g.senderHandle}` : shortDid(g.sender)}
-								</div>
-								<div class="mt-0.5 text-xs text-muted-2">
-									authorized <RelativeTime date={g.grantedAt} />
-								</div>
-							</div>
-							<label class="flex shrink-0 items-center gap-2 text-xs text-muted-2">
-								<span>Mute</span>
-								<IOSToggle
-									checked={g.muted}
-									disabled={busy[`mute:${g.sender}`]}
-									label="Mute {g.title}"
-									onchange={(value) =>
-										run(`mute:${g.sender}`, () => setMuted({ sender: g.sender, muted: value }))}
-								/>
-							</label>
-						</div>
-
-						<div class="mt-3 flex items-center justify-between">
-							<a
-								href={`/apps/${encodeURIComponent(g.sender)}`}
-								class="text-sm font-medium text-accent hover:underline"
-							>
-								Routing →
-							</a>
-							{#if confirming[g.sender]}
-								<div class="flex gap-2">
-									<button
-										class="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-surface-2"
-										onclick={() => (confirming[g.sender] = false)}
-									>
-										Cancel
-									</button>
-									<button
-										class="rounded-md border border-danger px-3 py-1.5 text-sm font-medium text-danger transition-colors hover:bg-danger/10 disabled:opacity-50"
-										disabled={busy[`revoke:${g.sender}`]}
-										onclick={() =>
-											run(`revoke:${g.sender}`, async () => {
-												await revoke({ sender: g.sender });
-												confirming[g.sender] = false;
-											})}
-									>
-										Confirm revoke
-									</button>
-								</div>
-							{:else}
-								<button
-									class="rounded-md px-3 py-1.5 text-sm font-medium text-danger transition-colors hover:bg-danger/10"
-									onclick={() => (confirming[g.sender] = true)}
-								>
-									Revoke
-								</button>
-							{/if}
-						</div>
+							<span class="line-clamp-2 w-full text-xs font-medium text-fg">{g.title}</span>
+						</a>
 					</li>
 				{/each}
 			</ul>

@@ -11,26 +11,27 @@ import type {
   AppRoute,
   Capability,
   CategoryRoute,
-  DeviceView,
-  EmailChannelView,
   ListNotificationsResult,
   MarkReadInput,
   NotificationView,
   PushSubscriptionInput,
+  RouteInstance,
+  RouteInstances,
   RoutingApp,
   RoutingConfig,
+  TargetView,
   PubAtmoNotifyDenyPending,
   PubAtmoNotifyGetSettings,
   PubAtmoNotifyGrant,
   PubAtmoNotifyLinkChannel,
-  PubAtmoNotifyListChannels,
   PubAtmoNotifyListGrants,
   PubAtmoNotifyListPending,
   PubAtmoNotifyMuteGrant,
   PubAtmoNotifyRevoke,
-  PubAtmoNotifyUnlinkChannel,
   PubAtmoNotifyUpdateSettings,
 } from '@atmo/notifs-lexicons';
+
+import { emptyRouteInstances } from '@atmo/notifs-lexicons';
 
 import { verifyAppLoginToken } from '../auth/appLogin';
 import { sendEmail } from '../delivery/email';
@@ -38,7 +39,7 @@ import * as q from '../db/queries';
 import type { Env } from '../env';
 import { appCatalog, callbackAppFor } from '../lib/apps';
 import { invalidRequest } from '../lib/errors';
-import { newLinkToken } from '../lib/ids';
+import { newLinkToken, newTargetId } from '../lib/ids';
 import { addMinutes, now, toIsoDatetime } from '../lib/time';
 
 export async function grant(
@@ -136,28 +137,21 @@ export async function linkChannel(
   env: Env,
   did: Did,
   input: PubAtmoNotifyLinkChannel.$input,
+  label?: string,
 ): Promise<PubAtmoNotifyLinkChannel.$output> {
   await q.ensureUser(env.DB, did, now());
   const token = newLinkToken();
+  const name = label?.trim().slice(0, 64);
   await q.insertLinkToken(env.DB, {
     token,
     did,
     platform: input.platform,
+    label: name && name.length > 0 ? name : null,
     expiresAt: addMinutes(now(), 10),
   });
 
   const deepLink = `https://t.me/${env.BOT_USERNAME}?start=${token}`;
   return { token, deepLink };
-}
-
-export async function unlinkChannel(
-  env: Env,
-  did: Did,
-  input: PubAtmoNotifyUnlinkChannel.$input,
-): Promise<PubAtmoNotifyUnlinkChannel.$output> {
-  const unlinked = await q.deleteChannel(env.DB, did, input.platform);
-
-  return { unlinked };
 }
 
 export async function updateSettings(
@@ -227,19 +221,72 @@ export async function listPending(
   };
 }
 
-export async function listChannels(
+/** All of the user's delivery targets (push devices, Telegram chats, emails). */
+export async function listTargets(env: Env, did: Did): Promise<TargetView[]> {
+  const rows = await q.listDeliveryTargets(env.DB, did);
+  const views: TargetView[] = [];
+  for (const row of rows) {
+    const createdAt = toIsoDatetime(row.created_at);
+    if (row.channel === 'push') {
+      views.push({ id: row.id, channel: 'push', label: row.label ?? 'Unknown device', endpoint: row.ref, createdAt });
+    } else if (row.channel === 'telegram') {
+      views.push({ id: row.id, channel: 'telegram', label: row.label ?? 'Telegram', createdAt });
+    } else if (row.channel === 'email') {
+      views.push({
+        id: row.id,
+        channel: 'email',
+        label: row.label ?? row.ref,
+        address: row.ref,
+        verified: row.verified === 1,
+        createdAt,
+      });
+    } else if (row.channel === 'dm') {
+      views.push({ id: row.id, channel: 'dm', label: row.label ?? 'Bluesky DM', createdAt });
+    } else if (row.channel === 'webhook') {
+      const url = (JSON.parse(row.config || '{}') as { url?: string }).url ?? '';
+      views.push({ id: row.id, channel: 'webhook', label: row.label ?? 'Webhook', url, createdAt });
+    }
+  }
+  return views;
+}
+
+/**
+ * Enable Bluesky DM delivery: the relay's bot account DMs this user. The
+ * recipient is always the user's own DID, so `ref` = `did` (one DM target per
+ * user, enforced by UNIQUE(channel, ref)) and there's no address or verification
+ * step — it's deliverable immediately. Idempotent: re-enabling keeps the same
+ * target (and any user-chosen name). Disable via `removeTarget`.
+ */
+export async function enableDM(env: Env, did: Did): Promise<{ ok: boolean }> {
+  await q.ensureUser(env.DB, did, now());
+  await q.upsertDeliveryTarget(env.DB, {
+    id: newTargetId(),
+    did,
+    channel: 'dm',
+    ref: did, // DM to self
+    label: null, // defaults to 'Bluesky DM'; user can rename
+    verified: true,
+    config: {},
+    createdAt: now(),
+  });
+  return { ok: true };
+}
+
+/** Give any delivery target a friendly name. */
+export async function renameTarget(
   env: Env,
   did: Did,
-): Promise<PubAtmoNotifyListChannels.$output> {
-  const rows = await q.listChannelsForDid(env.DB, did);
+  id: string,
+  label: string,
+): Promise<{ ok: boolean }> {
+  const ok = await q.renameDeliveryTargetById(env.DB, did, id, label);
+  return { ok };
+}
 
-  return {
-    channels: rows.map((row) => ({
-      platform: row.platform,
-      linkedAt: toIsoDatetime(row.linked_at),
-      displayName: row.display_name ?? undefined,
-    })),
-  };
+/** Remove any delivery target by its id (a Telegram chat, an email, a device). */
+export async function removeTarget(env: Env, did: Did, id: string): Promise<{ ok: boolean }> {
+  const ok = await q.deleteDeliveryTargetById(env.DB, did, id);
+  return { ok };
 }
 
 export async function getSettings(
@@ -249,7 +296,7 @@ export async function getSettings(
   // Ensure the row exists so we return stored defaults rather than guessing.
   await q.ensureUser(env.DB, did, now());
   const user = await q.getUser(env.DB, did);
-  const pushDevices = (await q.countPushSubscriptionsForDid(env.DB, did))?.c ?? 0;
+  const pushDevices = (await q.countDeliveryTargets(env.DB, did, 'push'))?.c ?? 0;
 
   return {
     notifyPendingViaTelegram: (user?.notify_pending_via_telegram ?? 0) === 1,
@@ -264,12 +311,15 @@ export async function registerWebPush(
   sub: PushSubscriptionInput,
 ): Promise<{ registered: boolean }> {
   await q.ensureUser(env.DB, did, now());
-  await q.upsertPushSubscription(env.DB, {
-    endpoint: sub.endpoint,
+  await q.upsertDeliveryTarget(env.DB, {
+    id: newTargetId(),
     did,
-    p256dh: sub.p256dh,
-    auth: sub.auth,
+    channel: 'push',
+    ref: sub.endpoint,
     label: sub.label ?? null,
+    named: sub.named ?? false,
+    verified: true,
+    config: { p256dh: sub.p256dh, auth: sub.auth },
     createdAt: now(),
   });
   return { registered: true };
@@ -280,27 +330,8 @@ export async function unregisterWebPush(
   did: Did,
   endpoint: string,
 ): Promise<{ unregistered: boolean }> {
-  const unregistered = await q.deletePushSubscriptionForDid(env.DB, did, endpoint);
+  const unregistered = await q.deleteDeliveryTarget(env.DB, did, 'push', endpoint);
   return { unregistered };
-}
-
-export async function listDevices(env: Env, did: Did): Promise<DeviceView[]> {
-  const rows = await q.listPushSubscriptionsForDid(env.DB, did);
-  return rows.map((row) => ({
-    endpoint: row.endpoint,
-    label: row.label ?? 'Unknown device',
-    createdAt: toIsoDatetime(row.created_at),
-  }));
-}
-
-export async function renameDevice(
-  env: Env,
-  did: Did,
-  endpoint: string,
-  label: string,
-): Promise<{ ok: boolean }> {
-  const ok = await q.renamePushSubscription(env.DB, did, endpoint, label);
-  return { ok };
 }
 
 const INBOX_PAGE_SIZE = 30;
@@ -347,17 +378,38 @@ export async function markRead(
   return { marked };
 }
 
+/** Permanently delete every notification from one app for this user. */
+export async function clearNotificationsFromSender(
+  env: Env,
+  did: Did,
+  sender: Did,
+): Promise<{ deleted: number }> {
+  const deleted = await q.deleteNotificationsFromSender(env.DB, did, sender);
+  return { deleted };
+}
+
 export async function getRouting(env: Env, did: Did): Promise<RoutingConfig> {
   await q.ensureUser(env.DB, did, now());
   const user = await q.getUser(env.DB, did);
   const defaultRoute = (user?.default_route ?? 'push') as AlertRoute;
 
-  const [grants, categories, routing, appRouting] = await Promise.all([
+  const [grants, categories, routing, appRouting, deliveryTargets] = await Promise.all([
     q.listGrantsForRecipient(env.DB, did),
     q.listAppCategoriesForRecipient(env.DB, did),
     q.listRoutingForRecipient(env.DB, did),
     q.listAppRoutingForRecipient(env.DB, did),
+    q.listDeliveryTargets(env.DB, did),
   ]);
+
+  // The user's deliverable instances per channel, so a route can target just one
+  // (e.g. one of several push devices). Only verified targets can be routed to.
+  const channels: RouteInstances = emptyRouteInstances();
+  for (const row of deliveryTargets) {
+    const inst = q.toDeliveryInstance(row);
+    if (inst !== null && inst.verified) {
+      channels[inst.channel].push({ id: inst.id, label: inst.label } satisfies RouteInstance);
+    }
+  }
 
   const routeBy = new Map<string, string>();
   for (const r of routing) routeBy.set(`${r.sender_did} ${r.category}`, r.route);
@@ -377,6 +429,8 @@ export async function getRouting(env: Env, did: Did): Promise<RoutingConfig> {
     title: g.title ?? g.display_name ?? g.handle ?? g.sender_did,
     route: (appRouteBy.get(g.sender_did) ?? 'default') as AppRoute,
     manage: g.manage as Capability,
+    muted: g.muted === 1,
+    iconUrl: g.icon_url ?? g.avatar_url ?? undefined,
     categories: (catsBySender.get(g.sender_did) ?? []).map((c) => ({
       category: c.category,
       description: c.description ?? undefined,
@@ -384,7 +438,7 @@ export async function getRouting(env: Env, did: Did): Promise<RoutingConfig> {
     })),
   }));
 
-  return { defaultRoute, apps };
+  return { defaultRoute, apps, channels };
 }
 
 export async function setRouting(
@@ -448,13 +502,28 @@ function genVerifyCode(): string {
 }
 
 /**
- * Set the user's email and email them a verification code (via comail). Stored
+ * Add an email address and email it a verification code (via comail). Stored
  * unverified until `verifyEmail` succeeds. Throws if comail rejects, so nothing
- * is stored for an undeliverable address.
+ * is stored for an undeliverable address. A user can link several addresses;
+ * re-linking the same one just re-sends a fresh code. An optional `label` is the
+ * user's chosen name (named = 1, shown to apps); without one the address itself
+ * is the label (named = 0, hidden from apps).
  */
-export async function linkEmail(env: Env, did: Did, address: string): Promise<{ ok: boolean }> {
+export async function linkEmail(
+  env: Env,
+  did: Did,
+  address: string,
+  label?: string,
+): Promise<{ ok: boolean }> {
   const addr = address.trim().toLowerCase();
   if (!EMAIL_RE.test(addr)) throw invalidRequest('Invalid email address');
+
+  // `ref` is globally unique per channel; don't let one user grab an address
+  // already linked to another (which would break the owner's delivery).
+  const existing = await q.getDeliveryTargetByRef(env.DB, 'email', addr);
+  if (existing !== null && existing.did !== did) {
+    throw invalidRequest('That email is already linked to another account');
+  }
 
   const code = genVerifyCode();
   await sendEmail(env, {
@@ -464,30 +533,104 @@ export async function linkEmail(env: Env, did: Did, address: string): Promise<{ 
     category: 'verification',
   });
 
+  const name = label?.trim().slice(0, 64);
+  const hasName = name !== undefined && name.length > 0;
   const t = now();
-  await q.upsertEmailChannel(env.DB, {
+  // Re-linking the same address keeps its id (and any name) but resets it to
+  // unverified with a fresh code via ON CONFLICT(channel, ref).
+  await q.upsertDeliveryTarget(env.DB, {
+    id: existing?.id ?? newTargetId(),
     did,
-    address: addr,
-    verifyCode: code,
-    verifyExpires: t + VERIFY_TTL_MS,
+    channel: 'email',
+    ref: addr,
+    label: hasName ? name : addr,
+    named: hasName,
+    verified: false,
+    config: { code, expires: t + VERIFY_TTL_MS },
     createdAt: t,
   });
   return { ok: true };
 }
 
 export async function verifyEmail(env: Env, did: Did, code: string): Promise<{ verified: boolean }> {
-  const verified = await q.verifyEmailChannel(env.DB, did, code.trim(), now());
+  const verified = await q.verifyEmailTarget(env.DB, did, code.trim(), now());
   return { verified };
 }
 
-export async function unlinkEmail(env: Env, did: Did): Promise<{ ok: boolean }> {
-  await q.deleteEmailChannel(env.DB, did);
-  return { ok: true };
+// --- webhook channel -------------------------------------------------------
+
+const WEBHOOK_LABEL_MAX = 64;
+
+/**
+ * Reject hostnames that resolve to the local machine or a private network. This
+ * is defense-in-depth against SSRF: a user can only POST to a URL they entered,
+ * but we still don't want the relay reaching loopback/link-local/RFC1918 ranges.
+ * (Hostname-based, so a public name with a private A record isn't caught — Worker
+ * fetch can't reach the internal network from the edge regardless.)
+ */
+function isNonPublicHost(host: string): boolean {
+  const h = host.toLowerCase();
+  if (h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local')) return true;
+  if (h === '::1' || h === '[::1]') return true;
+  // IPv4 literals in private / loopback / link-local ranges.
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
+  if (m) {
+    const [a, b] = [Number(m[1]), Number(m[2])];
+    if (a === 127 || a === 10 || a === 0) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+  }
+  // IPv6 unique-local (fc00::/7) / link-local (fe80::/10) literals.
+  if (h.startsWith('[fc') || h.startsWith('[fd') || h.startsWith('[fe8') || h.startsWith('[fe9') || h.startsWith('[fea') || h.startsWith('[feb')) {
+    return true;
+  }
+  return false;
 }
 
-export async function getEmailChannel(env: Env, did: Did): Promise<EmailChannelView | null> {
-  const row = await q.getEmailChannel(env.DB, did);
-  return row === null ? null : { address: row.address, verified: row.verified === 1 };
+/** Validate + normalize a user-supplied webhook URL (https, public host). */
+function normalizeWebhookUrl(raw: string): string {
+  let url: URL;
+  try {
+    url = new URL(raw.trim());
+  } catch {
+    throw invalidRequest('Invalid webhook URL');
+  }
+  if (url.protocol !== 'https:') throw invalidRequest('Webhook URL must use https://');
+  if (isNonPublicHost(url.hostname)) throw invalidRequest('Webhook URL must be a public address');
+  return url.toString();
+}
+
+/**
+ * Add a webhook target: the relay POSTs notification JSON to `url`. The URL is
+ * validated (https, public host) and the user-supplied label is stored. No
+ * verification step — the user controls the endpoint — so it's deliverable
+ * immediately. `ref` is `<did> <url>`, so the same URL can be a target for
+ * several users while staying deduped per user (re-adding is idempotent).
+ */
+export async function addWebhook(
+  env: Env,
+  did: Did,
+  url: string,
+  label: string,
+): Promise<{ ok: boolean }> {
+  await q.ensureUser(env.DB, did, now());
+  const normalized = normalizeWebhookUrl(url);
+  const name = label.trim().slice(0, WEBHOOK_LABEL_MAX);
+  if (name.length === 0) throw invalidRequest('Webhook label is required');
+
+  await q.upsertDeliveryTarget(env.DB, {
+    id: newTargetId(),
+    did,
+    channel: 'webhook',
+    ref: `${did} ${normalized}`,
+    label: name,
+    named: true, // the label is user-supplied at creation
+    verified: true,
+    config: { url: normalized },
+    createdAt: now(),
+  });
+  return { ok: true };
 }
 
 /**

@@ -10,7 +10,6 @@ import {
   type PubAtmoNotifyLinkChannel,
   type PubAtmoNotifyMuteGrant,
   type PubAtmoNotifyRevoke,
-  type PubAtmoNotifyUnlinkChannel,
   type PubAtmoNotifyUpdateSettings,
   type PushSubscriptionInput,
 } from '@atmo/notifs-lexicons';
@@ -34,10 +33,8 @@ const OPS: Record<string, OpFn> = {
   // reads
   listGrants: (env, did) => ops.listGrants(env, did),
   listPending: (env, did) => ops.listPending(env, did),
-  listChannels: (env, did) => ops.listChannels(env, did),
   getSettings: (env, did) => ops.getSettings(env, did),
-  listDevices: (env, did) => ops.listDevices(env, did),
-  getEmailChannel: (env, did) => ops.getEmailChannel(env, did),
+  listTargets: (env, did) => ops.listTargets(env, did),
   getRouting: (env, did) => ops.getRouting(env, did),
   listNotifications: (env, did, p) =>
     ops.listNotifications(env, did, (p as { cursor?: string } | undefined)?.cursor),
@@ -47,21 +44,21 @@ const OPS: Record<string, OpFn> = {
   denyPending: (env, did, p) => ops.denyPending(env, did, p as PubAtmoNotifyDenyPending.$input),
   muteGrant: (env, did, p) => ops.muteGrant(env, did, p as PubAtmoNotifyMuteGrant.$input),
   linkChannel: (env, did, p) => ops.linkChannel(env, did, p as PubAtmoNotifyLinkChannel.$input),
-  unlinkChannel: (env, did, p) =>
-    ops.unlinkChannel(env, did, p as PubAtmoNotifyUnlinkChannel.$input),
   linkEmail: (env, did, p) => ops.linkEmail(env, did, (p as { address: string }).address),
   verifyEmail: (env, did, p) => ops.verifyEmail(env, did, (p as { code: string }).code),
-  unlinkEmail: (env, did) => ops.unlinkEmail(env, did),
+  renameTarget: (env, did, p) => {
+    const { id, label } = p as { id: string; label: string };
+    return ops.renameTarget(env, did, id, label);
+  },
+  removeTarget: (env, did, p) => ops.removeTarget(env, did, (p as { id: string }).id),
   updateSettings: (env, did, p) =>
     ops.updateSettings(env, did, p as PubAtmoNotifyUpdateSettings.$input),
   registerWebPush: (env, did, p) => ops.registerWebPush(env, did, p as PushSubscriptionInput),
   unregisterWebPush: (env, did, p) =>
     ops.unregisterWebPush(env, did, (p as { endpoint: string }).endpoint),
-  renameDevice: (env, did, p) => {
-    const { endpoint, label } = p as { endpoint: string; label: string };
-    return ops.renameDevice(env, did, endpoint, label);
-  },
   markRead: (env, did, p) => ops.markRead(env, did, p as MarkReadInput),
+  clearNotificationsFromSender: (env, did, p) =>
+    ops.clearNotificationsFromSender(env, did, (p as { sender: Did }).sender),
   setRouting: (env, did, p) => {
     const { sender, category, route } = p as { sender: Did; category: string; route: CategoryRoute };
     return ops.setRouting(env, did, sender, category, route);

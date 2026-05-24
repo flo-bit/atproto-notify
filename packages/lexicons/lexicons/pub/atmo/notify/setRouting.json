@@ -17,7 +17,7 @@
             },
             "route": {
               "type": "string",
-              "description": "App-wide route: a '+'-joined channel set of push|telegram|email (e.g. 'push+email'), 'off' for none, or 'default' to inherit the account default. Omit to leave unchanged."
+              "description": "App-wide route: a '+'-joined set of channel tokens (e.g. 'push+email'), 'off' for none, or 'default' to inherit the account default. A token is a bare channel (push|telegram|email = all of that channel's instances) or a channel narrowed to one delivery instance as 'channel:<id>' (e.g. 'push:a1b2c3' = one specific device). Omit to leave unchanged."
             },
             "categories": {
               "type": "array",
@@ -49,7 +49,7 @@
         },
         "route": {
           "type": "string",
-          "description": "Route for this category: a '+'-joined channel set of push|telegram|email, 'off' for none, or 'app' to inherit the app-wide route."
+          "description": "Route for this category: a '+'-joined set of channel tokens (a bare channel, or 'channel:<id>' to target one delivery instance), 'off' for none, or 'app' to inherit the app-wide route."
         }
       }
     }

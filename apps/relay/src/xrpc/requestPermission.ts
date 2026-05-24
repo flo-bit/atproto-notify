@@ -141,15 +141,16 @@ async function maybeNotifyPending(
   if (user === null || user.notify_pending_via_telegram !== 1) {
     return;
   }
-  const channels = await q.listChannelsForDid(app.env.DB, recipient);
-  const telegram = channels.find((channel) => channel.platform === 'telegram');
+  const telegram = (await q.listDeliveryTargets(app.env.DB, recipient)).find(
+    (target) => target.channel === 'telegram',
+  );
   if (telegram === undefined) {
     return;
   }
 
   await app.env.DISPATCH_QUEUE.send({
     kind: 'pendingRequest',
-    channel: { platform: 'telegram', platformUserId: telegram.platform_user_id },
+    channel: { platform: 'telegram', platformUserId: telegram.ref },
     requestId,
     senderTitle: title,
     senderDescription: description ?? undefined,

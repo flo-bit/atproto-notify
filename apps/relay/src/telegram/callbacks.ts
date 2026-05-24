@@ -13,7 +13,7 @@ const PLATFORM = 'telegram';
 /** Handle an inline-button tap. Always answers the callback to dismiss the spinner. */
 export async function handleCallback(env: Env, query: TelegramCallbackQuery): Promise<void> {
   const chatId = query.from.id;
-  const channel = await q.getChannelByPlatformUser(env.DB, PLATFORM, String(chatId));
+  const channel = await q.getDeliveryTargetByRef(env.DB, PLATFORM, String(chatId));
   if (channel === null) {
     await answerCallbackQuery(env, {
       callback_query_id: query.id,

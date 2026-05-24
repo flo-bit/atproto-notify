@@ -7,23 +7,20 @@ import type {
   AppRoute,
   Capability,
   CategoryRoute,
-  DeviceView,
-  EmailChannelView,
   ListNotificationsResult,
   MarkReadInput,
   NotifsRpc,
   PushSubscriptionInput,
   RoutingConfig,
+  TargetView,
   PubAtmoNotifyDenyPending,
   PubAtmoNotifyGetSettings,
   PubAtmoNotifyGrant,
   PubAtmoNotifyLinkChannel,
-  PubAtmoNotifyListChannels,
   PubAtmoNotifyListGrants,
   PubAtmoNotifyListPending,
   PubAtmoNotifyMuteGrant,
   PubAtmoNotifyRevoke,
-  PubAtmoNotifyUnlinkChannel,
   PubAtmoNotifyUpdateSettings,
 } from '@atmo/notifs-lexicons';
 
@@ -53,11 +50,8 @@ export class RelayRpc extends WorkerEntrypoint<Env> implements NotifsRpc {
   muteGrant(did: Did, input: PubAtmoNotifyMuteGrant.$input) {
     return ops.muteGrant(this.env, did, input);
   }
-  linkChannel(did: Did, input: PubAtmoNotifyLinkChannel.$input) {
-    return ops.linkChannel(this.env, did, input);
-  }
-  unlinkChannel(did: Did, input: PubAtmoNotifyUnlinkChannel.$input) {
-    return ops.unlinkChannel(this.env, did, input);
+  linkChannel(did: Did, input: PubAtmoNotifyLinkChannel.$input, label?: string) {
+    return ops.linkChannel(this.env, did, input, label);
   }
   updateSettings(did: Did, input: PubAtmoNotifyUpdateSettings.$input) {
     return ops.updateSettings(this.env, did, input);
@@ -68,23 +62,29 @@ export class RelayRpc extends WorkerEntrypoint<Env> implements NotifsRpc {
   listPending(did: Did): Promise<PubAtmoNotifyListPending.$output> {
     return ops.listPending(this.env, did);
   }
-  listChannels(did: Did): Promise<PubAtmoNotifyListChannels.$output> {
-    return ops.listChannels(this.env, did);
-  }
   getSettings(did: Did): Promise<PubAtmoNotifyGetSettings.$output> {
     return ops.getSettings(this.env, did);
   }
-  linkEmail(did: Did, address: string) {
-    return ops.linkEmail(this.env, did, address);
+  listTargets(did: Did): Promise<TargetView[]> {
+    return ops.listTargets(this.env, did);
+  }
+  renameTarget(did: Did, id: string, label: string) {
+    return ops.renameTarget(this.env, did, id, label);
+  }
+  removeTarget(did: Did, id: string) {
+    return ops.removeTarget(this.env, did, id);
+  }
+  linkEmail(did: Did, address: string, label?: string) {
+    return ops.linkEmail(this.env, did, address, label);
   }
   verifyEmail(did: Did, code: string) {
     return ops.verifyEmail(this.env, did, code);
   }
-  unlinkEmail(did: Did) {
-    return ops.unlinkEmail(this.env, did);
+  addWebhook(did: Did, url: string, label: string) {
+    return ops.addWebhook(this.env, did, url, label);
   }
-  getEmailChannel(did: Did): Promise<EmailChannelView | null> {
-    return ops.getEmailChannel(this.env, did);
+  enableDM(did: Did) {
+    return ops.enableDM(this.env, did);
   }
   registerWebPush(did: Did, sub: PushSubscriptionInput) {
     return ops.registerWebPush(this.env, did, sub);
@@ -92,17 +92,14 @@ export class RelayRpc extends WorkerEntrypoint<Env> implements NotifsRpc {
   unregisterWebPush(did: Did, endpoint: string) {
     return ops.unregisterWebPush(this.env, did, endpoint);
   }
-  listDevices(did: Did): Promise<DeviceView[]> {
-    return ops.listDevices(this.env, did);
-  }
-  renameDevice(did: Did, endpoint: string, label: string) {
-    return ops.renameDevice(this.env, did, endpoint, label);
-  }
   listNotifications(did: Did, cursor?: string): Promise<ListNotificationsResult> {
     return ops.listNotifications(this.env, did, cursor);
   }
   markRead(did: Did, input: MarkReadInput) {
     return ops.markRead(this.env, did, input);
+  }
+  clearNotificationsFromSender(did: Did, sender: Did) {
+    return ops.clearNotificationsFromSender(this.env, did, sender);
   }
   getRouting(did: Did): Promise<RoutingConfig> {
     return ops.getRouting(this.env, did);

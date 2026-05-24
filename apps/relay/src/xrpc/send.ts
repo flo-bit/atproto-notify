@@ -1,4 +1,4 @@
-import { PubAtmoNotifySend } from '@atmo/notifs-lexicons';
+import { PubAtmoNotifySend, routeSelection } from '@atmo/notifs-lexicons';
 import type { Did } from '@atcute/lexicons';
 import { json, type ProcedureConfig } from '@atcute/xrpc-server';
 
@@ -25,14 +25,44 @@ export function makeSend(app: AppContext): ProcedureConfig<PubAtmoNotifySend.mai
       const recipient = input.recipient;
       const id = newId();
 
-      // 2. Must have an active grant. Muted grants accept silently (delivered: 0).
+      // 2. Must have an active grant.
       const grant = await q.getGrant(app.env.DB, recipient, senderDid);
       if (grant === null) {
         throw notAuthorized();
       }
 
-      // Record in the inbox (full history) for every accepted send — mute/routing
-      // only affect which alert channels fire, not whether it's recorded.
+      // Register the category up front so it stays configurable in the routing UI
+      // even when this notification is dropped (route 'off').
+      if (input.category != null) {
+        await q.upsertAppCategory(app.env.DB, {
+          recipientDid: recipient,
+          senderDid,
+          category: input.category,
+          description: input.categoryDescription ?? null,
+          lastSeen: now(),
+        });
+      }
+
+      // 3. Resolve the route: per-category override → app-wide → account default.
+      //    Absent rows mean "inherit"; the resolved value is concrete:
+      //    'off' (drop) | 'inbox' (record, no alerts) | a channel-token set.
+      let route: string | undefined;
+      if (input.category != null) {
+        route = (await q.getRoutingRoute(app.env.DB, recipient, senderDid, input.category))?.route;
+      }
+      if (route === undefined) {
+        route = (await q.getAppRoute(app.env.DB, recipient, senderDid))?.route;
+      }
+      if (route === undefined) {
+        route = (await q.getUser(app.env.DB, recipient))?.default_route ?? 'push';
+      }
+
+      // 'off' → dropped entirely: not recorded, not delivered.
+      if (route === 'off') {
+        return json({ id, delivered: 0 });
+      }
+
+      // Everything else is recorded in the inbox (the canonical history).
       await q.insertNotification(app.env.DB, {
         id,
         recipientDid: recipient,
@@ -45,23 +75,13 @@ export function makeSend(app: AppContext): ProcedureConfig<PubAtmoNotifySend.mai
         createdAt: now(),
       });
 
-      // Register the category so it shows up in the routing UI.
-      if (input.category != null) {
-        await q.upsertAppCategory(app.env.DB, {
-          recipientDid: recipient,
-          senderDid,
-          category: input.category,
-          description: input.categoryDescription ?? null,
-          lastSeen: now(),
-        });
-      }
-
-      if (grant.muted === 1) {
+      // A muted grant or the 'inbox' route records but fires no alert channels.
+      if (grant.muted === 1 || route === 'inbox') {
         await logDelivery(app, id, recipient, senderDid, input.title, 0);
         return json({ id, delivered: 0 });
       }
 
-      // 3. Rate limits (per recipient+sender pair).
+      // 4. Rate limits (per recipient+sender pair) — only for actual alert delivery.
       const perSecond = await checkAndIncrement(
         app.env.CACHE,
         `rl:send:1s:${senderDid}:${recipient}`,
@@ -81,33 +101,17 @@ export function makeSend(app: AppContext): ProcedureConfig<PubAtmoNotifySend.mai
         throw rateLimited(perDay.resetIn, 'Daily notification limit reached for this recipient');
       }
 
-      // 4. Resolve the alert route: per-category override → app-wide → account
-      //    default. Everything is already in the inbox; the route only gates which
-      //    alert channels fire.
-      let route: string | undefined;
-      if (input.category != null) {
-        route = (await q.getRoutingRoute(app.env.DB, recipient, senderDid, input.category))?.route;
-      }
-      if (route === undefined) {
-        route = (await q.getAppRoute(app.env.DB, recipient, senderDid))?.route;
-      }
-      if (route === undefined) {
-        route = (await q.getUser(app.env.DB, recipient))?.default_route ?? 'push';
-      }
-      // A route is a `+`-joined channel set ('off' = none); see MANAGEMENT-AUTH /
-      // routing. Parse it so adding channels (email) needs no new combos.
-      const channels = route === 'off' ? new Set<string>() : new Set(route.split('+'));
-
-      const telegramChannels = channels.has('telegram')
-        ? (await q.listChannelsForDid(app.env.DB, recipient)).filter((c) => c.platform === 'telegram')
-        : [];
-      const pushSubs = channels.has('push')
-        ? await q.listPushSubscriptionsForDid(app.env.DB, recipient)
-        : [];
-      const emailAddress = channels.has('email')
-        ? await q.getVerifiedEmail(app.env.DB, recipient)
-        : null;
-      const deliveredCount = telegramChannels.length + pushSubs.length + (emailAddress ? 1 : 0);
+      // 5. Resolve the token set against the user's deliverable targets. A bare
+      //    channel ('push') fires all its instances; 'push:<id>' fires just one.
+      const selection = routeSelection(route);
+      const targets = (await q.listDeliveryTargets(app.env.DB, recipient))
+        .map(q.toDeliveryInstance)
+        .filter((t): t is q.DeliveryInstance => t !== null && t.verified)
+        .filter((t) => {
+          const sel = selection[t.channel];
+          return sel !== undefined && (sel.all || sel.ids.includes(t.id));
+        });
+      const deliveredCount = targets.length;
 
       // No targets → accept but deliver to nobody.
       if (deliveredCount === 0) {
@@ -115,48 +119,10 @@ export function makeSend(app: AppContext): ProcedureConfig<PubAtmoNotifySend.mai
         return json({ id, delivered: 0 });
       }
 
-      // 5. Enqueue one dispatch job per target.
-      const jobs: { body: DispatchJob }[] = [
-        ...telegramChannels.map((channel) => ({
-          body: {
-            kind: 'notification' as const,
-            channel: { platform: 'telegram' as const, platformUserId: channel.platform_user_id },
-            title: input.title,
-            body: input.body,
-            uri: input.uri,
-            senderDid,
-          },
-        })),
-        ...pushSubs.map((sub) => ({
-          body: {
-            kind: 'notification' as const,
-            channel: {
-              platform: 'webpush' as const,
-              endpoint: sub.endpoint,
-              p256dh: sub.p256dh,
-              auth: sub.auth,
-            },
-            title: input.title,
-            body: input.body,
-            uri: input.uri,
-            senderDid,
-          },
-        })),
-        ...(emailAddress !== null
-          ? [
-              {
-                body: {
-                  kind: 'notification' as const,
-                  channel: { platform: 'email' as const, address: emailAddress },
-                  title: input.title,
-                  body: input.body,
-                  uri: input.uri,
-                  senderDid,
-                },
-              },
-            ]
-          : []),
-      ];
+      // 5. Enqueue one dispatch job per matched target.
+      const jobs = targets.map((target) => ({
+        body: toNotificationJob(target, input, senderDid),
+      }));
       await app.env.DISPATCH_QUEUE.sendBatch(jobs);
 
       // 6. Record the delivery.
@@ -164,6 +130,42 @@ export function makeSend(app: AppContext): ProcedureConfig<PubAtmoNotifySend.mai
       return json({ id, delivered: deliveredCount });
     },
   };
+}
+
+/** Build a notification dispatch job for one resolved delivery instance. */
+function toNotificationJob(
+  target: q.DeliveryInstance,
+  input: { title: string; body: string; uri?: string },
+  senderDid: string,
+): DispatchJob {
+  const common = {
+    kind: 'notification' as const,
+    title: input.title,
+    body: input.body,
+    uri: input.uri,
+    senderDid,
+  };
+  if (target.channel === 'push') {
+    return {
+      ...common,
+      channel: {
+        platform: 'webpush',
+        endpoint: target.endpoint,
+        p256dh: target.p256dh,
+        auth: target.auth,
+      },
+    };
+  }
+  if (target.channel === 'telegram') {
+    return { ...common, channel: { platform: 'telegram', platformUserId: target.chatId } };
+  }
+  if (target.channel === 'email') {
+    return { ...common, channel: { platform: 'email', address: target.address } };
+  }
+  if (target.channel === 'dm') {
+    return { ...common, channel: { platform: 'dm', recipientDid: target.recipientDid } };
+  }
+  return { ...common, channel: { platform: 'webhook', url: target.url } };
 }
 
 function logDelivery(

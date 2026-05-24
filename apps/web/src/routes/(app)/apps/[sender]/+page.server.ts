@@ -1,3 +1,5 @@
+import { emptyRouteInstances } from '@atmo/notifs-lexicons';
+
 import { relayFor } from '$lib/server/relay';
 
 import type { PageServerLoad } from './$types';
@@ -10,5 +12,9 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 	const routing = await relay.getRouting();
 	const app = routing?.apps.find((a) => a.sender === params.sender) ?? null;
 
-	return { app, defaultRoute: routing?.defaultRoute ?? 'push' };
+	return {
+		app,
+		defaultRoute: routing?.defaultRoute ?? 'push',
+		channels: routing?.channels ?? emptyRouteInstances()
+	};
 };

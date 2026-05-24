@@ -18,12 +18,10 @@ import type {
   PubAtmoNotifyGetSettings,
   PubAtmoNotifyGrant,
   PubAtmoNotifyLinkChannel,
-  PubAtmoNotifyListChannels,
   PubAtmoNotifyListGrants,
   PubAtmoNotifyListPending,
   PubAtmoNotifyMuteGrant,
   PubAtmoNotifyRevoke,
-  PubAtmoNotifyUnlinkChannel,
   PubAtmoNotifyUpdateSettings,
 } from './lexicons/index.js';
 
@@ -32,23 +30,33 @@ export interface PushSubscriptionInput {
   endpoint: string;
   p256dh: string;
   auth: string;
-  /** Auto-detected device label (from the User-Agent); preserved across re-subscribes. */
+  /** Device label: a user-chosen name if `named`, else the auto User-Agent
+   *  descriptor; preserved across re-subscribes. */
   label?: string;
+  /** True when `label` is a user-chosen name (shown to apps as-is). */
+  named?: boolean;
 }
 
-/** A registered web push device (binding-only). */
-export interface DeviceView {
-  endpoint: string;
-  label: string;
-  createdAt: string;
-}
-
-/** A user's email delivery channel (binding-only). */
-export interface EmailChannelView {
-  address: string;
-  /** false while a verification code is outstanding. */
-  verified: boolean;
-}
+/**
+ * One of a user's delivery targets — a push device, a Telegram chat, an email,
+ * a Bluesky DM, or a webhook (binding-only). Discriminated by `channel`. `id` is
+ * the stable token a route uses to target this instance; `label` is the
+ * user-editable name.
+ */
+export type TargetView =
+  | { id: string; channel: 'push'; label: string; endpoint: string; createdAt: string }
+  | { id: string; channel: 'telegram'; label: string; createdAt: string }
+  | {
+      id: string;
+      channel: 'email';
+      label: string;
+      address: string;
+      /** false while a verification code is outstanding. */
+      verified: boolean;
+      createdAt: string;
+    }
+  | { id: string; channel: 'dm'; label: string; createdAt: string }
+  | { id: string; channel: 'webhook'; label: string; url: string; createdAt: string };
 
 /** A notification as shown in the inbox (binding-only; no public lexicon). */
 export interface NotificationView {
@@ -76,42 +84,122 @@ export interface MarkReadInput {
 }
 
 /** The alert channels a route can fire. Everything is in the inbox regardless. */
-export const CHANNELS = ['push', 'telegram', 'email'] as const;
+export const CHANNELS = ['push', 'telegram', 'email', 'dm', 'webhook'] as const;
 export type Channel = (typeof CHANNELS)[number];
 
-// A route is a concrete channel SET, encoded as a `+`-joined string in canonical
-// CHANNELS order ('off' = none) — e.g. 'push', 'push+email', 'off'. App-wide and
+// A route is a `+`-joined set of TOKENS in canonical CHANNELS order ('off' = none).
+// A token is either a bare channel ('push' = all instances of that channel) or a
+// channel with a specific instance id ('push:<id>' = just that device/chat), so a
+// user can route to one of several push devices / telegram chats. Examples:
+// 'push', 'push+email', 'push:a1b2c3', 'push:a1b2c3+telegram', 'off'. App-wide and
 // per-category routes add the inherit sentinels 'default' / 'app'. Stored as a
-// string; existing values ('push'/'telegram'/'push+telegram'/'off') are valid sets.
-/** A concrete route: a `+`-joined channel set, or 'off'. */
+// string; legacy values ('push'/'telegram'/'push+telegram'/'off') are valid sets.
+/** A concrete route: a `+`-joined token set, or 'off'. */
 export type AlertRoute = string;
 /** App-wide route: a concrete route, or 'default' (inherit the account default). */
 export type AppRoute = string;
 /** Per-category route: a concrete route, or 'app' (inherit the app-wide route). */
 export type CategoryRoute = string;
 
-/** Parse a route string into its channels ('off'/'default'/'app'/'' → []). */
-export function routeChannels(route: string): Channel[] {
-  if (route === 'off' || route === 'default' || route === 'app' || route === '') return [];
-  const set = new Set(route.split('+'));
-  return CHANNELS.filter((c) => set.has(c));
+/** A parsed route token: a channel, optionally narrowed to one instance id. */
+export interface RouteToken {
+  channel: Channel;
+  /** A specific delivery-instance id (see RouteInstance); absent = all instances. */
+  instance?: string;
 }
 
-/** Encode channels as a canonical route string ('off' when empty). */
-export function channelsRoute(channels: readonly Channel[]): string {
-  const ordered = CHANNELS.filter((c) => channels.includes(c));
-  return ordered.length > 0 ? ordered.join('+') : 'off';
-}
+/** Instance-id format: lowercase hex/alphanumeric, kept short. */
+const INSTANCE_ID_RE = /^[a-z0-9]+$/i;
 
-/** True if `route` is a valid concrete route (a channel set or 'off'). */
-export function isConcreteRoute(route: string): boolean {
-  if (route === 'off') return true;
-  const parts = route.split('+');
+/** True for routes that carry no channel tokens: the inherit sentinels, plus
+ *  'off' (drop entirely) and 'inbox' (inbox only, no alerts), and ''. */
+function isSentinel(route: string): boolean {
   return (
-    parts.length > 0 &&
-    new Set(parts).size === parts.length &&
-    parts.every((p) => (CHANNELS as readonly string[]).includes(p))
+    route === 'off' ||
+    route === 'inbox' ||
+    route === 'default' ||
+    route === 'app' ||
+    route === ''
   );
+}
+
+/** Parse a route string into its tokens (sentinels/'' → []). Unknown channels skipped. */
+export function parseRoute(route: string): RouteToken[] {
+  if (isSentinel(route)) return [];
+  const tokens: RouteToken[] = [];
+  for (const part of route.split('+')) {
+    const idx = part.indexOf(':');
+    const channel = (idx === -1 ? part : part.slice(0, idx)) as Channel;
+    if (!(CHANNELS as readonly string[]).includes(channel)) continue;
+    const instance = idx === -1 ? undefined : part.slice(idx + 1);
+    tokens.push(instance ? { channel, instance } : { channel });
+  }
+  return tokens;
+}
+
+/** Encode tokens as a canonical route string ('off' when empty). A bare channel
+ *  token subsumes any instance tokens for the same channel. */
+export function formatRoute(tokens: readonly RouteToken[]): string {
+  const parts: string[] = [];
+  for (const c of CHANNELS) {
+    const forChannel = tokens.filter((t) => t.channel === c);
+    if (forChannel.length === 0) continue;
+    if (forChannel.some((t) => t.instance === undefined)) {
+      parts.push(c);
+      continue;
+    }
+    const seen = new Set<string>();
+    for (const t of forChannel) {
+      if (t.instance !== undefined && !seen.has(t.instance)) {
+        seen.add(t.instance);
+        parts.push(`${c}:${t.instance}`);
+      }
+    }
+  }
+  return parts.length > 0 ? parts.join('+') : 'off';
+}
+
+/** The distinct channels a route fires ('off'/'default'/'app'/'' → []). */
+export function routeChannels(route: string): Channel[] {
+  const present = new Set<Channel>();
+  for (const t of parseRoute(route)) present.add(t.channel);
+  return CHANNELS.filter((c) => present.has(c));
+}
+
+/** Encode whole channels as a canonical route string ('off' when empty) — each
+ *  fires all of that channel's instances. */
+export function channelsRoute(channels: readonly Channel[]): string {
+  return formatRoute(CHANNELS.filter((c) => channels.includes(c)).map((channel) => ({ channel })));
+}
+
+/** Per-channel instance selection parsed from a route. An absent channel is not
+ *  fired; `all` fires every instance; otherwise only the listed instance ids. */
+export type RouteSelection = Partial<Record<Channel, { all: boolean; ids: string[] }>>;
+
+/** Resolve a route to its per-channel instance selection (used by delivery). */
+export function routeSelection(route: string): RouteSelection {
+  const sel: RouteSelection = {};
+  for (const tok of parseRoute(route)) {
+    const cur = sel[tok.channel] ?? { all: false, ids: [] };
+    if (tok.instance === undefined) cur.all = true;
+    else cur.ids.push(tok.instance);
+    sel[tok.channel] = cur;
+  }
+  return sel;
+}
+
+/** True if `route` is a valid concrete route: a channel-token set, 'off' (drop),
+ *  or 'inbox' (inbox only). Excludes the inherit sentinels 'default'/'app'. */
+export function isConcreteRoute(route: string): boolean {
+  if (route === 'off' || route === 'inbox') return true;
+  const parts = route.split('+');
+  if (parts.length === 0 || new Set(parts).size !== parts.length) return false;
+  return parts.every((p) => {
+    const idx = p.indexOf(':');
+    const channel = idx === -1 ? p : p.slice(0, idx);
+    if (!(CHANNELS as readonly string[]).includes(channel)) return false;
+    return idx === -1 || INSTANCE_ID_RE.test(p.slice(idx + 1));
+  });
 }
 
 /** Management capability the user designated for an app. See MANAGEMENT-AUTH.md. */
@@ -129,11 +217,34 @@ export interface RoutingApp {
   route: AppRoute;
   /** What this app may manage on the user's behalf ('none'|'self'|'full'). */
   manage: Capability;
+  /** Whether the user has muted this app (no alerts; still recorded in the inbox). */
+  muted: boolean;
+  /** Best-effort icon (app-supplied or Bluesky avatar) for the app screen header. */
+  iconUrl?: string;
   categories: RoutingCategory[];
 }
+/** A selectable delivery instance for instance-level routing (one push device,
+ *  one telegram chat, the verified email). `id` is the opaque token used in routes. */
+export interface RouteInstance {
+  id: string;
+  label: string;
+}
+/** The user's current delivery instances per channel, for rendering route pickers. */
+export type RouteInstances = Record<Channel, RouteInstance[]>;
+
+/** An empty per-channel instance catalog (derived from CHANNELS, so adding a
+ *  channel never leaves a literal stale). */
+export function emptyRouteInstances(): RouteInstances {
+  const out = {} as RouteInstances;
+  for (const c of CHANNELS) out[c] = [];
+  return out;
+}
+
 export interface RoutingConfig {
   defaultRoute: AlertRoute;
   apps: RoutingApp[];
+  /** Available delivery instances per channel, so a route can target just one. */
+  channels: RouteInstances;
 }
 
 /** A catalog entry for an app the user can enable from the web (binding-only). */
@@ -155,38 +266,57 @@ export interface NotifsRpc {
     did: Did,
     input: PubAtmoNotifyMuteGrant.$input,
   ): Promise<PubAtmoNotifyMuteGrant.$output>;
-  linkChannel(
-    did: Did,
-    input: PubAtmoNotifyLinkChannel.$input,
-  ): Promise<PubAtmoNotifyLinkChannel.$output>;
-  unlinkChannel(
-    did: Did,
-    input: PubAtmoNotifyUnlinkChannel.$input,
-  ): Promise<PubAtmoNotifyUnlinkChannel.$output>;
   updateSettings(
     did: Did,
     input: PubAtmoNotifyUpdateSettings.$input,
   ): Promise<PubAtmoNotifyUpdateSettings.$output>;
   listGrants(did: Did): Promise<PubAtmoNotifyListGrants.$output>;
   listPending(did: Did): Promise<PubAtmoNotifyListPending.$output>;
-  listChannels(did: Did): Promise<PubAtmoNotifyListChannels.$output>;
   getSettings(did: Did): Promise<PubAtmoNotifyGetSettings.$output>;
 
-  // Email channel (binding-only). `linkEmail` emails a verification code via comail.
-  linkEmail(did: Did, address: string): Promise<{ ok: boolean }>;
-  verifyEmail(did: Did, code: string): Promise<{ verified: boolean }>;
-  unlinkEmail(did: Did): Promise<{ ok: boolean }>;
-  getEmailChannel(did: Did): Promise<EmailChannelView | null>;
+  // Delivery targets — push devices, Telegram chats, emails (binding-only). One
+  // user can have several of each; routes can target one specific instance.
+  /** All of the user's delivery targets across channels. */
+  listTargets(did: Did): Promise<TargetView[]>;
+  /** Rename any target (give the device/chat/email a friendly name). */
+  renameTarget(did: Did, id: string, label: string): Promise<{ ok: boolean }>;
+  /** Remove any target by its id (unlink a Telegram chat, drop an email/device). */
+  removeTarget(did: Did, id: string): Promise<{ ok: boolean }>;
 
-  // Web push (binding-only; no public lexicon).
+  // Telegram linking starts a deep-link handshake; call again to add another chat.
+  // `label` is an optional user-chosen name applied to the chat once linked.
+  linkChannel(
+    did: Did,
+    input: PubAtmoNotifyLinkChannel.$input,
+    label?: string,
+  ): Promise<PubAtmoNotifyLinkChannel.$output>;
+
+  // Email: `linkEmail` adds an address and emails a code via comail; a user can
+  // verify several. `label` is an optional user-chosen name (else the address is
+  // used, hidden from apps). Remove one with `removeTarget`.
+  linkEmail(did: Did, address: string, label?: string): Promise<{ ok: boolean }>;
+  verifyEmail(did: Did, code: string): Promise<{ verified: boolean }>;
+
+  // Webhook: add an https URL the relay POSTs notification JSON to. No
+  // verification step (the user controls the endpoint); a user can add several.
+  // Remove one with `removeTarget`. Throws on an invalid/non-public URL.
+  addWebhook(did: Did, url: string, label: string): Promise<{ ok: boolean }>;
+
+  // Bluesky DM: enable the relay's bot to DM this user (the recipient is always
+  // the user's own DID, so there's no address and no verification — one per user,
+  // idempotent). Disable with `removeTarget`.
+  enableDM(did: Did): Promise<{ ok: boolean }>;
+
+  // Web push (binding-only; no public lexicon). `unregisterWebPush` is the
+  // "disable on this browser" path (keyed by the endpoint the SW reports).
   registerWebPush(did: Did, sub: PushSubscriptionInput): Promise<{ registered: boolean }>;
   unregisterWebPush(did: Did, endpoint: string): Promise<{ unregistered: boolean }>;
-  listDevices(did: Did): Promise<DeviceView[]>;
-  renameDevice(did: Did, endpoint: string, label: string): Promise<{ ok: boolean }>;
 
   // Inbox (binding-only; no public lexicon).
   listNotifications(did: Did, cursor?: string): Promise<ListNotificationsResult>;
   markRead(did: Did, input: MarkReadInput): Promise<{ marked: number }>;
+  /** Permanently delete every notification from one app for this user. */
+  clearNotificationsFromSender(did: Did, sender: Did): Promise<{ deleted: number }>;
 
   // Routing (binding-only). Three levels: category → app → account default.
   getRouting(did: Did): Promise<RoutingConfig>;

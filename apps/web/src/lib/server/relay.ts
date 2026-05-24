@@ -21,7 +21,6 @@ import type {
 	PubAtmoNotifyLinkChannel,
 	PubAtmoNotifyMuteGrant,
 	PubAtmoNotifyRevoke,
-	PubAtmoNotifyUnlinkChannel,
 	PubAtmoNotifyUpdateSettings
 } from '@atmo/notifs-lexicons';
 
@@ -45,26 +44,27 @@ export function relayFor(platform: App.Platform | undefined, did: Did | null) {
 		listGrants: () => svc.listGrants(did),
 		listPending: () => svc.listPending(did),
 		listApps: () => svc.listApps(),
-		listChannels: () => svc.listChannels(did),
 		getSettings: () => svc.getSettings(did),
 		grant: (input: PubAtmoNotifyGrant.$input) => svc.grant(did, input),
 		revoke: (input: PubAtmoNotifyRevoke.$input) => svc.revoke(did, input),
 		denyPending: (input: PubAtmoNotifyDenyPending.$input) => svc.denyPending(did, input),
 		muteGrant: (input: PubAtmoNotifyMuteGrant.$input) => svc.muteGrant(did, input),
-		linkChannel: (input: PubAtmoNotifyLinkChannel.$input) => svc.linkChannel(did, input),
-		unlinkChannel: (input: PubAtmoNotifyUnlinkChannel.$input) => svc.unlinkChannel(did, input),
-		linkEmail: (address: string) => svc.linkEmail(did, address),
+		linkChannel: (input: PubAtmoNotifyLinkChannel.$input, label?: string) =>
+			svc.linkChannel(did, input, label),
+		linkEmail: (address: string, label?: string) => svc.linkEmail(did, address, label),
 		verifyEmail: (code: string) => svc.verifyEmail(did, code),
-		unlinkEmail: () => svc.unlinkEmail(did),
-		getEmailChannel: () => svc.getEmailChannel(did),
+		addWebhook: (url: string, label: string) => svc.addWebhook(did, url, label),
+		enableDM: () => svc.enableDM(did),
+		listTargets: () => svc.listTargets(did),
+		renameTarget: (id: string, label: string) => svc.renameTarget(did, id, label),
+		removeTarget: (id: string) => svc.removeTarget(did, id),
 		updateSettings: (input: PubAtmoNotifyUpdateSettings.$input) =>
 			svc.updateSettings(did, input),
 		registerWebPush: (sub: PushSubscriptionInput) => svc.registerWebPush(did, sub),
 		unregisterWebPush: (endpoint: string) => svc.unregisterWebPush(did, endpoint),
-		listDevices: () => svc.listDevices(did),
-		renameDevice: (endpoint: string, label: string) => svc.renameDevice(did, endpoint, label),
 		listNotifications: (cursor?: string) => svc.listNotifications(did, cursor),
 		markRead: (input: MarkReadInput) => svc.markRead(did, input),
+		clearNotificationsFromSender: (sender: Did) => svc.clearNotificationsFromSender(did, sender),
 		getRouting: () => svc.getRouting(did),
 		setRouting: (sender: Did, category: string, route: CategoryRoute) =>
 			svc.setRouting(did, sender, category, route),

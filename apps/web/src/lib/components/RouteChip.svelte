@@ -9,6 +9,8 @@
 		push: 145,
 		telegram: 220,
 		email: 25,
+		dm: 195,
+		webhook: 290,
 		inbox: 250
 	};
 

@@ -46,20 +46,22 @@ export const setNotifyPending = command(v.object({ value: v.boolean() }), async 
 	await requireRelay().updateSettings({ notifyPendingViaTelegram: value });
 });
 
-/** Returns the Telegram deep link; the client navigates to it. */
-export const linkTelegram = command(async () => {
-	const { deepLink } = await requireRelay().linkChannel({ platform: 'telegram' });
-	return { deepLink };
-});
+const optionalLabel = v.optional(v.pipe(v.string(), v.trim(), v.maxLength(64)));
 
-export const unlinkTelegram = command(async () => {
-	await requireRelay().unlinkChannel({ platform: 'telegram' });
-});
+/** Returns the Telegram deep link; the client navigates to it. Optional `label`
+ *  is the user's chosen name, applied to the chat once linked. */
+export const linkTelegram = command(
+	v.object({ label: optionalLabel }),
+	async ({ label }) => {
+		const { deepLink } = await requireRelay().linkChannel({ platform: 'telegram' }, label);
+		return { deepLink };
+	}
+);
 
 export const linkEmail = command(
-	v.object({ address: v.pipe(v.string(), v.email()) }),
-	async ({ address }) => {
-		await requireRelay().linkEmail(address);
+	v.object({ address: v.pipe(v.string(), v.email()), label: optionalLabel }),
+	async ({ address, label }) => {
+		await requireRelay().linkEmail(address, label);
 	}
 );
 
@@ -68,8 +70,20 @@ export const verifyEmail = command(
 	async ({ code }) => requireRelay().verifyEmail(code)
 );
 
-export const unlinkEmail = command(async () => {
-	await requireRelay().unlinkEmail();
+/** Add a webhook target: the relay POSTs notifications to `url`. Relay re-validates. */
+export const addWebhook = command(
+	v.object({
+		url: v.pipe(v.string(), v.url(), v.startsWith('https://', 'Webhook URL must use https://')),
+		label: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(64))
+	}),
+	async ({ url, label }) => {
+		await requireRelay().addWebhook(url, label);
+	}
+);
+
+/** Enable Bluesky DM delivery (the relay's bot DMs the signed-in user). */
+export const enableDM = command(async () => {
+	await requireRelay().enableDM();
 });
 
 export const registerPush = command(
@@ -77,7 +91,8 @@ export const registerPush = command(
 		endpoint: v.string(),
 		p256dh: v.string(),
 		auth: v.string(),
-		label: v.optional(v.string())
+		label: v.optional(v.string()),
+		named: v.optional(v.boolean())
 	}),
 	async (sub) => {
 		await requireRelay().registerWebPush(sub);
@@ -88,18 +103,30 @@ export const unregisterPush = command(v.object({ endpoint: v.string() }), async 
 	await requireRelay().unregisterWebPush(endpoint);
 });
 
-export const renameDevice = command(
-	v.object({ endpoint: v.string(), label: v.string() }),
-	async ({ endpoint, label }) => {
-		await requireRelay().renameDevice(endpoint, label);
+/** Rename any delivery target (push device, Telegram chat, email). */
+export const renameTarget = command(
+	v.object({ id: v.string(), label: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(64)) }),
+	async ({ id, label }) => {
+		await requireRelay().renameTarget(id, label);
 	}
 );
+
+/** Remove any delivery target by id (unlink a Telegram chat, drop an email/device). */
+export const removeTarget = command(v.object({ id: v.string() }), async ({ id }) => {
+	await requireRelay().removeTarget(id);
+});
 
 export const markNotificationsRead = command(
 	v.object({ ids: v.optional(v.array(v.string())), all: v.optional(v.boolean()) }),
 	async (input) => {
 		await requireRelay().markRead(input);
 	}
+);
+
+/** Permanently delete every notification from one app. Returns the deleted count. */
+export const clearAppNotifications = command(
+	v.object({ sender: didSchema }),
+	async ({ sender }) => requireRelay().clearNotificationsFromSender(sender as Did)
 );
 
 // A route is a `+`-joined channel set or 'off'; app/category add an inherit sentinel.

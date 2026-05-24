@@ -21,8 +21,25 @@ export interface EmailChannel {
   address: string;
 }
 
+/** A Bluesky DM delivery channel (the recipient's own DID). */
+export interface DMChannel {
+  platform: 'dm';
+  recipientDid: string;
+}
+
+/** A webhook delivery channel: an https URL the relay POSTs notification JSON to. */
+export interface WebhookChannel {
+  platform: 'webhook';
+  url: string;
+}
+
 /** Where a notification can be delivered. */
-export type DeliveryChannel = TelegramChannel | WebPushChannel | EmailChannel;
+export type DeliveryChannel =
+  | TelegramChannel
+  | WebPushChannel
+  | EmailChannel
+  | DMChannel
+  | WebhookChannel;
 
 /**
  * Work item placed on `DISPATCH_QUEUE` and handled by the `queue` consumer.
@@ -100,6 +117,14 @@ export interface Env {
   COMAIL_DID: string;
   /** Enrolled sender address for the `from` field, e.g. "atmo.pub <notify@atmo.pub>" (var). */
   COMAIL_FROM: string;
+
+  // Bluesky DM delivery — the relay sends DMs from a configured bot account.
+  /** Bot handle or DID used for createSession (var). */
+  BLUESKY_DM_IDENTIFIER: string;
+  /** Bot app password (secret). */
+  BLUESKY_DM_APP_PASSWORD: string;
+  /** Bot PDS service URL; defaults to https://bsky.social (var). */
+  BLUESKY_DM_SERVICE?: string;
 }
 
 /**

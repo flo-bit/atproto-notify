@@ -22,25 +22,45 @@
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["route", "defaultRoute", "categories"],
+          "required": ["route", "defaultRoute", "categories", "targets"],
           "properties": {
             "route": {
               "type": "string",
-              "description": "App-wide route: a '+'-joined channel set (push|telegram|email), 'off', or 'default' to inherit the account default."
+              "description": "App-wide route: a '+'-joined set of channel tokens (a bare channel push|telegram|email, or 'channel:<id>' for one delivery instance), 'off', or 'default' to inherit the account default."
             },
             "defaultRoute": {
               "type": "string",
-              "description": "The user's account-default route: a '+'-joined channel set (push|telegram|email) or 'off'."
+              "description": "The user's account-default route: a '+'-joined set of channel tokens (bare channel or 'channel:<id>') or 'off'."
             },
             "categories": {
               "type": "array",
               "description": "Categories this app has used for the user, with their current routing.",
               "items": { "type": "ref", "ref": "#category" }
+            },
+            "targets": {
+              "type": "array",
+              "description": "The user's deliverable targets (one per push device / telegram chat / email / etc.), so the app can render a full route picker — including channels not in the current route. Use a target's `id` in a `channel:<id>` route token. Labels are privacy-safe: a user-chosen name, else a generic one (no raw email/handle unless the user named it that).",
+              "items": { "type": "ref", "ref": "#target" }
             }
           }
         }
       },
       "errors": [{ "name": "NotAuthorized" }]
+    },
+    "target": {
+      "type": "object",
+      "required": ["type", "id", "label"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "The channel this target belongs to (push|telegram|email|dm|webhook)."
+        },
+        "id": {
+          "type": "string",
+          "description": "Opaque, stable instance id — use it in a 'channel:<id>' route token."
+        },
+        "label": { "type": "string", "description": "Privacy-safe display name for the target." }
+      }
     },
     "category": {
       "type": "object",
@@ -53,7 +73,7 @@
         },
         "route": {
           "type": "string",
-          "description": "Route for this category: a '+'-joined channel set (push|telegram|email), 'off', or 'app' to inherit the app-wide route."
+          "description": "Route for this category: a '+'-joined set of channel tokens (bare channel or 'channel:<id>'), 'off', or 'app' to inherit the app-wide route."
         }
       }
     }

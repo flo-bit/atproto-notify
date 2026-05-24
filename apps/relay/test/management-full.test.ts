@@ -81,19 +81,18 @@ it('undesignated (granted but manage=none) is denied', async () => {
   expect(res.status).toBe(403);
 });
 
-it('vouch (no user token) works for a designated full manager', async () => {
+it('vouch (no user token) is rejected even for a designated full manager', async () => {
   const { app, user } = await setup('mf-vouch', 'full');
   const appJwt = await makeJwt(app, { lxm: MANAGE });
-  // No userToken — vouch via body `did`.
-  const res = await call(xrpcPost(MANAGE, appJwt, { method: 'getSettings', did: user.did }));
-  expect(res.status).toBe(200);
-});
-
-it('vouch is rejected without a designation', async () => {
-  const { app, user } = await setup('mf-vouch-none', 'none');
-  const appJwt = await makeJwt(app, { lxm: MANAGE });
+  // No userToken — the vouch path is gone, so a body `did` alone is not enough.
   const res = await call(xrpcPost(MANAGE, appJwt, { method: 'getSettings', did: user.did }));
   expect(res.status).toBe(403);
+});
+
+it('a full manager works with a user token', async () => {
+  const { app, user } = await setup('mf-token', 'full');
+  const res = await manage(app, user, { method: 'getSettings' });
+  expect(res.status).toBe(200);
 });
 
 it('unknown method → 400', async () => {

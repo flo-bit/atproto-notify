@@ -66,10 +66,11 @@ or flag may widen a `self` app beyond its own slice. The knobs below govern
 
 ### Axis 2 — authentication: how is the user established?
 
-- **Vouch** — app token (`iss = app DID`) + the user DID in the body, **no user
-  token**. The app asserts "I act for this user." Only honored when the app has a
-  *standing designation* for that user (below) — the designation **is** the
-  consent. Works for **lite sessions** (magic-link), since no user token is needed.
+- **Vouch** — app token + a user DID asserted in the body, **no user token**.
+  **Removed from the public XRPC surface (2026-05): every federated management call
+  now requires a fresh user token (dual-auth), so there is no standing token-free
+  access.** The only remaining vouch is the first-party service **Binding** (below) —
+  a transport-level vouch for atmo.pub's own UI, not reachable by third-party apps.
 - **Dual-auth** — app token + a fresh user token (`iss = user DID`, same `lxm`).
   Proves live user presence per call. Needed when there's no standing designation.
   The user DID is taken from the user token's `iss` (never trusted from the body).
@@ -97,23 +98,24 @@ separately; each takes `off | relay-allowlist | user-allowlist | open`:
   escalate routing, so opt-in). `off` disables undesignated self-writes; `open`
   allows any granted app with a user token.
 
-A per-user `self`/`full` designation always satisfies both (a designated app may
-read and write its slice, and may vouch). `full` is **always** designation-gated
-(relay-wide or per-user) — there is no "open full management"; OAuth scope alone
-never unlocks it.
+A per-user `self`/`full` designation satisfies both read and write admission, but
+the app must still present a fresh user token on every call (no vouch). `full` is
+**always** designation-gated (relay-wide or per-user) — there is no "open full
+management"; OAuth scope alone never unlocks it.
 
 ## Decision table
 
-| Caller for `(user, app)` | May touch | Vouch (lite-session OK) | Dual-auth |
+| Caller for `(user, app)` | May touch | Vouch (binding only) | Dual-auth |
 |---|---|---|---|
-| First-party (relay-wide manager) / binding | whole account | ✅ | ✅ |
-| Per-user `full` manager | whole account | ✅ | ✅ |
-| Per-user `self` app | own slice | ✅ | ✅ |
-| Granted, undesignated, policy=`open`/allowed | own slice | ❌ (no standing consent) | ✅ |
+| First-party binding (atmo.pub) | whole account | ✅ (transport-level) | n/a |
+| Per-user `full` manager (XRPC) | whole account | ❌ | ✅ |
+| Per-user `self` app (XRPC) | own slice | ❌ | ✅ |
+| Granted, undesignated, policy=`open`/allowed | own slice | ❌ | ✅ |
 | Granted, undesignated, policy=`off`/excluded | nothing (mgmt) | ❌ | ❌ |
 
-Rule of thumb: **vouch needs standing designation; dual-auth needs a real
-session; whole-account needs manager status.**
+Rule of thumb: **over XRPC every management call is dual-auth (a fresh user token);
+vouch exists only as the first-party service binding; whole-account needs manager
+status.**
 
 ## Per-method capability
 
@@ -197,11 +199,11 @@ relay-local-now / repo-portable-later shape as the subscriber sync in
   the read/write split).
 - A `verifyManagementCall(env, request, input, { lxm, need: 'self'|'full' })` helper:
   1. `verifySenderRequest` → app DID (always present).
-  2. If `input.userToken` present → `verifyServiceToken` → user DID (must match any
-     body DID); else expect a vouched body user DID.
+  2. Require `input.userToken` → `verifyServiceToken` → user DID. No token → 403
+     (no vouch path over XRPC).
   3. Resolve capability for `(userDID, appDID)` from relay-wide managers +
      per-grant `manage` + self policy.
-  4. Admit only if capability ≥ `need`, and vouch only with standing designation.
+  4. Admit only if capability ≥ `need` (or the undesignated-self open policy).
   Then call the same `ops.*(env, userDID, input)`.
 - **Binding stays** as the first-party fast path (same `ops`); the XRPC surface is
   the portable path for off-Cloudflare and third-party dashboards.

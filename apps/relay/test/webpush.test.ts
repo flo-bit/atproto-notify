@@ -2,7 +2,6 @@ import type { Did } from '@atcute/lexicons';
 import { env } from 'cloudflare:test';
 import { expect, it } from 'vitest';
 
-import * as q from '../src/db/queries';
 import {
   b64urlDecode,
   b64urlEncode,
@@ -95,28 +94,33 @@ it('vapidAuthHeader signs a verifiable ES256 JWT with the right aud/sub', async 
   expect(ok).toBe(true);
 });
 
+/** Push targets owned by `did`, as the unified TargetView (channel === 'push'). */
+async function pushTargets(did: Did) {
+  return (await ops.listTargets(env, did)).filter((t) => t.channel === 'push');
+}
+
 it('registerWebPush stores a subscription; unregisterWebPush removes it (scoped to the user)', async () => {
   const did = 'did:plc:pushuser' as Did;
   const sub = { endpoint: 'https://push.example/abc', p256dh: 'fakePub', auth: 'fakeAuth' };
 
   expect(await ops.registerWebPush(env, did, sub)).toEqual({ registered: true });
-  let rows = await q.listPushSubscriptionsForDid(env.DB, did);
+  let rows = await pushTargets(did);
   expect(rows).toHaveLength(1);
-  expect(rows[0]?.endpoint).toBe(sub.endpoint);
+  expect(rows[0]).toMatchObject({ channel: 'push', endpoint: sub.endpoint });
 
   // Another user can't drop it.
   expect(await ops.unregisterWebPush(env, 'did:plc:other' as Did, sub.endpoint)).toEqual({
     unregistered: false,
   });
-  expect(await q.listPushSubscriptionsForDid(env.DB, did)).toHaveLength(1);
+  expect(await pushTargets(did)).toHaveLength(1);
 
   // The owner can.
   expect(await ops.unregisterWebPush(env, did, sub.endpoint)).toEqual({ unregistered: true });
-  rows = await q.listPushSubscriptionsForDid(env.DB, did);
+  rows = await pushTargets(did);
   expect(rows).toHaveLength(0);
 });
 
-it('listDevices labels devices; renameDevice updates; re-register preserves a label', async () => {
+it('listTargets labels devices; renameTarget updates; re-register preserves a label', async () => {
   const did = 'did:plc:pushdevices' as Did;
   await ops.registerWebPush(env, did, {
     endpoint: 'https://push.example/d1',
@@ -126,14 +130,16 @@ it('listDevices labels devices; renameDevice updates; re-register preserves a la
   });
   await ops.registerWebPush(env, did, { endpoint: 'https://push.example/d2', p256dh: 'k', auth: 'a' });
 
-  let devices = await ops.listDevices(env, did);
+  let devices = await pushTargets(did);
   expect(devices).toHaveLength(2);
-  expect(devices.find((d) => d.endpoint === 'https://push.example/d1')?.label).toBe('Chrome · macOS');
-  expect(devices.find((d) => d.endpoint === 'https://push.example/d2')?.label).toBe('Unknown device');
+  const d1 = devices.find((d) => d.channel === 'push' && d.endpoint === 'https://push.example/d1');
+  const d2 = devices.find((d) => d.channel === 'push' && d.endpoint === 'https://push.example/d2');
+  expect(d1?.label).toBe('Chrome · macOS');
+  expect(d2?.label).toBe('Unknown device');
 
-  expect((await ops.renameDevice(env, did, 'https://push.example/d2', 'Work laptop')).ok).toBe(true);
-  devices = await ops.listDevices(env, did);
-  expect(devices.find((d) => d.endpoint === 'https://push.example/d2')?.label).toBe('Work laptop');
+  expect((await ops.renameTarget(env, did, d2!.id, 'Work laptop')).ok).toBe(true);
+  devices = await pushTargets(did);
+  expect(devices.find((d) => d.id === d2!.id)?.label).toBe('Work laptop');
 
   // Re-registering (e.g. key refresh) keeps the existing label.
   await ops.registerWebPush(env, did, {
@@ -143,6 +149,7 @@ it('listDevices labels devices; renameDevice updates; re-register preserves a la
     label: 'ignored'
   });
   expect(
-    (await ops.listDevices(env, did)).find((d) => d.endpoint === 'https://push.example/d1')?.label
+    (await pushTargets(did)).find((d) => d.channel === 'push' && d.endpoint === 'https://push.example/d1')
+      ?.label
   ).toBe('Chrome · macOS');
 });

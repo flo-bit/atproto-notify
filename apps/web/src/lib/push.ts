@@ -7,8 +7,10 @@ export interface FlatPushSubscription {
 	endpoint: string;
 	p256dh: string;
 	auth: string;
-	/** Auto-detected device label (only set by `subscribe`). */
+	/** Device label: a user-chosen name if `named`, else the auto UA descriptor. */
 	label?: string;
+	/** True when `label` is a name the user typed (shown to apps as-is). */
+	named?: boolean;
 }
 
 /** Best-effort "Browser · OS" label from the User-Agent (user can rename later). */
@@ -66,28 +68,44 @@ function flatten(sub: PushSubscription): FlatPushSubscription {
 
 export async function currentSubscription(): Promise<FlatPushSubscription | null> {
 	if (!pushSupported()) return null;
-	const reg = await navigator.serviceWorker.ready;
+	// Use getRegistration() (resolves immediately, even before the SW is active)
+	// rather than `.ready`, which never resolves until a worker is active and so
+	// hangs detection when the SW is still registering (notably in dev).
+	const reg = await navigator.serviceWorker.getRegistration();
+	if (!reg) return null;
 	const sub = await reg.pushManager.getSubscription();
 	return sub ? flatten(sub) : null;
 }
 
-/** Request permission + subscribe this browser; returns the flattened subscription. */
-export async function subscribe(): Promise<FlatPushSubscription> {
+/** The SW registration, preferring an existing one (no hang) over `.ready`. */
+async function registration(): Promise<ServiceWorkerRegistration> {
+	return (await navigator.serviceWorker.getRegistration()) ?? (await navigator.serviceWorker.ready);
+}
+
+/**
+ * Request permission + subscribe this browser; returns the flattened subscription.
+ * An optional `name` is the user's chosen device label (named); without one we
+ * fall back to the auto "Browser · OS" descriptor.
+ */
+export async function subscribe(name?: string): Promise<FlatPushSubscription> {
 	const permission = await Notification.requestPermission();
 	if (permission !== 'granted') {
 		throw new Error('Notification permission was not granted');
 	}
-	const reg = await navigator.serviceWorker.ready;
+	const reg = await registration();
 	const sub = await reg.pushManager.subscribe({
 		userVisibleOnly: true,
 		applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
 	});
-	return { ...flatten(sub), label: deviceLabel() };
+	const trimmed = name?.trim();
+	return trimmed
+		? { ...flatten(sub), label: trimmed, named: true }
+		: { ...flatten(sub), label: deviceLabel(), named: false };
 }
 
 /** Unsubscribe this browser; returns the endpoint that was removed (or null). */
 export async function unsubscribe(): Promise<string | null> {
-	const reg = await navigator.serviceWorker.ready;
+	const reg = await registration();
 	const sub = await reg.pushManager.getSubscription();
 	if (!sub) return null;
 	const { endpoint } = sub;
