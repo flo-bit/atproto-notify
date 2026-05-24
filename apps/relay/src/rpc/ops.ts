@@ -31,12 +31,13 @@ import type {
   PubAtmoNotifyUpdateSettings,
 } from '@atmo/notifs-lexicons';
 
-import { emptyRouteInstances } from '@atmo/notifs-lexicons';
+import { emptyRouteInstances, routeSelection } from '@atmo/notifs-lexicons';
 
 import { verifyAppLoginToken } from '../auth/appLogin';
+import { deliveryChannelFor, selectTargets } from '../delivery/channel';
 import { sendEmail } from '../delivery/email';
 import * as q from '../db/queries';
-import type { Env } from '../env';
+import type { DispatchJob, Env } from '../env';
 import { appCatalog, callbackAppFor, registeredApp } from '../lib/apps';
 import { invalidRequest } from '../lib/errors';
 import { newLinkToken, newTargetId } from '../lib/ids';
@@ -297,6 +298,33 @@ export async function renameTarget(
 export async function removeTarget(env: Env, did: Did, id: string): Promise<{ ok: boolean }> {
   const ok = await q.deleteDeliveryTargetById(env.DB, did, id);
   return { ok };
+}
+
+/**
+ * Deliver a test notification to all of the user's verified targets for one
+ * channel (a connectivity check from the dashboard). Bypasses grants/routing/
+ * inbox — it fans out straight to that channel's targets. Returns how many fired.
+ */
+export async function sendTest(
+  env: Env,
+  did: Did,
+  channel: string,
+): Promise<{ delivered: number }> {
+  const targets = selectTargets(await q.listDeliveryTargets(env.DB, did), routeSelection(channel));
+  if (targets.length === 0) return { delivered: 0 };
+
+  const jobs = targets.map((target) => ({
+    body: {
+      kind: 'notification' as const,
+      channel: deliveryChannelFor(target),
+      title: 'atmo.pub',
+      body: '🔔 Test notification — this channel is connected and working.',
+      uri: 'https://atmo.pub',
+      senderDid: env.RELAY_DID,
+    } satisfies DispatchJob,
+  }));
+  await env.DISPATCH_QUEUE.sendBatch(jobs);
+  return { delivered: targets.length };
 }
 
 export async function getSettings(

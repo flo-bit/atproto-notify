@@ -5,7 +5,7 @@ import { deleteDeliveryTargetByRef } from '../db/queries';
 import type { DispatchJob, Env } from '../env';
 import { callbackAppFor } from '../lib/apps';
 
-import { BlueskyDMError, sendBlueskyDM } from './bluesky-dm';
+import { BlueskyDMError, linkFacet, sendBlueskyDM } from './bluesky-dm';
 import { EmailError, sendEmail } from './email';
 import {
   escapeMd,
@@ -181,8 +181,15 @@ async function dispatch(env: Env, job: DispatchJob): Promise<void> {
     }
 
     if (job.channel.platform === 'dm') {
-      const dmText = `${job.title}\n${job.body}${job.uri !== undefined ? `\n\n${job.uri}` : ''}`;
-      await sendBlueskyDM(env, job.channel.recipientDid, dmText);
+      const head = `${job.title}\n${job.body}`;
+      if (job.uri !== undefined) {
+        const prefix = `${head}\n\n`;
+        await sendBlueskyDM(env, job.channel.recipientDid, `${prefix}${job.uri}`, [
+          linkFacet(prefix, job.uri),
+        ]);
+      } else {
+        await sendBlueskyDM(env, job.channel.recipientDid, head);
+      }
       return;
     }
 

@@ -38,6 +38,23 @@ interface Session {
   pds: string;
 }
 
+/** A richtext facet (a byte range + features), e.g. to make a URL clickable. */
+export interface Facet {
+  index: { byteStart: number; byteEnd: number };
+  features: { $type: 'app.bsky.richtext.facet#link'; uri: string }[];
+}
+
+/** Build a clickable-link facet for `uri`, placed right after `prefix` in the
+ *  message text. Byte offsets are UTF-8 (what atproto facets use). */
+export function linkFacet(prefix: string, uri: string): Facet {
+  const enc = new TextEncoder();
+  const byteStart = enc.encode(prefix).length;
+  return {
+    index: { byteStart, byteEnd: byteStart + enc.encode(uri).length },
+    features: [{ $type: 'app.bsky.richtext.facet#link', uri }],
+  };
+}
+
 /** Resolve the bot's PDS from BLUESKY_DM_IDENTIFIER (handle or DID). The resolver
  *  returns `new URL(pds).href`, which has a trailing slash — strip it so
  *  `${pds}/xrpc/...` doesn't produce a `//xrpc` (404) path. */
@@ -112,7 +129,12 @@ async function chatCall<T>(
   return (await res.json()) as T;
 }
 
-async function deliver(session: Session, recipientDid: string, text: string): Promise<void> {
+async function deliver(
+  session: Session,
+  recipientDid: string,
+  text: string,
+  facets?: Facet[],
+): Promise<void> {
   const { convo } = await chatCall<{ convo: { id: string } }>(
     session.pds,
     session.accessJwt,
@@ -120,7 +142,10 @@ async function deliver(session: Session, recipientDid: string, text: string): Pr
     { query: { members: recipientDid } },
   );
   await chatCall(session.pds, session.accessJwt, 'chat.bsky.convo.sendMessage', {
-    body: { convoId: convo.id, message: { text } },
+    body: {
+      convoId: convo.id,
+      message: { text, ...(facets && facets.length > 0 ? { facets } : {}) },
+    },
   });
 }
 
@@ -130,7 +155,12 @@ async function deliver(session: Session, recipientDid: string, text: string): Pr
  * token is dead, re-created) and the send retried once. A cached session missing
  * the resolved PDS (pre-upgrade) forces a re-login.
  */
-export async function sendBlueskyDM(env: Env, recipientDid: string, text: string): Promise<void> {
+export async function sendBlueskyDM(
+  env: Env,
+  recipientDid: string,
+  text: string,
+  facets?: Facet[],
+): Promise<void> {
   let session = await loadSession(env);
   // Migrate a pre-upgrade cached session (valid tokens, no resolved PDS) WITHOUT
   // spending a rate-limited createSession — just attach the PDS and reuse the
@@ -140,7 +170,7 @@ export async function sendBlueskyDM(env: Env, recipientDid: string, text: string
   }
   if (!session) session = await createSession(env);
   try {
-    await deliver(session, recipientDid, text);
+    await deliver(session, recipientDid, text, facets);
   } catch (err) {
     if (!(err instanceof BlueskyDMError) || err.statusCode !== 401) throw err;
     try {
@@ -148,6 +178,6 @@ export async function sendBlueskyDM(env: Env, recipientDid: string, text: string
     } catch {
       session = await createSession(env);
     }
-    await deliver(session, recipientDid, text);
+    await deliver(session, recipientDid, text, facets);
   }
 }

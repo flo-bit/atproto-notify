@@ -14,6 +14,7 @@ import type {
 	AppRoute,
 	Capability,
 	CategoryRoute,
+	Channel,
 	MarkReadInput,
 	PushSubscriptionInput,
 	PubAtmoNotifyDenyPending,
@@ -58,6 +59,7 @@ export function relayFor(platform: App.Platform | undefined, did: Did | null) {
 		listTargets: () => svc.listTargets(did),
 		renameTarget: (id: string, label: string) => svc.renameTarget(did, id, label),
 		removeTarget: (id: string) => svc.removeTarget(did, id),
+		sendTest: (channel: Channel) => svc.sendTest(did, channel),
 		updateSettings: (input: PubAtmoNotifyUpdateSettings.$input) =>
 			svc.updateSettings(did, input),
 		registerWebPush: (sub: PushSubscriptionInput) => svc.registerWebPush(did, sub),

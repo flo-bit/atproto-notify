@@ -117,6 +117,12 @@ export const removeTarget = command(v.object({ id: v.string() }), async ({ id })
 	await requireRelay().removeTarget(id);
 });
 
+/** Send a test notification to one channel's verified targets. Returns the count. */
+export const sendTest = command(
+	v.object({ channel: v.picklist(['push', 'telegram', 'email', 'dm', 'webhook']) }),
+	({ channel }) => requireRelay().sendTest(channel)
+);
+
 export const markNotificationsRead = command(
 	v.object({ ids: v.optional(v.array(v.string())), all: v.optional(v.boolean()) }),
 	async (input) => {

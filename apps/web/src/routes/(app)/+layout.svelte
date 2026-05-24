@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import { oauthLogout } from '$lib/atproto/oauth.remote';
 	import Icon from '$lib/components/Icon.svelte';
+	import Toaster from '$lib/components/Toaster.svelte';
 	import Wordmark from '$lib/components/Wordmark.svelte';
 	import { DOCS_URL } from '$lib/config';
 	import type { LayoutData } from './$types';
@@ -129,3 +130,5 @@
 		</nav>
 	</div>
 </div>
+
+<Toaster />

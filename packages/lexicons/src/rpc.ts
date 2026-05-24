@@ -294,6 +294,9 @@ export interface NotifsRpc {
   renameTarget(did: Did, id: string, label: string): Promise<{ ok: boolean }>;
   /** Remove any target by its id (unlink a Telegram chat, drop an email/device). */
   removeTarget(did: Did, id: string): Promise<{ ok: boolean }>;
+  /** Send a test notification to all of the user's verified targets for one
+   *  channel (a dashboard connectivity check). Returns how many it fired. */
+  sendTest(did: Did, channel: Channel): Promise<{ delivered: number }>;
 
   // Telegram linking starts a deep-link handshake; call again to add another chat.
   // `label` is an optional user-chosen name applied to the chat once linked.

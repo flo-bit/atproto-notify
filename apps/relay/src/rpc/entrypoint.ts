@@ -74,6 +74,9 @@ export class RelayRpc extends WorkerEntrypoint<Env> implements NotifsRpc {
   removeTarget(did: Did, id: string) {
     return ops.removeTarget(this.env, did, id);
   }
+  sendTest(did: Did, channel: string) {
+    return ops.sendTest(this.env, did, channel);
+  }
   linkEmail(did: Did, address: string, label?: string) {
     return ops.linkEmail(this.env, did, address, label);
   }

@@ -14,24 +14,40 @@
 		registerPush,
 		removeTarget,
 		renameTarget,
+		sendTest,
 		unregisterPush,
 		verifyEmail
 	} from '$lib/remote/notifs.remote';
+	import { channelLabel } from '$lib/routes';
+	import { toast } from '$lib/toast.svelte';
+	import type { Channel } from '@atmo/notifs-lexicons';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
 	let busy = $state<Record<string, boolean>>({});
-	let errorMsg = $state('');
+
+	/** Send a test notification to one channel's verified targets. */
+	async function testChannel(channel: Channel) {
+		busy[`test:${channel}`] = true;
+		try {
+			const { delivered } = await sendTest({ channel });
+			if (delivered > 0) toast.success(`Test sent to ${channelLabel(channel)} — check it.`);
+			else toast.info(`No connected ${channelLabel(channel)} target to test yet.`);
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : 'Could not send test');
+		} finally {
+			busy[`test:${channel}`] = false;
+		}
+	}
 
 	async function run(key: string, fn: () => Promise<unknown>) {
 		busy[key] = true;
-		errorMsg = '';
 		try {
 			await fn();
 			await invalidateAll();
 		} catch (err) {
-			errorMsg = err instanceof Error ? err.message : 'Something went wrong';
+			toast.error(err instanceof Error ? err.message : 'Something went wrong');
 		} finally {
 			busy[key] = false;
 		}
@@ -100,14 +116,13 @@
 
 	async function connectTelegram() {
 		busy['link'] = true;
-		errorMsg = '';
 		try {
 			const label = telegramLabel.trim() || undefined;
 			const { deepLink } = await linkTelegram({ label });
 			telegramLabel = '';
 			window.open(deepLink, '_blank', 'noopener,noreferrer');
 		} catch (err) {
-			errorMsg = err instanceof Error ? err.message : 'Could not start linking';
+			toast.error(err instanceof Error ? err.message : 'Could not start linking');
 		} finally {
 			busy['link'] = false;
 		}
@@ -139,7 +154,6 @@
 
 	async function enablePush() {
 		busy['push'] = true;
-		errorMsg = '';
 		try {
 			const sub = await subscribe(deviceName.trim() || undefined);
 			await registerPush(sub);
@@ -147,7 +161,7 @@
 			deviceName = '';
 			await invalidateAll();
 		} catch (err) {
-			errorMsg = err instanceof Error ? err.message : 'Could not enable push';
+			toast.error(err instanceof Error ? err.message : 'Could not enable push');
 		} finally {
 			busy['push'] = false;
 		}
@@ -155,14 +169,13 @@
 
 	async function disableCurrent() {
 		busy['push'] = true;
-		errorMsg = '';
 		try {
 			const endpoint = await unsubscribe();
 			if (endpoint) await unregisterPush({ endpoint });
 			currentEndpoint = null;
 			await invalidateAll();
 		} catch (err) {
-			errorMsg = err instanceof Error ? err.message : 'Could not disable push';
+			toast.error(err instanceof Error ? err.message : 'Could not disable push');
 		} finally {
 			busy['push'] = false;
 		}
@@ -195,6 +208,19 @@
 	</div>
 {/snippet}
 
+<!-- "Send test" button for a channel's header row (shown only when it has a usable target). -->
+{#snippet testButton(channel: Channel, enabled: boolean)}
+	{#if enabled}
+		<button
+			class="ml-auto shrink-0 text-xs font-medium text-muted hover:text-fg disabled:opacity-50"
+			disabled={busy[`test:${channel}`]}
+			onclick={() => testChannel(channel)}
+		>
+			{busy[`test:${channel}`] ? 'Sending…' : 'Send test'}
+		</button>
+	{/if}
+{/snippet}
+
 <DefaultRoutePrompt defaultRoute={data.defaultRoute} channels={data.channels} />
 
 <p class="mt-6 max-w-2xl text-sm text-muted">
@@ -213,15 +239,6 @@
 	</p>
 </div>
 
-{#if errorMsg}
-	<p
-		class="mt-4 max-w-2xl rounded-card border border-line bg-danger/10 px-3 py-2 text-sm text-danger"
-		role="alert"
-	>
-		{errorMsg}
-	</p>
-{/if}
-
 <!-- Push devices -->
 <section class="mt-4 max-w-2xl">
 	<div class="flex items-center justify-between">
@@ -236,6 +253,7 @@
 		<div class="mb-3 flex items-center gap-2.5">
 			<RouteChip route="push" size="md" />
 			<span class="text-sm font-semibold text-fg">Web push</span>
+			{@render testButton('push', data.devices.length > 0)}
 		</div>
 
 		{#if data.devices.length > 0}
@@ -327,6 +345,7 @@
 		<div class="mb-3 flex items-center gap-2.5">
 			<RouteChip route="telegram" size="md" />
 			<span class="text-sm font-semibold text-fg">Telegram DM</span>
+			{@render testButton('telegram', data.telegrams.length > 0)}
 		</div>
 
 		{#if data.telegrams.length > 0}
@@ -386,6 +405,7 @@
 		<div class="mb-3 flex items-center gap-2.5">
 			<RouteChip route="dm" size="md" />
 			<span class="text-sm font-semibold text-fg">Bluesky DM</span>
+			{@render testButton('dm', data.dms.length > 0)}
 		</div>
 
 		{#if data.dms.length > 0}
@@ -436,6 +456,7 @@
 		<div class="mb-3 flex items-center gap-2.5">
 			<RouteChip route="email" size="md" />
 			<span class="text-sm font-semibold text-fg">Email</span>
+			{@render testButton('email', data.emails.some((e) => e.verified))}
 		</div>
 
 		{#if data.emails.length > 0}
@@ -533,6 +554,7 @@
 		<div class="mb-3 flex items-center gap-2.5">
 			<RouteChip route="webhook" size="md" />
 			<span class="text-sm font-semibold text-fg">Webhook</span>
+			{@render testButton('webhook', data.webhooks.length > 0)}
 		</div>
 
 		{#if data.webhooks.length > 0}
