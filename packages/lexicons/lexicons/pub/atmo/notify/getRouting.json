@@ -26,13 +26,11 @@
           "properties": {
             "route": {
               "type": "string",
-              "enum": ["push", "telegram", "push+telegram", "off", "default"],
-              "description": "The app-wide route. 'default' means it inherits the account default."
+              "description": "App-wide route: a '+'-joined channel set (push|telegram|email), 'off', or 'default' to inherit the account default."
             },
             "defaultRoute": {
               "type": "string",
-              "enum": ["push", "telegram", "push+telegram", "off"],
-              "description": "The user's account-default route, so the app can label what 'default'/'app' resolves to."
+              "description": "The user's account-default route: a '+'-joined channel set (push|telegram|email) or 'off'."
             },
             "categories": {
               "type": "array",
@@ -55,8 +53,7 @@
         },
         "route": {
           "type": "string",
-          "enum": ["push", "telegram", "push+telegram", "off", "app"],
-          "description": "Route for this category. 'app' means it inherits the app-wide route."
+          "description": "Route for this category: a '+'-joined channel set (push|telegram|email), 'off', or 'app' to inherit the app-wide route."
         }
       }
     }

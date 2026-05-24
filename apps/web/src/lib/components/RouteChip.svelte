@@ -1,22 +1,19 @@
 <script lang="ts">
-	import { ROUTE_LABELS } from '$lib/routes';
+	import { routeLabel } from '$lib/routes';
 
 	let { route, size = 'sm' }: { route: string; size?: 'sm' | 'md' } = $props();
 
-	// Hue per route; null = neutral (uses theme tokens). Colors are translucent so
-	// they read on both light and dark.
+	// Hue per single channel; sets/sentinels render neutral. Colors are translucent
+	// so they read on both light and dark.
 	const HUE: Record<string, number | null> = {
 		push: 145,
 		telegram: 220,
-		'push+telegram': 185,
-		inbox: 250,
-		off: null,
-		default: null,
-		app: null
+		email: 25,
+		inbox: 250
 	};
 
 	const hue = $derived(HUE[route] ?? null);
-	const label = $derived(ROUTE_LABELS[route] ?? route);
+	const label = $derived(routeLabel(route));
 	const fs = $derived(size === 'md' ? 'text-xs' : 'text-[11px]');
 </script>
 

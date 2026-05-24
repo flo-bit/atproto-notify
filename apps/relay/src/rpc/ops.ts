@@ -12,6 +12,7 @@ import type {
   Capability,
   CategoryRoute,
   DeviceView,
+  EmailChannelView,
   ListNotificationsResult,
   MarkReadInput,
   NotificationView,
@@ -32,9 +33,11 @@ import type {
 } from '@atmo/notifs-lexicons';
 
 import { verifyAppLoginToken } from '../auth/appLogin';
+import { sendEmail } from '../delivery/email';
 import * as q from '../db/queries';
 import type { Env } from '../env';
 import { appCatalog, callbackAppFor } from '../lib/apps';
+import { invalidRequest } from '../lib/errors';
 import { newLinkToken } from '../lib/ids';
 import { addMinutes, now, toIsoDatetime } from '../lib/time';
 
@@ -432,6 +435,59 @@ export async function setGrantManage(
 ): Promise<{ ok: boolean }> {
   await q.setGrantManage(env.DB, did, sender, manage);
   return { ok: true };
+}
+
+// --- email channel ---------------------------------------------------------
+
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const VERIFY_TTL_MS = 15 * 60 * 1000;
+
+function genVerifyCode(): string {
+  const n = crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
+  return (n % 1_000_000).toString().padStart(6, '0');
+}
+
+/**
+ * Set the user's email and email them a verification code (via comail). Stored
+ * unverified until `verifyEmail` succeeds. Throws if comail rejects, so nothing
+ * is stored for an undeliverable address.
+ */
+export async function linkEmail(env: Env, did: Did, address: string): Promise<{ ok: boolean }> {
+  const addr = address.trim().toLowerCase();
+  if (!EMAIL_RE.test(addr)) throw invalidRequest('Invalid email address');
+
+  const code = genVerifyCode();
+  await sendEmail(env, {
+    to: addr,
+    subject: 'Verify your email for atmo.pub',
+    text: `Your atmo.pub verification code is ${code}.\n\nIt expires in 15 minutes. If you didn't request this, you can ignore this email.`,
+    category: 'verification',
+  });
+
+  const t = now();
+  await q.upsertEmailChannel(env.DB, {
+    did,
+    address: addr,
+    verifyCode: code,
+    verifyExpires: t + VERIFY_TTL_MS,
+    createdAt: t,
+  });
+  return { ok: true };
+}
+
+export async function verifyEmail(env: Env, did: Did, code: string): Promise<{ verified: boolean }> {
+  const verified = await q.verifyEmailChannel(env.DB, did, code.trim(), now());
+  return { verified };
+}
+
+export async function unlinkEmail(env: Env, did: Did): Promise<{ ok: boolean }> {
+  await q.deleteEmailChannel(env.DB, did);
+  return { ok: true };
+}
+
+export async function getEmailChannel(env: Env, did: Did): Promise<EmailChannelView | null> {
+  const row = await q.getEmailChannel(env.DB, did);
+  return row === null ? null : { address: row.address, verified: row.verified === 1 };
 }
 
 /**

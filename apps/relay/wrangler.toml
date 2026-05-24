@@ -42,8 +42,14 @@ BOT_USERNAME = "atmo_notify_bot"        # e.g. "atmonotifsbot"
 # browser applicationServerKey — paste the SAME value into apps/web VAPID_PUBLIC_KEY.
 VAPID_PUBLIC_KEY = "BF4pVUiFeh9wltn6Rj151RHA4WfidcRRv8kXp2aKcRATi_2gUgq0uGX8jVY1EczXqOvRtluqIxRj6Mtf5d1ImRw"
 VAPID_SUBJECT = "https://atmo.pub"
+# Email via comail (https://comail.at). COMAIL_DID = the account DID for the
+# X-Atmos-DID header; COMAIL_FROM = an enrolled sender address.
+COMAIL_DID = "did:web:relay.atmo.pub"
+COMAIL_FROM = "atmo.pub <notify@atmo.pub>"
 
 # Secrets set via `wrangler secret put`:
 # - TELEGRAM_BOT_TOKEN
 # - TELEGRAM_WEBHOOK_SECRET
 # - VAPID_PRIVATE_JWK   (the private JWK from `pnpm vapid:keygen`)
+# - RELAY_PRIVATE_KEY   (the private multikey from `pnpm relay:keygen`)
+# - COMAIL_API_KEY      (atmos_… from comail.at)

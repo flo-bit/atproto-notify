@@ -2,6 +2,7 @@
 // `load` functions; after a command runs, the client calls `invalidateAll()` to
 // refresh the page data.
 import type { Did } from '@atcute/lexicons';
+import { isConcreteRoute } from '@atmo/notifs-lexicons';
 import { command, getRequestEvent } from '$app/server';
 import { error } from '@sveltejs/kit';
 import * as v from 'valibot';
@@ -55,6 +56,22 @@ export const unlinkTelegram = command(async () => {
 	await requireRelay().unlinkChannel({ platform: 'telegram' });
 });
 
+export const linkEmail = command(
+	v.object({ address: v.pipe(v.string(), v.email()) }),
+	async ({ address }) => {
+		await requireRelay().linkEmail(address);
+	}
+);
+
+export const verifyEmail = command(
+	v.object({ code: v.pipe(v.string(), v.regex(/^\d{6}$/)) }),
+	async ({ code }) => requireRelay().verifyEmail(code)
+);
+
+export const unlinkEmail = command(async () => {
+	await requireRelay().unlinkEmail();
+});
+
 export const registerPush = command(
 	v.object({
 		endpoint: v.string(),
@@ -85,29 +102,30 @@ export const markNotificationsRead = command(
 	}
 );
 
-export const setDefaultRoute = command(
-	v.object({ route: v.picklist(['push', 'telegram', 'push+telegram', 'off']) }),
-	async ({ route }) => {
-		await requireRelay().setDefaultRoute(route);
-	}
+// A route is a `+`-joined channel set or 'off'; app/category add an inherit sentinel.
+const concreteRoute = v.pipe(v.string(), v.check(isConcreteRoute, 'Invalid route'));
+const appRoute = v.pipe(
+	v.string(),
+	v.check((s) => s === 'default' || isConcreteRoute(s), 'Invalid route')
+);
+const categoryRoute = v.pipe(
+	v.string(),
+	v.check((s) => s === 'app' || isConcreteRoute(s), 'Invalid route')
 );
 
+export const setDefaultRoute = command(v.object({ route: concreteRoute }), async ({ route }) => {
+	await requireRelay().setDefaultRoute(route);
+});
+
 export const setRouting = command(
-	v.object({
-		sender: didSchema,
-		category: v.string(),
-		route: v.picklist(['app', 'push', 'telegram', 'push+telegram', 'off'])
-	}),
+	v.object({ sender: didSchema, category: v.string(), route: categoryRoute }),
 	async ({ sender, category, route }) => {
 		await requireRelay().setRouting(sender as Did, category, route);
 	}
 );
 
 export const setAppRouting = command(
-	v.object({
-		sender: didSchema,
-		route: v.picklist(['default', 'push', 'telegram', 'push+telegram', 'off'])
-	}),
+	v.object({ sender: didSchema, route: appRoute }),
 	async ({ sender, route }) => {
 		await requireRelay().setAppRouting(sender as Did, route);
 	}

@@ -53,6 +53,10 @@ export function relayFor(platform: App.Platform | undefined, did: Did | null) {
 		muteGrant: (input: PubAtmoNotifyMuteGrant.$input) => svc.muteGrant(did, input),
 		linkChannel: (input: PubAtmoNotifyLinkChannel.$input) => svc.linkChannel(did, input),
 		unlinkChannel: (input: PubAtmoNotifyUnlinkChannel.$input) => svc.unlinkChannel(did, input),
+		linkEmail: (address: string) => svc.linkEmail(did, address),
+		verifyEmail: (code: string) => svc.verifyEmail(did, code),
+		unlinkEmail: () => svc.unlinkEmail(did),
+		getEmailChannel: () => svc.getEmailChannel(did),
 		updateSettings: (input: PubAtmoNotifyUpdateSettings.$input) =>
 			svc.updateSettings(did, input),
 		registerWebPush: (sub: PushSubscriptionInput) => svc.registerWebPush(did, sub),

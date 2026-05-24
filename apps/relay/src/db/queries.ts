@@ -27,6 +27,78 @@ export interface LinkTokenRow {
   expires_at: number;
 }
 
+// --- email channel (one verified address per user) -------------------------
+
+export interface EmailChannelRow {
+  recipient_did: Did;
+  address: string;
+  verified: number;
+  verify_code: string | null;
+  verify_expires: number | null;
+  created_at: number;
+}
+
+export function getEmailChannel(db: D1Database, did: Did): Promise<EmailChannelRow | null> {
+  return db
+    .prepare('SELECT * FROM email_channels WHERE recipient_did = ?')
+    .bind(did)
+    .first<EmailChannelRow>();
+}
+
+/** Set (or replace) a user's pending email + verification code (resets verified). */
+export async function upsertEmailChannel(
+  db: D1Database,
+  input: { did: Did; address: string; verifyCode: string; verifyExpires: number; createdAt: number },
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO email_channels (recipient_did, address, verified, verify_code, verify_expires, created_at)
+       VALUES (?, ?, 0, ?, ?, ?)
+       ON CONFLICT(recipient_did) DO UPDATE SET
+         address = excluded.address,
+         verified = 0,
+         verify_code = excluded.verify_code,
+         verify_expires = excluded.verify_expires,
+         created_at = excluded.created_at`,
+    )
+    .bind(input.did, input.address, input.verifyCode, input.verifyExpires, input.createdAt)
+    .run();
+}
+
+/** Mark verified iff the code matches and hasn't expired. Returns true on success. */
+export async function verifyEmailChannel(
+  db: D1Database,
+  did: Did,
+  code: string,
+  nowMs: number,
+): Promise<boolean> {
+  const result = await db
+    .prepare(
+      `UPDATE email_channels SET verified = 1, verify_code = NULL, verify_expires = NULL
+       WHERE recipient_did = ? AND verified = 0 AND verify_code = ? AND verify_expires > ?`,
+    )
+    .bind(did, code, nowMs)
+    .run();
+  return changed(result);
+}
+
+export async function deleteEmailChannel(db: D1Database, did: Did): Promise<boolean> {
+  const result = await db
+    .prepare('DELETE FROM email_channels WHERE recipient_did = ?')
+    .bind(did)
+    .run();
+  return changed(result);
+}
+
+/** The user's verified email address, or null. Used by delivery. */
+export async function getVerifiedEmail(db: D1Database, did: Did): Promise<string | null> {
+  const row = await db
+    .prepare('SELECT address FROM email_channels WHERE recipient_did = ? AND verified = 1')
+    .bind(did)
+    .first<{ address: string }>();
+  return row?.address ?? null;
+}
+
 export interface SenderRow {
   did: Did;
   handle: string | null;

@@ -8,6 +8,7 @@ import type {
   Capability,
   CategoryRoute,
   DeviceView,
+  EmailChannelView,
   ListNotificationsResult,
   MarkReadInput,
   NotifsRpc,
@@ -72,6 +73,18 @@ export class RelayRpc extends WorkerEntrypoint<Env> implements NotifsRpc {
   }
   getSettings(did: Did): Promise<PubAtmoNotifyGetSettings.$output> {
     return ops.getSettings(this.env, did);
+  }
+  linkEmail(did: Did, address: string) {
+    return ops.linkEmail(this.env, did, address);
+  }
+  verifyEmail(did: Did, code: string) {
+    return ops.verifyEmail(this.env, did, code);
+  }
+  unlinkEmail(did: Did) {
+    return ops.unlinkEmail(this.env, did);
+  }
+  getEmailChannel(did: Did): Promise<EmailChannelView | null> {
+    return ops.getEmailChannel(this.env, did);
   }
   registerWebPush(did: Did, sub: PushSubscriptionInput) {
     return ops.registerWebPush(this.env, did, sub);

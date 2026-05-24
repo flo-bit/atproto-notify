@@ -147,15 +147,17 @@ and writes additionally require the relay to permit it (atmo.pub default: the us
 must have granted your app "manage its own settings" in the dashboard; reads are
 open). On a relay you run yourself, you can allow your own DID by default.
 
+  A **route** is a channel set, encoded as a `+`-joined string of `push`/`telegram`/`email`
+  (e.g. `"push+email"`), `"off"` for none, plus the inherit sentinels `"default"`
+  (app-wide → account default) and `"app"` (category → app-wide).
 - `setRouting` — body `{ userToken, route?, categories? }`
-  - `route`: `"push" | "telegram" | "push+telegram" | "off" | "default"` (app-wide;
-    `"default"` = inherit the user's account default)
-  - `categories`: `[{ "id": "<category>", "route": "push"|…|"off"|"app" }]`
-    (`"app"` = inherit the app-wide route)
+  - `route`: app-wide route — a `+`-joined channel set, `"off"`, or `"default"`. Omit to leave unchanged.
+  - `categories`: `[{ "id": "<category>", "route": "<channel set>" | "off" | "app" }]`
   - → `{ "ok": true }`
 - `getRouting` — body `{ userToken }` →
   `{ "route": "<app-wide>", "defaultRoute": "<account default>",
      "categories": [{ "id", "description?", "route" }] }`
+  (each route is a `+`-joined channel set / `off` / sentinel as above)
 - `listNotifications` — body `{ userToken, limit?(1–100, default 50), cursor? }` →
   `{ "notifications": [{ "id","title","body","uri?","category?",
      "createdAt"(ISO datetime),"read"(bool),"delivered?"(int) }], "cursor?" }`

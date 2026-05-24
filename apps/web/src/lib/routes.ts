@@ -1,38 +1,25 @@
-// Route options for the routing UI. Concrete alert routes gate push/telegram;
-// everything is in the inbox regardless. Inheritance: a category can be 'app'
-// (use the app-wide route); an app can be 'default' (use the account default).
-import type { AlertRoute, AppRoute, CategoryRoute } from '@atmo/notifs-lexicons';
+// Routing UI helpers. A route is a channel set ('+'-joined, e.g. 'push+email') or
+// 'off'; app-wide and per-category routes add the inherit sentinels 'default'/'app'.
+// See @atmo/notifs-lexicons (routeChannels / channelsRoute).
+import { type Channel, routeChannels } from '@atmo/notifs-lexicons';
 
-export const ALERT_ROUTES = [
-	'push',
-	'telegram',
-	'push+telegram',
-	'off'
-] as const satisfies readonly AlertRoute[];
+/** Channels offered in the routing picker, in display order. */
+export const CHANNELS: { id: Channel; label: string }[] = [
+	{ id: 'push', label: 'Push' },
+	{ id: 'telegram', label: 'Telegram' },
+	{ id: 'email', label: 'Email' }
+];
 
-/** App-wide selector: inherit account default, or a concrete route. */
-export const APP_ROUTES = [
-	'default',
-	'push',
-	'telegram',
-	'push+telegram',
-	'off'
-] as const satisfies readonly AppRoute[];
-
-/** Per-category selector: inherit the app-wide route, or a concrete route. */
-export const CATEGORY_ROUTES = [
-	'app',
-	'push',
-	'telegram',
-	'push+telegram',
-	'off'
-] as const satisfies readonly CategoryRoute[];
-
-export const ROUTE_LABELS: Record<string, string> = {
-	default: 'Account default',
-	app: 'Like app',
+const CHANNEL_LABEL: Record<Channel, string> = {
 	push: 'Push',
 	telegram: 'Telegram',
-	'push+telegram': 'Push + Telegram',
-	off: 'Off'
+	email: 'Email'
 };
+
+/** Human label for a route string (a channel set, 'off', or an inherit sentinel). */
+export function routeLabel(route: string): string {
+	if (route === 'default') return 'Account default';
+	if (route === 'app') return 'Like app';
+	const ch = routeChannels(route);
+	return ch.length > 0 ? ch.map((c) => CHANNEL_LABEL[c]).join(' + ') : 'Off';
+}

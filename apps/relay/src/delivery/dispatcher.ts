@@ -5,6 +5,7 @@ import { deleteChannelByPlatformUser, deletePushSubscription } from '../db/queri
 import type { DispatchJob, Env } from '../env';
 import { callbackAppFor } from '../lib/apps';
 
+import { EmailError, sendEmail } from './email';
 import {
   escapeMd,
   type InlineKeyboardMarkup,
@@ -60,6 +61,17 @@ async function reapIfDead(env: Env, job: DispatchJob, err: unknown): Promise<boo
     // The push subscription expired or was unsubscribed.
     await deletePushSubscription(env.DB, channel.endpoint);
     console.error(`dispatch: dropping dead push subscription (${err.statusCode})`);
+    return true;
+  }
+  if (
+    channel.platform === 'email' &&
+    err instanceof EmailError &&
+    err.statusCode >= 400 &&
+    err.statusCode !== 429
+  ) {
+    // Permanent (bad/rejected address) — stop retrying. The channel is kept so the
+    // user can fix it; 429 (rate limit) and 5xx fall through to retry.
+    console.error(`dispatch: dropping email to ${channel.address} (${err.statusCode} ${err.code})`);
     return true;
   }
   return false;
@@ -127,6 +139,15 @@ async function dispatch(env: Env, job: DispatchJob): Promise<void> {
         body: job.body,
         uri: job.uri,
         senderDid: job.senderDid,
+      });
+      return;
+    }
+
+    if (job.channel.platform === 'email') {
+      await sendEmail(env, {
+        to: job.channel.address,
+        subject: job.title,
+        text: job.uri !== undefined ? `${job.body}\n\n${job.uri}` : job.body,
       });
       return;
     }

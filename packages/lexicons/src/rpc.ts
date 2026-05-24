@@ -43,6 +43,13 @@ export interface DeviceView {
   createdAt: string;
 }
 
+/** A user's email delivery channel (binding-only). */
+export interface EmailChannelView {
+  address: string;
+  /** false while a verification code is outstanding. */
+  verified: boolean;
+}
+
 /** A notification as shown in the inbox (binding-only; no public lexicon). */
 export interface NotificationView {
   id: string;
@@ -68,12 +75,44 @@ export interface MarkReadInput {
   all?: boolean;
 }
 
-/** Concrete alert routes (binding-only). Everything is in the inbox regardless; these gate alerts. */
-export type AlertRoute = 'push' | 'telegram' | 'push+telegram' | 'off';
+/** The alert channels a route can fire. Everything is in the inbox regardless. */
+export const CHANNELS = ['push', 'telegram', 'email'] as const;
+export type Channel = (typeof CHANNELS)[number];
+
+// A route is a concrete channel SET, encoded as a `+`-joined string in canonical
+// CHANNELS order ('off' = none) — e.g. 'push', 'push+email', 'off'. App-wide and
+// per-category routes add the inherit sentinels 'default' / 'app'. Stored as a
+// string; existing values ('push'/'telegram'/'push+telegram'/'off') are valid sets.
+/** A concrete route: a `+`-joined channel set, or 'off'. */
+export type AlertRoute = string;
 /** App-wide route: a concrete route, or 'default' (inherit the account default). */
-export type AppRoute = AlertRoute | 'default';
+export type AppRoute = string;
 /** Per-category route: a concrete route, or 'app' (inherit the app-wide route). */
-export type CategoryRoute = AlertRoute | 'app';
+export type CategoryRoute = string;
+
+/** Parse a route string into its channels ('off'/'default'/'app'/'' → []). */
+export function routeChannels(route: string): Channel[] {
+  if (route === 'off' || route === 'default' || route === 'app' || route === '') return [];
+  const set = new Set(route.split('+'));
+  return CHANNELS.filter((c) => set.has(c));
+}
+
+/** Encode channels as a canonical route string ('off' when empty). */
+export function channelsRoute(channels: readonly Channel[]): string {
+  const ordered = CHANNELS.filter((c) => channels.includes(c));
+  return ordered.length > 0 ? ordered.join('+') : 'off';
+}
+
+/** True if `route` is a valid concrete route (a channel set or 'off'). */
+export function isConcreteRoute(route: string): boolean {
+  if (route === 'off') return true;
+  const parts = route.split('+');
+  return (
+    parts.length > 0 &&
+    new Set(parts).size === parts.length &&
+    parts.every((p) => (CHANNELS as readonly string[]).includes(p))
+  );
+}
 
 /** Management capability the user designated for an app. See MANAGEMENT-AUTH.md. */
 export type Capability = 'none' | 'self' | 'full';
@@ -132,6 +171,12 @@ export interface NotifsRpc {
   listPending(did: Did): Promise<PubAtmoNotifyListPending.$output>;
   listChannels(did: Did): Promise<PubAtmoNotifyListChannels.$output>;
   getSettings(did: Did): Promise<PubAtmoNotifyGetSettings.$output>;
+
+  // Email channel (binding-only). `linkEmail` emails a verification code via comail.
+  linkEmail(did: Did, address: string): Promise<{ ok: boolean }>;
+  verifyEmail(did: Did, code: string): Promise<{ verified: boolean }>;
+  unlinkEmail(did: Did): Promise<{ ok: boolean }>;
+  getEmailChannel(did: Did): Promise<EmailChannelView | null>;
 
   // Web push (binding-only; no public lexicon).
   registerWebPush(did: Did, sub: PushSubscriptionInput): Promise<{ registered: boolean }>;

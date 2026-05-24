@@ -37,6 +37,7 @@ const OPS: Record<string, OpFn> = {
   listChannels: (env, did) => ops.listChannels(env, did),
   getSettings: (env, did) => ops.getSettings(env, did),
   listDevices: (env, did) => ops.listDevices(env, did),
+  getEmailChannel: (env, did) => ops.getEmailChannel(env, did),
   getRouting: (env, did) => ops.getRouting(env, did),
   listNotifications: (env, did, p) =>
     ops.listNotifications(env, did, (p as { cursor?: string } | undefined)?.cursor),
@@ -48,6 +49,9 @@ const OPS: Record<string, OpFn> = {
   linkChannel: (env, did, p) => ops.linkChannel(env, did, p as PubAtmoNotifyLinkChannel.$input),
   unlinkChannel: (env, did, p) =>
     ops.unlinkChannel(env, did, p as PubAtmoNotifyUnlinkChannel.$input),
+  linkEmail: (env, did, p) => ops.linkEmail(env, did, (p as { address: string }).address),
+  verifyEmail: (env, did, p) => ops.verifyEmail(env, did, (p as { code: string }).code),
+  unlinkEmail: (env, did) => ops.unlinkEmail(env, did),
   updateSettings: (env, did, p) =>
     ops.updateSettings(env, did, p as PubAtmoNotifyUpdateSettings.$input),
   registerWebPush: (env, did, p) => ops.registerWebPush(env, did, p as PushSubscriptionInput),

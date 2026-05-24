@@ -1,25 +1,27 @@
 <script lang="ts">
-	import type { AlertRoute } from '@atmo/notifs-lexicons';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { invalidateAll } from '$app/navigation';
+	import ChannelRoutePicker from '$lib/components/ChannelRoutePicker.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import IOSToggle from '$lib/components/IOSToggle.svelte';
 	import RelativeTime from '$lib/components/RelativeTime.svelte';
 	import RouteChip from '$lib/components/RouteChip.svelte';
 	import { currentSubscription, pushSupported, subscribe, unsubscribe } from '$lib/push';
 	import {
+		linkEmail,
 		linkTelegram,
 		registerPush,
 		renameDevice,
 		setAutoAllow,
 		setDefaultRoute,
 		setNotifyPending,
+		unlinkEmail,
 		unlinkTelegram,
-		unregisterPush
+		unregisterPush,
+		verifyEmail
 	} from '$lib/remote/notifs.remote';
 	import { DOCS_URL } from '$lib/config';
-	import { ALERT_ROUTES, ROUTE_LABELS } from '$lib/routes';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -80,6 +82,25 @@
 		} finally {
 			busy[key] = false;
 		}
+	}
+
+	// Email channel.
+	let emailInput = $state('');
+	let codeInput = $state('');
+
+	function submitEmail() {
+		const address = emailInput.trim();
+		if (address) run('email', () => linkEmail({ address }));
+	}
+
+	function submitCode() {
+		const code = codeInput.trim();
+		if (!/^\d{6}$/.test(code)) return;
+		run('email-verify', async () => {
+			const { verified } = await verifyEmail({ code });
+			if (!verified) throw new Error('That code is invalid or expired.');
+			codeInput = '';
+		});
 	}
 
 	async function connectTelegram() {
@@ -370,33 +391,92 @@
 				{/if}
 			</div>
 		</section>
+
+		<!-- Email -->
+		<section class="mt-6 max-w-2xl">
+			<h2 class={sectionLabel}>Email</h2>
+			<div class={card}>
+				{#if !data.email}
+					<p class="mb-2 text-xs text-muted">Get notifications by email.</p>
+					<div class="flex gap-2">
+						<input
+							type="email"
+							bind:value={emailInput}
+							placeholder="you@example.com"
+							class="min-w-0 flex-1 rounded-md border border-line bg-surface-2 px-3 py-1.5 text-sm text-fg placeholder:text-muted-2 focus:border-accent"
+						/>
+						<button
+							class="shrink-0 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
+							disabled={busy['email']}
+							onclick={submitEmail}
+						>
+							{busy['email'] ? 'Sending…' : 'Send code'}
+						</button>
+					</div>
+				{:else if !data.email.verified}
+					<div class="flex items-center justify-between gap-3">
+						<div class="min-w-0">
+							<div class="truncate text-sm font-semibold text-fg">{data.email.address}</div>
+							<div class="text-xs text-warn">Pending — enter the 6-digit code we emailed you.</div>
+						</div>
+						<button
+							class="shrink-0 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-danger transition-colors hover:bg-danger/10 disabled:opacity-50"
+							disabled={busy['email-unlink']}
+							onclick={() => run('email-unlink', () => unlinkEmail())}
+						>
+							Remove
+						</button>
+					</div>
+					<div class="mt-3 flex gap-2">
+						<input
+							inputmode="numeric"
+							maxlength="6"
+							bind:value={codeInput}
+							placeholder="123456"
+							class="w-28 rounded-md border border-line bg-surface-2 px-3 py-1.5 text-sm tracking-widest text-fg placeholder:text-muted-2 focus:border-accent"
+						/>
+						<button
+							class="shrink-0 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
+							disabled={busy['email-verify']}
+							onclick={submitCode}
+						>
+							{busy['email-verify'] ? 'Verifying…' : 'Verify'}
+						</button>
+					</div>
+				{:else}
+					<div class="flex items-center justify-between gap-3">
+						<div class="flex min-w-0 items-center gap-2">
+							<Icon name="check" size={16} stroke={2.4} class="shrink-0 text-accent" />
+							<span class="truncate text-sm font-semibold text-fg">{data.email.address}</span>
+						</div>
+						<button
+							class="shrink-0 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-danger transition-colors hover:bg-danger/10 disabled:opacity-50"
+							disabled={busy['email-unlink']}
+							onclick={() => run('email-unlink', () => unlinkEmail())}
+						>
+							Remove
+						</button>
+					</div>
+				{/if}
+			</div>
+		</section>
 	{:else if tab === 'routing'}
 		<!-- Default routing -->
 		<section class="mt-6 max-w-2xl">
 			<h2 class={sectionLabel}>Default routing</h2>
 			<div class={card}>
-				<div class="flex items-center justify-between gap-4">
-					<div class="min-w-0">
-						<div class="text-sm font-medium text-fg">Where notifications go by default</div>
-						<p class="mt-1 text-xs text-muted">
-							Apps set to “Account default” use this; everything always lands in your inbox. Override
-							per-app (and per-category) from
-							<a href="/apps" class="text-accent hover:underline">Apps</a>.
-						</p>
-					</div>
-					<select
-						class="shrink-0 rounded-md border border-line bg-surface-2 px-2 py-1.5 text-sm text-fg disabled:opacity-50"
+				<div class="text-sm font-medium text-fg">Where notifications go by default</div>
+				<p class="mt-1 text-xs text-muted">
+					Pick which channels fire by default — everything always lands in your inbox regardless.
+					Apps set to “Account default” use this; override per-app (and per-category) from
+					<a href="/apps" class="text-accent hover:underline">Apps</a>.
+				</p>
+				<div class="mt-3">
+					<ChannelRoutePicker
 						value={data.defaultRoute}
 						disabled={busy['defaultRoute']}
-						onchange={(e) =>
-							run('defaultRoute', () =>
-								setDefaultRoute({ route: e.currentTarget.value as AlertRoute })
-							)}
-					>
-						{#each ALERT_ROUTES as r (r)}
-							<option value={r}>{ROUTE_LABELS[r]}</option>
-						{/each}
-					</select>
+						onchange={(route) => run('defaultRoute', () => setDefaultRoute({ route }))}
+					/>
 				</div>
 			</div>
 		</section>

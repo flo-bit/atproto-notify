@@ -2,8 +2,9 @@
 	import type { AppRoute, Capability, CategoryRoute } from '@atmo/notifs-lexicons';
 	import { invalidateAll } from '$app/navigation';
 	import AppMark from '$lib/components/AppMark.svelte';
+	import ChannelRoutePicker from '$lib/components/ChannelRoutePicker.svelte';
 	import { setAppRouting, setManage, setRouting } from '$lib/remote/notifs.remote';
-	import { APP_ROUTES, CATEGORY_ROUTES, ROUTE_LABELS } from '$lib/routes';
+	import { routeLabel } from '$lib/routes';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -90,19 +91,15 @@
 						<p class="mt-1 text-xs text-muted">
 							<span class="font-medium text-fg">Account default</span> follows your
 							<a href="/settings?tab=routing" class="text-accent hover:underline">default route</a>
-							({ROUTE_LABELS[data.defaultRoute]}). Everything is in your inbox regardless.
+							({routeLabel(data.defaultRoute)}). Everything is in your inbox regardless.
 						</p>
 					</div>
-					<select
-						class={selectClass}
+					<ChannelRoutePicker
 						value={data.app.route}
+						inherit={{ token: 'default', label: 'Account default' }}
 						disabled={busy['__app']}
-						onchange={(e) => changeApp(e.currentTarget.value as AppRoute)}
-					>
-						{#each APP_ROUTES as r (r)}
-							<option value={r}>{ROUTE_LABELS[r]}</option>
-						{/each}
-					</select>
+						onchange={changeApp}
+					/>
 				</div>
 			</div>
 		</section>
@@ -131,16 +128,12 @@
 								<div class="text-sm font-semibold text-fg">{c.category}</div>
 								{#if c.description}<div class="text-xs text-muted">{c.description}</div>{/if}
 							</div>
-							<select
-								class={selectClass}
+							<ChannelRoutePicker
 								value={c.route}
+								inherit={{ token: 'app', label: 'Like app' }}
 								disabled={busy[c.category]}
-								onchange={(e) => changeCategory(c.category, e.currentTarget.value as CategoryRoute)}
-							>
-								{#each CATEGORY_ROUTES as r (r)}
-									<option value={r}>{ROUTE_LABELS[r]}</option>
-								{/each}
-							</select>
+								onchange={(route) => changeCategory(c.category, route)}
+							/>
 						</li>
 					{/each}
 				</ul>

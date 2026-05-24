@@ -109,6 +109,30 @@ export function mockTelegramOk(): void {
   });
 }
 
+/** Accept any comail send with an `accepted` response. */
+export function mockComailOk(messageId = 1): void {
+  routes.push({
+    match: (url) => url.hostname === 'smtp.atmos.email',
+    respond: () => jsonResponse(200, { accepted: [{ recipient: 'x@example.com', messageId }], rejected: [] }),
+  });
+}
+
+/** Make any comail send fail with `status`/`code`. */
+export function mockComailError(status = 429, code = 'RATE_LIMITED'): void {
+  routes.push({
+    match: (url) => url.hostname === 'smtp.atmos.email',
+    respond: () => jsonResponse(status, { error: 'comail error', code }),
+  });
+}
+
+/** comail returns 200 but the recipient is rejected (suppressed/bounced). */
+export function mockComailRejected(): void {
+  routes.push({
+    match: (url) => url.hostname === 'smtp.atmos.email',
+    respond: () => jsonResponse(200, { accepted: [], rejected: [{ recipient: 'x@example.com', reason: 'suppressed' }] }),
+  });
+}
+
 /** Stub the AppView profile fetch for any actor. */
 export function makeBskyProfileMock(
   profile: { handle?: string; displayName?: string; avatar?: string } = {

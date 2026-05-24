@@ -1,9 +1,10 @@
-import { PubAtmoNotifySetRouting } from '@atmo/notifs-lexicons';
+import { isConcreteRoute, PubAtmoNotifySetRouting } from '@atmo/notifs-lexicons';
 import { json, type ProcedureConfig } from '@atcute/xrpc-server';
 
 import { verifyManagementCall } from '../auth/management';
 import * as q from '../db/queries';
 import type { AppContext } from '../env';
+import { invalidRequest } from '../lib/errors';
 
 const LXM = 'pub.atmo.notify.setRouting';
 
@@ -26,6 +27,16 @@ export function makeSetRouting(
         write: true,
         lxm: LXM,
       });
+
+      // The lexicon route fields are free strings; validate the channel-set format.
+      if (input.route !== undefined && input.route !== 'default' && !isConcreteRoute(input.route)) {
+        throw invalidRequest('Invalid route');
+      }
+      for (const c of input.categories ?? []) {
+        if (c.route !== 'app' && !isConcreteRoute(c.route)) {
+          throw invalidRequest('Invalid category route');
+        }
+      }
 
       if (input.route !== undefined) {
         if (input.route === 'default') {

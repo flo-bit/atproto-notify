@@ -17,8 +17,7 @@
             },
             "route": {
               "type": "string",
-              "enum": ["push", "telegram", "push+telegram", "off", "default"],
-              "description": "App-wide route for all of this app's notifications. 'default' clears the override so it inherits the account default. Omit to leave the app-wide route unchanged."
+              "description": "App-wide route: a '+'-joined channel set of push|telegram|email (e.g. 'push+email'), 'off' for none, or 'default' to inherit the account default. Omit to leave unchanged."
             },
             "categories": {
               "type": "array",
@@ -50,8 +49,7 @@
         },
         "route": {
           "type": "string",
-          "enum": ["push", "telegram", "push+telegram", "off", "app"],
-          "description": "Route for this category. 'app' clears the override so it inherits the app-wide route."
+          "description": "Route for this category: a '+'-joined channel set of push|telegram|email, 'off' for none, or 'app' to inherit the app-wide route."
         }
       }
     }

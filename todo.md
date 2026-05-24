@@ -2,3 +2,5 @@
 - xrpc endpoints for an app that 
 
 - make it easily reusable as a custom thing for just one app
+
+- send to just one channel instead of all of a category

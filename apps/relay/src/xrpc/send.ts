@@ -94,14 +94,20 @@ export function makeSend(app: AppContext): ProcedureConfig<PubAtmoNotifySend.mai
       if (route === undefined) {
         route = (await q.getUser(app.env.DB, recipient))?.default_route ?? 'push';
       }
-      const usePush = route === 'push' || route === 'push+telegram';
-      const useTelegram = route === 'telegram' || route === 'push+telegram';
+      // A route is a `+`-joined channel set ('off' = none); see MANAGEMENT-AUTH /
+      // routing. Parse it so adding channels (email) needs no new combos.
+      const channels = route === 'off' ? new Set<string>() : new Set(route.split('+'));
 
-      const telegramChannels = useTelegram
+      const telegramChannels = channels.has('telegram')
         ? (await q.listChannelsForDid(app.env.DB, recipient)).filter((c) => c.platform === 'telegram')
         : [];
-      const pushSubs = usePush ? await q.listPushSubscriptionsForDid(app.env.DB, recipient) : [];
-      const deliveredCount = telegramChannels.length + pushSubs.length;
+      const pushSubs = channels.has('push')
+        ? await q.listPushSubscriptionsForDid(app.env.DB, recipient)
+        : [];
+      const emailAddress = channels.has('email')
+        ? await q.getVerifiedEmail(app.env.DB, recipient)
+        : null;
+      const deliveredCount = telegramChannels.length + pushSubs.length + (emailAddress ? 1 : 0);
 
       // No targets → accept but deliver to nobody.
       if (deliveredCount === 0) {
@@ -136,6 +142,20 @@ export function makeSend(app: AppContext): ProcedureConfig<PubAtmoNotifySend.mai
             senderDid,
           },
         })),
+        ...(emailAddress !== null
+          ? [
+              {
+                body: {
+                  kind: 'notification' as const,
+                  channel: { platform: 'email' as const, address: emailAddress },
+                  title: input.title,
+                  body: input.body,
+                  uri: input.uri,
+                  senderDid,
+                },
+              },
+            ]
+          : []),
       ];
       await app.env.DISPATCH_QUEUE.sendBatch(jobs);
 

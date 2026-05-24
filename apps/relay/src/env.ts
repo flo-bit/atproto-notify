@@ -15,8 +15,14 @@ export interface WebPushChannel {
   auth: string;
 }
 
+/** An email delivery channel (a verified address). */
+export interface EmailChannel {
+  platform: 'email';
+  address: string;
+}
+
 /** Where a notification can be delivered. */
-export type DeliveryChannel = TelegramChannel | WebPushChannel;
+export type DeliveryChannel = TelegramChannel | WebPushChannel | EmailChannel;
 
 /**
  * Work item placed on `DISPATCH_QUEUE` and handled by the `queue` consumer.
@@ -86,6 +92,14 @@ export interface Env {
   VAPID_SUBJECT: string;
   /** VAPID private signing key as JWK JSON (secret). */
   VAPID_PRIVATE_JWK: string;
+
+  // Email delivery via comail (https://comail.at) — POST https://smtp.atmos.email/v1/send.
+  /** comail API key `atmos_…` (secret). */
+  COMAIL_API_KEY: string;
+  /** Account DID for the `X-Atmos-DID` header (var). */
+  COMAIL_DID: string;
+  /** Enrolled sender address for the `from` field, e.g. "atmo.pub <notify@atmo.pub>" (var). */
+  COMAIL_FROM: string;
 }
 
 /**

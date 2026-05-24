@@ -198,3 +198,35 @@ it('accepts silently with delivered=0 when the grant is muted', async () => {
   expect(res.status).toBe(200);
   expect(await res.json()).toMatchObject({ delivered: 0 });
 });
+
+it('delivers to a verified email when the route includes email', async () => {
+  const sender = await makeIdentity('did:plc:sendemail');
+  mockPlc(sender);
+  const recip: Did = 'did:plc:emailrecipient';
+  await q.ensureUser(env.DB, recip, Date.now());
+  await q.upsertGrant(env.DB, {
+    recipientDid: recip,
+    senderDid: sender.did,
+    grantedAt: Date.now(),
+    title: null,
+    description: null,
+    iconUrl: null
+  });
+  // A verified email + a route that includes it.
+  await q.upsertEmailChannel(env.DB, {
+    did: recip,
+    address: 'me@example.com',
+    verifyCode: '111111',
+    verifyExpires: Date.now() + 60_000,
+    createdAt: Date.now()
+  });
+  await q.verifyEmailChannel(env.DB, recip, '111111', Date.now());
+  await q.setDefaultRoute(env.DB, recip, 'push+email');
+  const jwt = await makeJwt(sender, { lxm: SEND });
+
+  // Push has no subscriptions, so only the email target counts.
+  const res = await call(xrpcPost(SEND, jwt, { recipient: recip, title: 'Hi', body: 'B' }));
+
+  expect(res.status).toBe(200);
+  expect(await res.json()).toMatchObject({ delivered: 1 });
+});
