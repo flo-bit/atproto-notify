@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:test';
 import { expect, it, vi } from 'vitest';
 
-import { checkAndIncrement } from '../src/ratelimit';
+import { checkAndIncrement, checkAndIncrementAll } from '../src/ratelimit';
 
 it('allows requests under the limit and denies those over it', async () => {
   const key = 'rl:test:underover';
@@ -35,4 +35,35 @@ it('resets once the logical window has elapsed', async () => {
   } finally {
     vi.useRealTimers();
   }
+});
+
+it('checkAndIncrementAll: empty checks are allowed', async () => {
+  expect((await checkAndIncrementAll(env.CACHE, [])).allowed).toBe(true);
+});
+
+it('checkAndIncrementAll allows up to the limit on a single key', async () => {
+  const checks = [{ key: 'rl:test:all:single', limit: 2, windowSeconds: 60 }];
+  expect((await checkAndIncrementAll(env.CACHE, checks)).allowed).toBe(true);
+  expect((await checkAndIncrementAll(env.CACHE, checks)).allowed).toBe(true);
+  expect((await checkAndIncrementAll(env.CACHE, checks)).allowed).toBe(false);
+});
+
+it('checkAndIncrementAll denies when ANY key is over — without consuming the others', async () => {
+  const a = 'rl:test:all:a';
+  const b = 'rl:test:all:b';
+  const checks = [
+    { key: a, limit: 1, windowSeconds: 60 },
+    { key: b, limit: 5, windowSeconds: 60 },
+  ];
+
+  // First call: both under → allowed, both incremented (a=1, b=1).
+  expect((await checkAndIncrementAll(env.CACHE, checks)).allowed).toBe(true);
+  // Second: a is now at its limit → denied, and b must NOT be incremented.
+  expect((await checkAndIncrementAll(env.CACHE, checks)).allowed).toBe(false);
+
+  // Prove b is still at 1 (not 2): exactly 4 more single-key increments fit under 5.
+  for (let i = 0; i < 4; i++) {
+    expect((await checkAndIncrement(env.CACHE, b, 5, 60)).allowed).toBe(true);
+  }
+  expect((await checkAndIncrement(env.CACHE, b, 5, 60)).allowed).toBe(false);
 });

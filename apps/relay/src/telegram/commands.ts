@@ -2,11 +2,7 @@ import type { Did } from '@atcute/lexicons';
 
 import * as q from '../db/queries';
 import type { Env } from '../env';
-import {
-  escapeMd,
-  type InlineKeyboardMarkup,
-  sendMessage,
-} from '../delivery/telegram';
+import { escapeMd, sendMessage } from '../delivery/telegram';
 import { resolveHandle } from '../identity/resolve';
 import { newTargetId } from '../lib/ids';
 import { now } from '../lib/time';
@@ -35,9 +31,6 @@ export async function handleCommand(env: Env, message: TelegramMessage): Promise
       return;
     case '/revoke':
       await handleRevoke(env, message.chat.id, arg);
-      return;
-    case '/settings':
-      await handleSettings(env, message.chat.id);
       return;
     default:
       await handleHelp(env, message.chat.id);
@@ -139,24 +132,6 @@ async function handleRevoke(env: Env, chatId: number, arg: string): Promise<void
   );
 }
 
-async function handleSettings(env: Env, chatId: number): Promise<void> {
-  const channel = await q.getDeliveryTargetByRef(env.DB, PLATFORM, String(chatId));
-  if (channel === null) {
-    await replyText(env, chatId, NOT_LINKED);
-    return;
-  }
-
-  await q.ensureUser(env.DB, channel.did, now());
-  const user = await q.getUser(env.DB, channel.did);
-  const enabled = (user?.notify_pending_via_telegram ?? 0) === 1;
-  await sendMessage(env, {
-    chat_id: chatId,
-    text: settingsText(enabled),
-    parse_mode: 'MarkdownV2',
-    reply_markup: settingsKeyboard(enabled),
-  });
-}
-
 async function handleHelp(env: Env, chatId: number): Promise<void> {
   await replyText(
     env,
@@ -166,7 +141,8 @@ async function handleHelp(env: Env, chatId: number): Promise<void> {
       '/start — link your account',
       '/list — list authorized apps',
       '/revoke <handle-or-did> — revoke an app',
-      '/settings — notification settings',
+      '',
+      `Manage where notifications go at ${DASHBOARD_URL}`,
     ].join('\n'),
   );
 }
@@ -179,25 +155,6 @@ async function resolveToDid(env: Env, input: string): Promise<Did | null> {
   const handle = input.replace(/^@/, '');
   const sender = await q.getSenderByHandle(env.DB, handle);
   return sender?.did ?? null;
-}
-
-// --- shared settings rendering (also used by callbacks.ts) ------------------
-
-export function settingsText(enabled: boolean): string {
-  return `*Settings*\n\nNotify me on Telegram about new permission requests: *${enabled ? 'ON' : 'OFF'}*`;
-}
-
-export function settingsKeyboard(enabled: boolean): InlineKeyboardMarkup {
-  return {
-    inline_keyboard: [
-      [
-        {
-          text: enabled ? '🔔 Pending alerts: ON' : '🔕 Pending alerts: OFF',
-          callback_data: 'toggle:notifyPending',
-        },
-      ],
-    ],
-  };
 }
 
 const NOT_LINKED = `This Telegram account is not linked yet. Link it from ${DASHBOARD_URL}`;

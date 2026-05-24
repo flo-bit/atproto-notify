@@ -3,8 +3,8 @@
 This is a complete, self-contained guide for adding notifications to an AT Protocol
 app via atmo.pub. It is written to be implemented from directly. atmo.pub is a
 notification *relay*: an app asks a user for permission, then sends notifications;
-the relay fans them out to the channels the user chose (web push, Telegram, …) and
-records them in the user's inbox.
+the relay fans them out to the channels the user chose (web push, Telegram, email,
+Bluesky DM, webhook) and records them in the user's inbox.
 
 You integrate as a **sender** (the common case). Optionally you can also let users
 manage your app's settings from inside your app, and receive opt-in/opt-out
@@ -147,23 +147,36 @@ and writes additionally require the relay to permit it (atmo.pub default: the us
 must have granted your app "manage its own settings" in the dashboard; reads are
 open). On a relay you run yourself, you can allow your own DID by default.
 
-  A **route** is a `+`-joined set of channel tokens, e.g. `"push+email"`, `"off"` for
-  none, plus the inherit sentinels `"default"` (app-wide → account default) and `"app"`
-  (category → app-wide). A token is either a bare channel — `push`/`telegram`/`email`,
-  meaning all of that channel's instances — or a channel narrowed to one delivery
-  instance as `channel:<id>` (e.g. `"push:a1b2c3"` = one specific device). Users pick
-  instance ids in the dashboard; an unknown id simply delivers to nothing.
+  A **route** is a `+`-joined set of channel tokens, e.g. `"push+email"`. Special
+  values: `"off"` (drop — not even saved to the inbox), `"inbox"` (saved, no alerts),
+  and the inherit sentinels `"default"` (app-wide → account default) and `"app"`
+  (category → app-wide). A token is either a bare channel —
+  `push`/`telegram`/`email`/`dm`/`webhook`, meaning all of that channel's instances —
+  or a channel narrowed to one delivery instance as `channel:<id>` (e.g.
+  `"push:a1b2c3"` = one specific device). Users pick instance ids in the dashboard;
+  an unknown id simply delivers to nothing.
 - `setRouting` — body `{ userToken, route?, categories? }`
-  - `route`: app-wide route — a `+`-joined token set, `"off"`, or `"default"`. Omit to leave unchanged.
-  - `categories`: `[{ "id": "<category>", "route": "<token set>" | "off" | "app" }]`
+  - `route`: app-wide route — a `+`-joined token set, `"off"`, `"inbox"`, or `"default"`. Omit to leave unchanged.
+  - `categories`: `[{ "id": "<category>", "route": "<token set>" | "off" | "inbox" | "app" }]`
   - → `{ "ok": true }`
 - `getRouting` — body `{ userToken }` →
   `{ "route": "<app-wide>", "defaultRoute": "<account default>",
-     "categories": [{ "id", "description?", "route" }],
+     "categories": [{ "id", "title?", "description?", "route" }],
      "targets": [{ "type", "id", "label" }] }`
   (each route is a `+`-joined token set / `off` / sentinel as above. `targets` is the
    user's deliverable instances — render a picker and use a target's `id` in a
    `channel:<id>` token; labels are privacy-safe, never a raw email/handle.)
+
+  **Categories** are per (user, app) — never shared across users. They're
+  auto-discovered from `send` (the `category` field), or you can declare them up
+  front (e.g. one per webhook the user configures) with a display `title`:
+- `setCategories` — body `{ userToken, categories: [{ id, title?, description?, route? }] }`.
+  Full sync: replaces your category set for this user (omitted ones are removed,
+  along with their routing). `route` is an optional initial route (token set / `off` /
+  `inbox` / `app`). → `{ "ok": true }`
+- `addCategory` — body `{ userToken, id, title?, description?, route? }` (add/update one) → `{ "ok": true }`
+- `removeCategory` — body `{ userToken, id }` (drops it + its routing) → `{ "removed": bool }`
+- `getCategories` — body `{ userToken }` → `{ "categories": [{ id, title?, description?, route }] }`
 - `listNotifications` — body `{ userToken, limit?(1–100, default 50), cursor? }` →
   `{ "notifications": [{ "id","title","body","uri?","category?",
      "createdAt"(ISO datetime),"read"(bool),"delivered?"(int) }], "cursor?" }`
@@ -292,6 +305,10 @@ atproto
 rpc?lxm=pub.atmo.notify.requestPermission&aud=*
 rpc?lxm=pub.atmo.notify.setRouting&aud=*
 rpc?lxm=pub.atmo.notify.getRouting&aud=*
+rpc?lxm=pub.atmo.notify.setCategories&aud=*
+rpc?lxm=pub.atmo.notify.addCategory&aud=*
+rpc?lxm=pub.atmo.notify.removeCategory&aud=*
+rpc?lxm=pub.atmo.notify.getCategories&aud=*
 rpc?lxm=pub.atmo.notify.listNotifications&aud=*
 rpc?lxm=pub.atmo.notify.markRead&aud=*
 rpc?lxm=pub.atmo.notify.revokeSelf&aud=*

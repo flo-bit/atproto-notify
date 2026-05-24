@@ -124,21 +124,28 @@ from the app token (never the body); `full` methods accept any target.
 
 | Capability | Methods |
 |---|---|
-| **`self`-read** | `getRouting` (own slice), `listNotifications` (own) |
-| **`self`-write** | `setRouting`, `setAppRouting`, `markRead` (own), `revokeSelf`, `muteSelf` |
-| **`full`-read** | `listGrants`, `listPending`, `listChannels`, `getSettings`, `listDevices`, `getRouting` (full config), `listNotifications` (all) |
-| **`full`-write** | `grant`, `revoke` (any), `denyPending`, `muteGrant` (any), `linkChannel`, `unlinkChannel`, `updateSettings`, `registerWebPush`, `unregisterWebPush`, `renameDevice`, `setDefaultRoute` |
+| **`self`-read** | `getRouting` (own slice + target catalog), `getCategories`, `listNotifications` (own) |
+| **`self`-write** | `setRouting`, `setCategories`, `addCategory`, `removeCategory`, `markRead` (own), `revokeSelf`, `muteSelf` |
+| **`full`-read** | `listGrants`, `listPending`, `getSettings`, `listTargets`, `getRouting` (full config), `listNotifications` (all) |
+| **`full`-write** | `grant`, `revoke` (any), `denyPending`, `muteGrant` (any), `linkChannel`, `linkEmail`, `verifyEmail`, `renameTarget`, `removeTarget`, `registerWebPush`, `unregisterWebPush`, `updateSettings`, `clearNotificationsFromSender`, `setRouting`/`setAppRouting`/`setDefaultRoute` (any) |
 | **infrastructure** (not user-data-scoped) | `verifyAppLogin` (token is self-authorizing), `listApps` (static catalog) |
 
 Notes:
 - `getRouting` / `listNotifications` exist at **both** scopes — they're distinct
   lexicons/handlers: the `self` ones return only the calling app's slice (already
   built); the `full` ones return the whole account.
-- `revokeSelf` / `muteSelf` are **new** `self`-write methods so an app can let the
-  user turn it off / mute it from inside the app (target is implicitly the caller —
-  safe under fact #2). Whole-account `revoke`/`muteGrant` (any target) stay `full`.
-- `registerWebPush` is `full`: a device belongs to the user, not to one app, so
-  registering it is a dashboard action.
+- `revokeSelf` / `muteSelf` let an app turn itself off / mute itself from inside the
+  app (target is implicitly the caller — safe under fact #2). Whole-account
+  `revoke`/`muteGrant` (any target) stay `full`.
+- **Category management** (`setCategories`/`addCategory`/`removeCategory`/`getCategories`)
+  is `self`-only — an app declares *its own* categories, never another app's — so it
+  is intentionally **not** in the `full` (`manage`) envelope.
+- A delivery target (push device / Telegram chat / email / DM / webhook) belongs to
+  the user, not one app: listing/renaming/removing/registering them is `full`
+  (`listTargets`, `renameTarget`, `removeTarget`, `registerWebPush`). `getRouting`'s
+  target catalog exposes only privacy-safe labels + opaque ids (no raw address/handle).
+- First-party only (service binding, never federated): `addWebhook`, `enableDM`,
+  `setGrantManage` (the user designates capabilities; an app can't grant itself one).
 
 ## Why third-party `full` is safe despite fact #2
 
@@ -219,20 +226,21 @@ relay-local-now / repo-portable-later shape as the subscriber sync in
 - `full` requires **manager designation**; never reachable by scope or per-call
   consent alone.
 - `self` is **own-slice forever** — sender from the app token, not the body.
-- **Vouch** (no user token) demands standing designation; that's also the *only*
-  management path that works for lite sessions. Undesignated apps need a real
-  session (dual-auth).
+- **Every XRPC management call is dual-auth** — app token *and* a fresh user token,
+  both scoped to the method. There is no token-less vouch path over XRPC (→ 403);
+  the only vouch is the first-party service binding (atmo.pub's own UI).
 - Manager-key compromise = an attacker manages that manager's users — bounded and
   rotatable via the DID doc; the same exposure atmo.pub already carries.
 
 ## Build checklist
 
-- [x] grants: `manage` column (`0008`); `apps.ts` `manage?: 'self'|'full'` + `relayManageFor`;
+- [x] grants: `manage` column (now in the consolidated `0001_init.sql`); `apps.ts`
+      `manage?: 'self'|'full'` + `relayManageFor`;
       `MANAGEMENT_SELF_READ_POLICY` + `MANAGEMENT_SELF_WRITE_POLICY` env *(Slice 1)*
-- [x] `verifyManagementCall` helper (app-auth + user-token/vouch + capability resolution) *(Slice 1)*
+- [x] `verifyManagementCall` helper (app-auth + required user token + capability resolution) *(Slice 1)*
 - [x] new `self`-write ops `revokeSelf` + `muteSelf`; retrofit the 4 self methods onto the helper *(Slice 1)*
 - [x] `full` surface: the `pub.atmo.notify.manage` envelope → `ops.*` (binding kept as fast path) *(Slice 2)*
-- [x] tests: capability matrix (self read/write/designated; full vouch + dual-auth + unknown method) *(Slices 1–2)*
+- [x] tests: capability matrix (self read/write/designated; full dual-auth + missing-token 403 + unknown method) *(Slices 1–2)*
 - [x] dashboard: per-app capability control on the app detail page (`manage` on
       `RoutingApp` + `setGrantManage` binding/command + selector UI) *(Slice 3)*
 - [~] dashboard: dedicated "your managers" view (list apps where `manage` != none) — optional; per-app control above already covers designation

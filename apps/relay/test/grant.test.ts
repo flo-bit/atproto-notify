@@ -33,6 +33,33 @@ it('grant consumes the pending request and copies its metadata onto the grant', 
   expect(grant?.title).toBe('Bookhive');
   expect(grant?.description).toBe('New comments on your books');
   expect(grant?.icon_url).toBe('https://bookhive.example/icon.png');
+  // New grants default to self-management ('self'), set explicitly (not via the
+  // column default) so it holds even on an older DB.
+  expect(grant?.manage).toBe('self');
+});
+
+it('a re-grant keeps the user-chosen manage capability', async () => {
+  const user: Did = 'did:plc:regrantmanage';
+  await q.upsertGrant(env.DB, {
+    recipientDid: user,
+    senderDid: SENDER,
+    grantedAt: Date.now(),
+    title: null,
+    description: null,
+    iconUrl: null,
+  });
+  // User downgrades to 'none'.
+  await q.setGrantManage(env.DB, user, SENDER, 'none');
+  // Re-granting (e.g. the app re-requests) must not silently restore 'self'.
+  await q.upsertGrant(env.DB, {
+    recipientDid: user,
+    senderDid: SENDER,
+    grantedAt: Date.now(),
+    title: null,
+    description: null,
+    iconUrl: null,
+  });
+  expect((await q.getGrant(env.DB, user, SENDER))?.manage).toBe('none');
 });
 
 it('revoke removes the grant', async () => {

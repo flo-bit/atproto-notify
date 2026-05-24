@@ -4,11 +4,15 @@
 CREATE TABLE users (
   did TEXT PRIMARY KEY,
   created_at INTEGER NOT NULL,
-  notify_pending_via_telegram INTEGER NOT NULL DEFAULT 0,
   -- Account-default alert route: a '+'-joined token set (see lexicons/rpc.ts).
-  default_route TEXT NOT NULL DEFAULT 'push',
+  -- New accounts start at 'inbox' (recorded, no alerts) — it always "works" even
+  -- before any delivery channel is connected; the web app nudges the user to pick
+  -- a real route once they add their first channel.
+  default_route TEXT NOT NULL DEFAULT 'inbox',
   -- Incoming-request policy: 'all' | 'trusted' (TRUSTED_SENDERS) | 'none'.
-  auto_allow TEXT NOT NULL DEFAULT 'trusted'
+  auto_allow TEXT NOT NULL DEFAULT 'trusted',
+  -- Where permission-request alerts go: a concrete route (token set) or 'off'.
+  pending_route TEXT NOT NULL DEFAULT 'off'
 );
 
 -- Unified delivery targets. Every place a notification can be delivered — a web
@@ -123,12 +127,15 @@ CREATE TABLE notifications (
 );
 CREATE INDEX notifications_by_recipient ON notifications (recipient_did, created_at DESC);
 
--- Categories discovered from `send` (per recipient+sender), so the routing UI can
--- list them with a description.
+-- Categories per (recipient, sender): auto-discovered from `send`, or declared up
+-- front by an app (setCategories/addCategory). `category` is the routing key; the
+-- optional `title` is a human display name (e.g. a webhook's name). Per-user by
+-- construction (recipient_did in the PK) — never shared across users.
 CREATE TABLE app_categories (
   recipient_did TEXT NOT NULL,
   sender_did TEXT NOT NULL,
   category TEXT NOT NULL,
+  title TEXT,
   description TEXT,
   last_seen INTEGER NOT NULL,
   PRIMARY KEY (recipient_did, sender_did, category)

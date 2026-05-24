@@ -7,6 +7,7 @@ import type { Did, Nsid } from '@atcute/lexicons';
 
 import {
 	APP_DESCRIPTION,
+	APP_ICON_URL,
 	APP_TITLE,
 	APPLOGIN_LXM,
 	DASHBOARD_ORIGIN,
@@ -75,7 +76,8 @@ export async function requestPermissionForUser(
 	return postRelay(token, lxm, {
 		senderDid: SENDER_DID,
 		title: APP_TITLE,
-		description: APP_DESCRIPTION
+		description: APP_DESCRIPTION,
+		iconUrl: APP_ICON_URL
 	}) as Promise<{ id: string; status: 'pending' | 'alreadyGranted' }>;
 }
 
@@ -85,9 +87,11 @@ export async function requestPermissionForUser(
  * deep-linked to THIS app's settings page. No login form, no PDS round-trip on
  * atmo.pub's side. See CROSS-APP-AUTH.md.
  */
-export async function mintAppLoginUrl(client: NonNullable<AppClient>): Promise<string> {
+export async function mintAppLoginUrl(
+	client: NonNullable<AppClient>,
+	redirect = `/apps/${SENDER_DID}`
+): Promise<string> {
 	const token = encodeURIComponent(await mintUserToken(client, APPLOGIN_LXM));
-	const redirect = `/apps/${SENDER_DID}`;
 	return `${DASHBOARD_ORIGIN}/applogin?token=${token}&redirect=${encodeURIComponent(redirect)}`;
 }
 
@@ -100,6 +104,8 @@ export async function sendAsSender(input: {
 	title: string;
 	body: string;
 	uri?: string;
+	/** Optional routing category (one of the app's declared categories). */
+	category?: string;
 }): Promise<{ id: string; delivered: number }> {
 	const lxm = 'pub.atmo.notify.send';
 	const jwt = await mintSenderJwt(lxm);
@@ -134,6 +140,21 @@ export function setRoutingForUser(
 	input: { route?: AppRoute; categories?: { id: string; route: CategoryRoute }[] }
 ): Promise<{ ok: boolean }> {
 	return dualAuthCall(client, 'pub.atmo.notify.setRouting', input) as Promise<{ ok: boolean }>;
+}
+
+/**
+ * Declare this app's category catalog for the user (full sync). A real app calls
+ * this once it knows which kinds of notifications it sends, so the user gets a
+ * per-category routing UI. Omitting `route` just declares the category (it keeps
+ * any route the user already chose).
+ */
+export function setCategoriesForUser(
+	client: NonNullable<AppClient>,
+	categories: { id: string; title?: string; description?: string; route?: CategoryRoute }[]
+): Promise<{ ok: boolean }> {
+	return dualAuthCall(client, 'pub.atmo.notify.setCategories', { categories }) as Promise<{
+		ok: boolean;
+	}>;
 }
 
 /** List the notifications this app has sent the user (read state + delivery). */

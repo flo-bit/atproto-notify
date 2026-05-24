@@ -182,7 +182,7 @@ it('getRouting: defaults when nothing is configured', async () => {
   expect(res.status).toBe(200);
   const data = (await res.json()) as { route: string; defaultRoute: string; categories: unknown[] };
   expect(data.route).toBe('default');
-  expect(data.defaultRoute).toBe('push');
+  expect(data.defaultRoute).toBe('inbox'); // new accounts start at inbox-only
   expect(data.categories).toEqual([]);
 });
 

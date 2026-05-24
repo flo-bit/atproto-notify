@@ -7,9 +7,11 @@ export const APP_DOMAIN = 'example.atmo.pub';
 /** This app's sender DID — what the user approves and what `send` authenticates as. */
 export const SENDER_DID = `did:web:${APP_DOMAIN}`;
 
-/** Display name + description shown to the user when requesting permission. */
+/** Display name + description + icon shown to the user when requesting permission. */
 export const APP_TITLE = 'Example Sender';
 export const APP_DESCRIPTION = 'Demo of how to integrate with atmo.pub.';
+/** Absolute URL — the relay stores it on the grant and atmo.pub shows it in the app grid. */
+export const APP_ICON_URL = `https://${APP_DOMAIN}/icon.svg`;
 
 /**
  * The relay's XRPC API. In dev (`vite dev`) talk to the local relay running via
@@ -46,9 +48,20 @@ export const OAUTH_SCOPE = [
 	'rpc?lxm=pub.atmo.auth&aud=*',
 	'rpc?lxm=pub.atmo.notify.setRouting&aud=*',
 	'rpc?lxm=pub.atmo.notify.getRouting&aud=*',
+	'rpc?lxm=pub.atmo.notify.setCategories&aud=*',
 	'rpc?lxm=pub.atmo.notify.listNotifications&aud=*',
 	'rpc?lxm=pub.atmo.notify.markRead&aud=*'
 ].join(' ');
+
+/**
+ * The categories this app declares to atmo.pub (via `setCategories`). A real app
+ * lists the kinds of notifications it sends so the user can route each one
+ * separately; we declare two so the per-category routing UI has something to show.
+ */
+export const DEMO_CATEGORIES = [
+	{ id: 'mentions', title: 'Mentions', description: 'When someone mentions you' },
+	{ id: 'digest', title: 'Weekly digest', description: 'A periodic summary' }
+] as const;
 
 /** Branding. */
 export const PROJECT_NAME = 'atmo.pub · example sender';

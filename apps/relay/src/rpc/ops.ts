@@ -37,7 +37,7 @@ import { verifyAppLoginToken } from '../auth/appLogin';
 import { sendEmail } from '../delivery/email';
 import * as q from '../db/queries';
 import type { Env } from '../env';
-import { appCatalog, callbackAppFor } from '../lib/apps';
+import { appCatalog, callbackAppFor, registeredApp } from '../lib/apps';
 import { invalidRequest } from '../lib/errors';
 import { newLinkToken, newTargetId } from '../lib/ids';
 import { addMinutes, now, toIsoDatetime } from '../lib/time';
@@ -102,8 +102,10 @@ export async function revoke(
   input: PubAtmoNotifyRevoke.$input,
 ): Promise<PubAtmoNotifyRevoke.$output> {
   const revoked = await q.deleteGrant(env.DB, did, input.sender);
-  // The pending request (if any) for this pair is now irrelevant.
+  // The pending request (if any) for this pair is now irrelevant, and the app's
+  // routing + declared categories should not outlive the grant.
   await q.deletePendingByPair(env.DB, did, input.sender);
+  await q.deleteSenderRoutingData(env.DB, did, input.sender);
 
   if (revoked) {
     await notifySubscriberChanged(env, did, input.sender, false);
@@ -162,8 +164,8 @@ export async function updateSettings(
   await q.ensureUser(env.DB, did, now());
 
   // Partial PATCH: only touch fields present in the input.
-  if (input.notifyPendingViaTelegram !== undefined) {
-    await q.setNotifyPending(env.DB, did, input.notifyPendingViaTelegram);
+  if (input.pendingRoute !== undefined) {
+    await q.setPendingRoute(env.DB, did, input.pendingRoute);
   }
   if (input.autoAllow !== undefined) {
     await q.setAutoAllow(env.DB, did, input.autoAllow);
@@ -171,7 +173,7 @@ export async function updateSettings(
 
   const user = await q.getUser(env.DB, did);
   return {
-    notifyPendingViaTelegram: (user?.notify_pending_via_telegram ?? 0) === 1,
+    pendingRoute: user?.pending_route ?? 'off',
   };
 }
 
@@ -182,18 +184,23 @@ export async function listGrants(
   const rows = await q.listGrantsForRecipient(env.DB, did);
 
   return {
-    grants: rows.map((row) => ({
-      sender: row.sender_did,
-      // user-supplied title; fall back to the Bluesky name/handle, then the DID
-      title: row.title ?? row.display_name ?? row.handle ?? row.sender_did,
-      description: row.description ?? undefined,
-      iconUrl: row.icon_url ?? undefined,
-      senderHandle: row.handle ?? undefined,
-      senderBskyDisplayName: row.display_name ?? undefined,
-      senderBskyAvatar: row.avatar_url ?? undefined,
-      grantedAt: toIsoDatetime(row.granted_at),
-      muted: row.muted === 1,
-    })),
+    grants: rows.map((row) => {
+      // For a registered app, fall back to its catalog branding when the grant
+      // has no stored metadata (e.g. enabled from the web, not via requestPermission).
+      const app = registeredApp(row.sender_did);
+      return {
+        sender: row.sender_did,
+        // grant metadata → registered catalog → Bluesky name/handle → the DID
+        title: row.title ?? app?.title ?? row.display_name ?? row.handle ?? row.sender_did,
+        description: row.description ?? app?.description ?? undefined,
+        iconUrl: row.icon_url ?? app?.iconUrl ?? undefined,
+        senderHandle: row.handle ?? undefined,
+        senderBskyDisplayName: row.display_name ?? undefined,
+        senderBskyAvatar: row.avatar_url ?? undefined,
+        grantedAt: toIsoDatetime(row.granted_at),
+        muted: row.muted === 1,
+      };
+    }),
   };
 }
 
@@ -204,20 +211,23 @@ export async function listPending(
   const rows = await q.listPendingForRecipient(env.DB, did, now());
 
   return {
-    pending: rows.map((row) => ({
-      id: row.id,
-      sender: row.sender_did,
-      // user-supplied display metadata (fall back to the DID for title)
-      title: row.title ?? row.sender_did,
-      description: row.description ?? undefined,
-      iconUrl: row.icon_url ?? undefined,
-      // best-effort Bluesky profile (informational "verified on Bluesky")
-      senderHandle: row.handle ?? undefined,
-      senderBskyDisplayName: row.display_name ?? undefined,
-      senderBskyAvatar: row.avatar_url ?? undefined,
-      createdAt: toIsoDatetime(row.created_at),
-      expiresAt: toIsoDatetime(row.expires_at),
-    })),
+    pending: rows.map((row) => {
+      const app = registeredApp(row.sender_did);
+      return {
+        id: row.id,
+        sender: row.sender_did,
+        // requester metadata → registered catalog → the DID
+        title: row.title ?? app?.title ?? row.sender_did,
+        description: row.description ?? app?.description ?? undefined,
+        iconUrl: row.icon_url ?? app?.iconUrl ?? undefined,
+        // best-effort Bluesky profile (informational "verified on Bluesky")
+        senderHandle: row.handle ?? undefined,
+        senderBskyDisplayName: row.display_name ?? undefined,
+        senderBskyAvatar: row.avatar_url ?? undefined,
+        createdAt: toIsoDatetime(row.created_at),
+        expiresAt: toIsoDatetime(row.expires_at),
+      };
+    }),
   };
 }
 
@@ -299,7 +309,7 @@ export async function getSettings(
   const pushDevices = (await q.countDeliveryTargets(env.DB, did, 'push'))?.c ?? 0;
 
   return {
-    notifyPendingViaTelegram: (user?.notify_pending_via_telegram ?? 0) === 1,
+    pendingRoute: user?.pending_route ?? 'off',
     autoAllow: (user?.auto_allow ?? 'trusted') as 'all' | 'trusted' | 'none',
     pushDevices,
   };
@@ -391,7 +401,7 @@ export async function clearNotificationsFromSender(
 export async function getRouting(env: Env, did: Did): Promise<RoutingConfig> {
   await q.ensureUser(env.DB, did, now());
   const user = await q.getUser(env.DB, did);
-  const defaultRoute = (user?.default_route ?? 'push') as AlertRoute;
+  const defaultRoute = (user?.default_route ?? 'inbox') as AlertRoute;
 
   const [grants, categories, routing, appRouting, deliveryTargets] = await Promise.all([
     q.listGrantsForRecipient(env.DB, did),
@@ -412,7 +422,7 @@ export async function getRouting(env: Env, did: Did): Promise<RoutingConfig> {
   }
 
   const routeBy = new Map<string, string>();
-  for (const r of routing) routeBy.set(`${r.sender_did} ${r.category}`, r.route);
+  for (const r of routing) routeBy.set(JSON.stringify([r.sender_did, r.category]), r.route);
 
   const appRouteBy = new Map<string, string>();
   for (const a of appRouting) appRouteBy.set(a.sender_did, a.route);
@@ -424,21 +434,103 @@ export async function getRouting(env: Env, did: Did): Promise<RoutingConfig> {
     catsBySender.set(c.sender_did, list);
   }
 
-  const apps: RoutingApp[] = grants.map((g) => ({
-    sender: g.sender_did,
-    title: g.title ?? g.display_name ?? g.handle ?? g.sender_did,
-    route: (appRouteBy.get(g.sender_did) ?? 'default') as AppRoute,
-    manage: g.manage as Capability,
-    muted: g.muted === 1,
-    iconUrl: g.icon_url ?? g.avatar_url ?? undefined,
-    categories: (catsBySender.get(g.sender_did) ?? []).map((c) => ({
-      category: c.category,
-      description: c.description ?? undefined,
-      route: (routeBy.get(`${g.sender_did} ${c.category}`) ?? 'app') as CategoryRoute,
-    })),
-  }));
+  const apps: RoutingApp[] = grants.map((g) => {
+    // Registered apps fall back to their catalog branding (covers grants made via
+    // the web "Enable" flow, which stores no per-grant title/icon).
+    const reg = registeredApp(g.sender_did);
+    return {
+      sender: g.sender_did,
+      title: g.title ?? reg?.title ?? g.display_name ?? g.handle ?? g.sender_did,
+      route: (appRouteBy.get(g.sender_did) ?? 'default') as AppRoute,
+      manage: g.manage as Capability,
+      muted: g.muted === 1,
+      iconUrl: g.icon_url ?? reg?.iconUrl ?? g.avatar_url ?? undefined,
+      categories: (catsBySender.get(g.sender_did) ?? []).map((c) => ({
+        category: c.category,
+        title: c.title ?? undefined,
+        description: c.description ?? undefined,
+        route: (routeBy.get(JSON.stringify([g.sender_did, c.category])) ?? 'app') as CategoryRoute,
+      })),
+    };
+  });
 
   return { defaultRoute, apps, channels };
+}
+
+// --- federated getRouting (one app's slice, for third-party apps) -----------
+
+/** A single delivery target as exposed to apps: opaque id + privacy-safe label. */
+export interface AppTargetView {
+  type: string;
+  id: string;
+  label: string;
+}
+
+export interface AppRoutingView {
+  route: AppRoute;
+  defaultRoute: AlertRoute;
+  categories: CategoryView[];
+  targets: AppTargetView[];
+}
+
+// Privacy-safe generic labels per channel (no PII), with a capitalized-id fallback.
+const GENERIC_LABEL: Record<string, string> = {
+  push: 'Push device',
+  telegram: 'Telegram',
+  email: 'Email',
+  dm: 'Direct message',
+  webhook: 'Webhook',
+};
+const genericLabel = (channel: string): string =>
+  GENERIC_LABEL[channel] ?? channel.charAt(0).toUpperCase() + channel.slice(1);
+
+/**
+ * The app-facing target catalog. Labels never leak the raw email address /
+ * telegram handle: a user-chosen name (`named`) is used as-is; push device labels
+ * (a UA descriptor, not PII) pass through; everything else gets a generic label,
+ * numbered when a channel has more than one verified target.
+ */
+export function safeTargets(rows: q.DeliveryTargetRow[]): AppTargetView[] {
+  const verified = rows.filter((r) => r.verified === 1);
+  const counts: Record<string, number> = {};
+  for (const r of verified) counts[r.channel] = (counts[r.channel] ?? 0) + 1;
+  const seen: Record<string, number> = {};
+  return verified.map((r) => {
+    const n = (seen[r.channel] ?? 0) + 1;
+    seen[r.channel] = n;
+    let label: string;
+    if (r.named === 1 && r.label) label = r.label;
+    else if (r.channel === 'push' && r.label) label = r.label;
+    else label = (counts[r.channel] ?? 0) > 1 ? `${genericLabel(r.channel)} ${n}` : genericLabel(r.channel);
+    return { type: r.channel, id: r.id, label };
+  });
+}
+
+/**
+ * One app's routing slice for a user (the federated `getRouting` view): the app's
+ * own route + categories, the account default (so 'default'/'app' can be labelled),
+ * and the privacy-safe target catalog so the app can render a full route picker.
+ */
+export async function getAppRouting(env: Env, did: Did, sender: Did): Promise<AppRoutingView> {
+  const [user, appRoute, cats, routes, deliveryTargets] = await Promise.all([
+    q.getUser(env.DB, did),
+    q.getAppRoute(env.DB, did, sender),
+    q.listAppCategoriesForSender(env.DB, did, sender),
+    q.listRoutingForSender(env.DB, did, sender),
+    q.listDeliveryTargets(env.DB, did),
+  ]);
+  const routeByCategory = new Map(routes.map((r) => [r.category, r.route]));
+  return {
+    route: (appRoute?.route ?? 'default') as AppRoute,
+    defaultRoute: (user?.default_route ?? 'inbox') as AlertRoute,
+    categories: cats.map((c) => ({
+      id: c.category,
+      title: c.title ?? undefined,
+      description: c.description ?? undefined,
+      route: (routeByCategory.get(c.category) ?? 'app') as CategoryRoute,
+    })),
+    targets: safeTargets(deliveryTargets),
+  };
 }
 
 export async function setRouting(
@@ -489,6 +581,103 @@ export async function setGrantManage(
 ): Promise<{ ok: boolean }> {
   await q.setGrantManage(env.DB, did, sender, manage);
   return { ok: true };
+}
+
+// --- app-declared categories (per user, per app) ---------------------------
+
+/** A category an app declares for a user: key + optional title/description and an
+ *  optional initial route. Scoped to (user, app), so never shared across users. */
+export interface CategoryInput {
+  id: string;
+  title?: string;
+  description?: string;
+  route?: CategoryRoute;
+}
+
+/** Declare/update one category for (user, app), optionally setting its route. */
+async function applyCategory(env: Env, did: Did, sender: Did, cat: CategoryInput): Promise<void> {
+  await q.declareAppCategory(env.DB, {
+    recipientDid: did,
+    senderDid: sender,
+    category: cat.id,
+    title: cat.title ?? null,
+    description: cat.description ?? null,
+    lastSeen: now(),
+  });
+  if (cat.route !== undefined) {
+    if (cat.route === 'app') await q.deleteRouting(env.DB, did, sender, cat.id);
+    else await q.upsertRouting(env.DB, did, sender, cat.id, cat.route);
+  }
+}
+
+/** Add or update one of the app's categories for the user. */
+export async function addCategory(
+  env: Env,
+  did: Did,
+  sender: Did,
+  cat: CategoryInput,
+): Promise<{ ok: boolean }> {
+  await applyCategory(env, did, sender, cat);
+  return { ok: true };
+}
+
+/** Full sync: upsert the listed categories, prune the rest (and their routing). */
+export async function setCategories(
+  env: Env,
+  did: Did,
+  sender: Did,
+  categories: CategoryInput[],
+): Promise<{ ok: boolean }> {
+  const keep = new Set(categories.map((c) => c.id));
+  const existing = await q.listAppCategoriesForSender(env.DB, did, sender);
+  for (const cat of categories) await applyCategory(env, did, sender, cat);
+  for (const row of existing) {
+    if (!keep.has(row.category)) {
+      await q.deleteAppCategory(env.DB, did, sender, row.category);
+      await q.deleteRouting(env.DB, did, sender, row.category);
+    }
+  }
+  return { ok: true };
+}
+
+/** Remove one category + its per-category routing. */
+export async function removeCategory(
+  env: Env,
+  did: Did,
+  sender: Did,
+  id: string,
+): Promise<{ removed: boolean }> {
+  const removed = await q.deleteAppCategory(env.DB, did, sender, id);
+  await q.deleteRouting(env.DB, did, sender, id);
+  return { removed };
+}
+
+export interface CategoryView {
+  id: string;
+  title?: string;
+  description?: string;
+  route: CategoryRoute;
+}
+
+/** List the app's categories for the user, with each one's current route. */
+export async function getCategories(
+  env: Env,
+  did: Did,
+  sender: Did,
+): Promise<{ categories: CategoryView[] }> {
+  const [cats, routes] = await Promise.all([
+    q.listAppCategoriesForSender(env.DB, did, sender),
+    q.listRoutingForSender(env.DB, did, sender),
+  ]);
+  const routeBy = new Map(routes.map((r) => [r.category, r.route]));
+  return {
+    categories: cats.map((c) => ({
+      id: c.category,
+      title: c.title ?? undefined,
+      description: c.description ?? undefined,
+      route: (routeBy.get(c.category) ?? 'app') as CategoryRoute,
+    })),
+  };
 }
 
 // --- email channel ---------------------------------------------------------

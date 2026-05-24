@@ -1,26 +1,34 @@
 import {
+  PubAtmoNotifyAddCategory,
+  PubAtmoNotifyGetCategories,
   PubAtmoNotifyGetRouting,
   PubAtmoNotifyListNotifications,
   PubAtmoNotifyManage,
   PubAtmoNotifyMarkRead,
   PubAtmoNotifyMuteSelf,
+  PubAtmoNotifyRemoveCategory,
   PubAtmoNotifyRequestPermission,
   PubAtmoNotifyRevokeSelf,
   PubAtmoNotifySend,
+  PubAtmoNotifySetCategories,
   PubAtmoNotifySetRouting,
 } from '@atmo/notifs-lexicons';
 import { XRPCRouter } from '@atcute/xrpc-server';
 
 import { getVerifier } from './auth/verifier';
 import type { AppContext, Env } from './env';
+import { makeAddCategory } from './xrpc/addCategory';
+import { makeGetCategories } from './xrpc/getCategories';
 import { makeGetRouting } from './xrpc/getRouting';
 import { makeListNotifications } from './xrpc/listNotifications';
 import { makeManage } from './xrpc/manage';
 import { makeMarkRead } from './xrpc/markRead';
 import { makeMuteSelf } from './xrpc/muteSelf';
+import { makeRemoveCategory } from './xrpc/removeCategory';
 import { makeRequestPermission } from './xrpc/requestPermission';
 import { makeRevokeSelf } from './xrpc/revokeSelf';
 import { makeSend } from './xrpc/send';
+import { makeSetCategories } from './xrpc/setCategories';
 import { makeSetRouting } from './xrpc/setRouting';
 
 /**
@@ -64,6 +72,10 @@ export function buildRouter(env: Env, ctx: ExecutionContext): XRPCRouter {
   router.addProcedure(PubAtmoNotifyMarkRead.mainSchema, makeMarkRead(app));
   router.addProcedure(PubAtmoNotifyRevokeSelf.mainSchema, makeRevokeSelf(app));
   router.addProcedure(PubAtmoNotifyMuteSelf.mainSchema, makeMuteSelf(app));
+  router.addProcedure(PubAtmoNotifySetCategories.mainSchema, makeSetCategories(app));
+  router.addProcedure(PubAtmoNotifyAddCategory.mainSchema, makeAddCategory(app));
+  router.addProcedure(PubAtmoNotifyRemoveCategory.mainSchema, makeRemoveCategory(app));
+  router.addProcedure(PubAtmoNotifyGetCategories.mainSchema, makeGetCategories(app));
   router.addProcedure(PubAtmoNotifyManage.mainSchema, makeManage(app));
 
   return router;

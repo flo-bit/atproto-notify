@@ -1,5 +1,9 @@
+import addCategory from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/addCategory.json';
+import getCategories from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/getCategories.json';
 import getRouting from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/getRouting.json';
 import listNotifications from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/listNotifications.json';
+import removeCategory from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/removeCategory.json';
+import setCategories from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/setCategories.json';
 import manage from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/manage.json';
 import markRead from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/markRead.json';
 import muteSelf from '@atmo/notifs-lexicons/lexicons/pub/atmo/notify/muteSelf.json';
@@ -21,6 +25,10 @@ const LEXICONS: Record<string, unknown> = {
   'pub.atmo.notify.send': send,
   'pub.atmo.notify.setRouting': setRouting,
   'pub.atmo.notify.getRouting': getRouting,
+  'pub.atmo.notify.setCategories': setCategories,
+  'pub.atmo.notify.addCategory': addCategory,
+  'pub.atmo.notify.removeCategory': removeCategory,
+  'pub.atmo.notify.getCategories': getCategories,
   'pub.atmo.notify.listNotifications': listNotifications,
   'pub.atmo.notify.manage': manage,
   'pub.atmo.notify.markRead': markRead,

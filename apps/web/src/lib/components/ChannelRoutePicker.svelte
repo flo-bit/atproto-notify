@@ -15,6 +15,7 @@
 		value,
 		inherit,
 		instances,
+		allowInbox = true,
 		disabled = false,
 		onchange
 	}: {
@@ -24,9 +25,14 @@
 		inherit?: { token: 'default' | 'app'; label: string };
 		/** Routable instances per channel, listed as targets under each channel. */
 		instances?: RouteInstances;
+		/** Offer the "Inbox only" mode (off for contexts like pending requests). */
+		allowInbox?: boolean;
 		disabled?: boolean;
 		onchange: (route: string) => void;
 	} = $props();
+
+	// When inbox-only isn't offered, an empty custom selection collapses to 'off'.
+	const emptyValue = $derived(allowInbox ? 'inbox' : 'off');
 
 	// Local: did the user explicitly open the Custom tree? An empty custom selection
 	// stores 'inbox', so without this the tree would collapse back to "Inbox only".
@@ -61,9 +67,8 @@
 	}
 	function pickCustom() {
 		customOpen = true;
-		// Entering Custom from a non-custom value starts empty (= inbox only) until a
-		// box is checked.
-		if (!hasChannels) onchange('inbox');
+		// Entering Custom from a non-custom value starts empty until a box is checked.
+		if (!hasChannels) onchange(emptyValue);
 	}
 
 	function instancesFor(c: Channel): { id: string; label: string }[] {
@@ -99,7 +104,7 @@
 			else for (const id of s) tokens.push({ channel: c, instance: id });
 		}
 		const route = formatRoute(tokens);
-		onchange(route === 'off' ? 'inbox' : route);
+		onchange(route === 'off' ? emptyValue : route);
 	}
 
 	function parentState(c: Channel): 'on' | 'partial' | 'off' {
@@ -175,15 +180,17 @@
 				{inherit.label}
 			</button>
 		{/if}
-		<button
-			type="button"
-			{disabled}
-			onclick={pickInbox}
-			aria-pressed={mode === 'inbox'}
-			class="{modeBtn} {mode === 'inbox' ? on : off}"
-		>
-			Inbox only
-		</button>
+		{#if allowInbox}
+			<button
+				type="button"
+				{disabled}
+				onclick={pickInbox}
+				aria-pressed={mode === 'inbox'}
+				class="{modeBtn} {mode === 'inbox' ? on : off}"
+			>
+				Inbox only
+			</button>
+		{/if}
 		<button
 			type="button"
 			{disabled}
@@ -210,7 +217,9 @@
 			{#if available.length === 0}
 				<p class="px-1 py-0.5 text-xs text-muted">
 					No channels connected.
-					<a href="/settings?tab=channels" class="text-accent hover:underline">Add one in settings</a>.
+					<a href="/settings?tab=channels" class="text-accent hover:underline"
+						>Add one in settings</a
+					>.
 				</p>
 			{:else}
 				<div class="flex flex-col gap-0.5">

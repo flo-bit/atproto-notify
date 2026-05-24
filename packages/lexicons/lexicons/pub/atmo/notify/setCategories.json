@@ -1,0 +1,51 @@
+{
+  "lexicon": 1,
+  "id": "pub.atmo.notify.setCategories",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Replace the calling app's category catalog for a user (full sync). Listed categories are upserted (key + optional title/description/initial route); any the app previously had that are NOT listed are removed, along with their per-category routing. Categories are per (user, app) — never shared across users. Self-scoped management write: app JWT in the Authorization header + a fresh user-issued `userToken` (like setRouting). Requires an active grant.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["userToken", "categories"],
+          "properties": {
+            "userToken": {
+              "type": "string",
+              "description": "A user-issued service-auth JWT (aud = relay DID, lxm = pub.atmo.notify.setCategories)."
+            },
+            "categories": {
+              "type": "array",
+              "maxLength": 500,
+              "description": "The app's complete category set for this user. Anything omitted is removed.",
+              "items": { "type": "ref", "ref": "#categoryInput" }
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["ok"],
+          "properties": { "ok": { "type": "boolean" } }
+        }
+      },
+      "errors": [{ "name": "NotAuthorized" }]
+    },
+    "categoryInput": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "maxLength": 64, "description": "The category key (matches `category` in send)." },
+        "title": { "type": "string", "maxLength": 128, "description": "Human display name (e.g. a webhook's name)." },
+        "description": { "type": "string", "maxLength": 200 },
+        "route": {
+          "type": "string",
+          "description": "Optional initial route: a '+'-joined token set, 'off', 'inbox', or 'app' to inherit the app-wide route. Omit to leave this category's routing unchanged."
+        }
+      }
+    }
+  }
+}

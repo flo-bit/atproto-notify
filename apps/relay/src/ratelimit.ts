@@ -66,3 +66,51 @@ export async function checkAndIncrement(
     resetIn: resetInSeconds,
   };
 }
+
+/** One cap in a multi-key check. */
+export interface RateCheck {
+  key: string;
+  limit: number;
+  windowSeconds: number;
+}
+
+/**
+ * All-or-nothing fixed-window check across several keys. Reads every counter; if
+ * ANY is already at/over its limit, denies WITHOUT incrementing any of them;
+ * otherwise increments all. This gates one action behind multiple caps at once
+ * (e.g. a per-recipient AND a relay-global daily channel cap) without burning a
+ * slot from one cap when a different one is what blocks. Same KV
+ * eventual-consistency caveat as {@link checkAndIncrement}.
+ */
+export async function checkAndIncrementAll(
+  kv: KVNamespace,
+  checks: readonly RateCheck[],
+): Promise<{ allowed: boolean }> {
+  if (checks.length === 0) return { allowed: true };
+  const nowMs = Date.now();
+
+  const states = await Promise.all(
+    checks.map(async (c) => {
+      const { value, metadata } = await kv.getWithMetadata<CounterMetadata>(c.key, 'text');
+      if (value !== null && metadata !== null && metadata.expiresAt > nowMs) {
+        return { key: c.key, limit: c.limit, count: Number.parseInt(value, 10), expiresAt: metadata.expiresAt };
+      }
+      return { key: c.key, limit: c.limit, count: 0, expiresAt: nowMs + c.windowSeconds * 1000 };
+    }),
+  );
+
+  if (states.some((s) => s.count >= s.limit)) {
+    return { allowed: false };
+  }
+
+  await Promise.all(
+    states.map((s) => {
+      const resetIn = Math.max(1, Math.ceil((s.expiresAt - nowMs) / 1000));
+      return kv.put(s.key, String(s.count + 1), {
+        expirationTtl: Math.max(KV_MIN_TTL_SECONDS, resetIn),
+        metadata: { expiresAt: s.expiresAt } satisfies CounterMetadata,
+      });
+    }),
+  );
+  return { allowed: true };
+}

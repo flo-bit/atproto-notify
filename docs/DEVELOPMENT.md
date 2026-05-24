@@ -16,16 +16,17 @@ dashboard, example sender). For the high-level overview see
 │   ├── relay/
 │   │   ├── wrangler.toml
 │   │   ├── vitest.config.ts
-│   │   ├── migrations/           # 0001_init.sql, 0002_request_metadata.sql
+│   │   ├── migrations/           # 0001_init.sql (consolidated canonical schema)
 │   │   ├── src/
 │   │   │   ├── index.ts          # default export { fetch, queue, scheduled }
 │   │   │   ├── env.ts            # Env + DispatchJob + AppContext types
 │   │   │   ├── router.ts         # builds the XRPCRouter, wires handlers
 │   │   │   ├── auth/             # verifier.ts, sender.ts, user.ts
 │   │   │   ├── xrpc/             # one file per procedure/query
-│   │   │   ├── delivery/         # telegram.ts (API), dispatcher.ts (queue consumer)
+│   │   │   ├── delivery/         # dispatcher.ts (queue consumer) + one module per channel
+│   │   │   │                     #   (webpush, telegram, email, bluesky-dm, webhook) + channel/limits
 │   │   │   ├── telegram/         # webhook.ts, commands.ts, callbacks.ts
-│   │   │   ├── db/               # schema.sql, queries.ts
+│   │   │   ├── db/               # queries.ts (schema: migrations/0001_init.sql)
 │   │   │   ├── identity/resolve.ts
 │   │   │   ├── profile/fetch.ts
 │   │   │   ├── ratelimit.ts
@@ -40,7 +41,9 @@ dashboard, example sender). For the high-level overview see
 │   │       ├── hooks.server.ts   # = atproto.handle (@svelte-atproto/oauth)
 │   │       ├── lib/atproto/      # OAuth client config + oauth.remote.ts (login/logout)
 │   │       ├── lib/server/relay.ts   # calls the relay as the signed-in user
-│   │       └── routes/           # landing, /dashboard, /docs
+│   │       └── routes/           # (app)/ dashboard: apps, settings, inbox
+│   ├── homepage/                 # marketing landing + developer docs (docs.atmo.pub)
+│   │   └── static/llms.txt       # LLM-oriented integration guide
 │   └── example-sender/           # one-page sender demo (example.atmo.pub)
 │       ├── wrangler.jsonc
 │       ├── scripts/generate-keys.js  # P-256 keypair for `send` (sender:keygen)

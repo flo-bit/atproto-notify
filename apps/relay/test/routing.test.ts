@@ -30,7 +30,8 @@ it('getRouting: app-wide route defaults to "default" and categories inherit "app
   const user = 'did:plc:routing1' as Did;
   await grantWithCategory(user);
   const cfg = await ops.getRouting(env, user);
-  expect(cfg.defaultRoute).toBe('push');
+  expect(cfg.defaultRoute).toBe('inbox'); // new accounts start at inbox-only
+
   const app = cfg.apps.find((a) => a.sender === SENDER);
   expect(app?.route).toBe('default');
   expect(app?.categories[0]?.route).toBe('app');

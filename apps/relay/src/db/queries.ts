@@ -7,9 +7,10 @@ import type { Did } from '@atcute/lexicons';
 export interface UserRow {
   did: Did;
   created_at: number;
-  notify_pending_via_telegram: number;
   default_route: string;
   auto_allow: string;
+  /** Where permission-request alerts go: a concrete route (token set) or 'off'. */
+  pending_route: string;
 }
 
 export interface LinkTokenRow {
@@ -33,7 +34,6 @@ export interface PendingRequestRow {
   id: string;
   recipient_did: Did;
   sender_did: Did;
-  reason: string | null; // legacy (migration 0001); unused
   title: string | null;
   description: string | null;
   icon_url: string | null;
@@ -78,19 +78,21 @@ export function getUser(db: D1Database, did: Did): Promise<UserRow | null> {
   return db.prepare('SELECT * FROM users WHERE did = ?').bind(did).first<UserRow>();
 }
 
-/** Insert a users row if absent. No-op when it already exists. */
+/**
+ * Insert a users row if absent. No-op when it already exists. `default_route` is
+ * set explicitly to 'inbox' (rather than leaning on the column default) so new
+ * accounts start at inbox-only even on a DB whose column default predates that.
+ */
 export async function ensureUser(db: D1Database, did: Did, createdAt: number): Promise<void> {
   await db
-    .prepare('INSERT OR IGNORE INTO users (did, created_at, notify_pending_via_telegram) VALUES (?, ?, 0)')
+    .prepare("INSERT OR IGNORE INTO users (did, created_at, default_route) VALUES (?, ?, 'inbox')")
     .bind(did, createdAt)
     .run();
 }
 
-export async function setNotifyPending(db: D1Database, did: Did, value: boolean): Promise<void> {
-  await db
-    .prepare('UPDATE users SET notify_pending_via_telegram = ? WHERE did = ?')
-    .bind(toInt(value), did)
-    .run();
+/** Set where permission-request alerts go (a concrete route, or 'off'). */
+export async function setPendingRoute(db: D1Database, did: Did, route: string): Promise<void> {
+  await db.prepare('UPDATE users SET pending_route = ? WHERE did = ?').bind(route, did).run();
 }
 
 // ---------------------------------------------------------------------------
@@ -506,15 +508,18 @@ export interface UpsertGrantInput {
 }
 
 /**
- * Insert or refresh a grant. Re-granting resets `muted` to 0. Metadata is copied
- * from the pending request; `COALESCE` keeps any previously-stored metadata when
- * a re-grant provides none (e.g. a manual grant with no requestId).
+ * Insert or refresh a grant. New grants default to `manage = 'self'` (an app may
+ * manage its own routing/inbox) — set explicitly here rather than relying on the
+ * column default, so the behaviour is consistent even on a DB whose `grants`
+ * table predates that default. Re-granting resets `muted` to 0 but KEEPS the
+ * user's chosen `manage` capability. Metadata is copied from the pending request;
+ * `COALESCE` keeps previously-stored metadata when a re-grant provides none.
  */
 export async function upsertGrant(db: D1Database, input: UpsertGrantInput): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO grants (recipient_did, sender_did, granted_at, muted, title, description, icon_url)
-       VALUES (?, ?, ?, 0, ?, ?, ?)
+      `INSERT INTO grants (recipient_did, sender_did, granted_at, muted, title, description, icon_url, manage)
+       VALUES (?, ?, ?, 0, ?, ?, ?, 'self')
        ON CONFLICT(recipient_did, sender_did) DO UPDATE SET
          granted_at = excluded.granted_at,
          muted = 0,
@@ -731,6 +736,15 @@ export async function deleteNotificationsFromSender(
   return result.meta.changes ?? 0;
 }
 
+/** Retention backstop: drop inbox entries older than `beforeMs` (read or not). */
+export async function deleteOldNotifications(db: D1Database, beforeMs: number): Promise<number> {
+  const result = await db
+    .prepare('DELETE FROM notifications WHERE created_at < ?')
+    .bind(beforeMs)
+    .run();
+  return result.meta.changes ?? 0;
+}
+
 // --- App-scoped inbox access (one sender's notifications for one recipient) ---
 // Used by the federated, dual-authed `listNotifications`/`markRead` so an app
 // can see and acknowledge only the notifications *it* sent.
@@ -804,6 +818,7 @@ export interface AppCategoryRow {
   recipient_did: Did;
   sender_did: Did;
   category: string;
+  title: string | null;
   description: string | null;
   last_seen: number;
 }
@@ -816,7 +831,7 @@ export interface UpsertAppCategoryInput {
   lastSeen: number;
 }
 
-/** Record a category seen from a sender (keeps the latest description). */
+/** Record a category seen from a sender (keeps the latest description + any title). */
 export async function upsertAppCategory(db: D1Database, input: UpsertAppCategoryInput): Promise<void> {
   await db
     .prepare(
@@ -828,6 +843,55 @@ export async function upsertAppCategory(db: D1Database, input: UpsertAppCategory
     )
     .bind(input.recipientDid, input.senderDid, input.category, input.description, input.lastSeen)
     .run();
+}
+
+export interface DeclareAppCategoryInput {
+  recipientDid: Did;
+  senderDid: Did;
+  category: string;
+  title: string | null;
+  description: string | null;
+  lastSeen: number;
+}
+
+/** App-declared category (setCategories/addCategory): upsert key + title +
+ *  description. Null title/description preserve any existing value. */
+export async function declareAppCategory(
+  db: D1Database,
+  input: DeclareAppCategoryInput,
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO app_categories (recipient_did, sender_did, category, title, description, last_seen)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(recipient_did, sender_did, category) DO UPDATE SET
+         title = COALESCE(excluded.title, app_categories.title),
+         description = COALESCE(excluded.description, app_categories.description),
+         last_seen = excluded.last_seen`,
+    )
+    .bind(
+      input.recipientDid,
+      input.senderDid,
+      input.category,
+      input.title,
+      input.description,
+      input.lastSeen,
+    )
+    .run();
+}
+
+/** Remove one app-declared category (its routing row is cleaned up separately). */
+export async function deleteAppCategory(
+  db: D1Database,
+  recipientDid: Did,
+  senderDid: Did,
+  category: string,
+): Promise<boolean> {
+  const result = await db
+    .prepare('DELETE FROM app_categories WHERE recipient_did = ? AND sender_did = ? AND category = ?')
+    .bind(recipientDid, senderDid, category)
+    .run();
+  return changed(result);
 }
 
 export async function listAppCategoriesForRecipient(
@@ -992,4 +1056,28 @@ export async function deleteAppRoute(
     .prepare('DELETE FROM app_routing WHERE recipient_did = ? AND sender_did = ?')
     .bind(recipientDid, senderDid)
     .run();
+}
+
+/**
+ * Cascade for `revoke`: drop everything scoped to one (recipient, sender) app —
+ * its app-wide route, per-category routes, and declared/seen categories — so a
+ * revoked app leaves no stale routing/category rows (and a re-grant starts clean).
+ * Inbox notifications are intentionally kept (historical).
+ */
+export async function deleteSenderRoutingData(
+  db: D1Database,
+  recipientDid: Did,
+  senderDid: Did,
+): Promise<void> {
+  await db.batch([
+    db
+      .prepare('DELETE FROM app_routing WHERE recipient_did = ? AND sender_did = ?')
+      .bind(recipientDid, senderDid),
+    db
+      .prepare('DELETE FROM routing WHERE recipient_did = ? AND sender_did = ?')
+      .bind(recipientDid, senderDid),
+    db
+      .prepare('DELETE FROM app_categories WHERE recipient_did = ? AND sender_did = ?')
+      .bind(recipientDid, senderDid),
+  ]);
 }

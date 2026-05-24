@@ -117,6 +117,10 @@ export interface Env {
   COMAIL_DID: string;
   /** Enrolled sender address for the `from` field, e.g. "atmo.pub <notify@atmo.pub>" (var). */
   COMAIL_FROM: string;
+  /** Max emails delivered to ONE recipient per rolling day (var; default 10). See delivery/limits.ts. */
+  EMAIL_DAILY_PER_RECIPIENT?: string;
+  /** Max emails the relay delivers in total per rolling day (var; default 100). Keep ≤ the comail plan. */
+  EMAIL_DAILY_GLOBAL?: string;
 
   // Bluesky DM delivery — the relay sends DMs from a configured bot account.
   /** Bot handle or DID used for createSession (var). */

@@ -2,8 +2,8 @@ import { PubAtmoNotifyMuteSelf } from '@atmo/notifs-lexicons';
 import { json, type ProcedureConfig } from '@atcute/xrpc-server';
 
 import { verifyManagementCall } from '../auth/management';
-import * as q from '../db/queries';
 import type { AppContext } from '../env';
+import * as ops from '../rpc/ops';
 
 const LXM = 'pub.atmo.notify.muteSelf';
 
@@ -16,7 +16,7 @@ export function makeMuteSelf(app: AppContext): ProcedureConfig<PubAtmoNotifyMute
         write: true,
         lxm: LXM,
       });
-      await q.setGrantMuted(app.env.DB, userDid, appDid, input.muted);
+      await ops.muteGrant(app.env, userDid, { sender: appDid, muted: input.muted });
       return json({ ok: true });
     },
   };

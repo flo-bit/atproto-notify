@@ -25,6 +25,14 @@ const SETROUTING = 'pub.atmo.notify.setRouting'; // self-write
 const GETROUTING = 'pub.atmo.notify.getRouting'; // self-read
 const REVOKESELF = 'pub.atmo.notify.revokeSelf'; // self-write
 const MUTESELF = 'pub.atmo.notify.muteSelf'; // self-write
+const ADDCATEGORY = 'pub.atmo.notify.addCategory'; // self-write
+const SETCATEGORIES = 'pub.atmo.notify.setCategories'; // self-write
+const REMOVECATEGORY = 'pub.atmo.notify.removeCategory'; // self-write
+const GETCATEGORIES = 'pub.atmo.notify.getCategories'; // self-read
+
+interface CategoryList {
+  categories: { id: string; title?: string; route: string }[];
+}
 
 async function call(req: Request): Promise<Response> {
   const ctx = createExecutionContext();
@@ -142,6 +150,55 @@ it('a `full` designation also satisfies self-scoped writes', async () => {
   await designate(user.did, app.did, 'full');
   const res = await dualCall(SETROUTING, app, user, { route: 'push' });
   expect(res.status).toBe(200);
+});
+
+// --- category management (federated, self-scoped) --------------------------
+
+it('addCategory is a write: denied undesignated, allowed once designated `self`', async () => {
+  const { app, user } = await plain('cat-fed-write');
+  const denied = await dualCall(ADDCATEGORY, app, user, { id: 'wh', title: 'WH' });
+  expect(denied.status).toBe(403);
+
+  await designate(user.did, app.did, 'self');
+  const ok = await dualCall(ADDCATEGORY, app, user, { id: 'wh', title: 'WH', route: 'inbox' });
+  expect(ok.status).toBe(200);
+});
+
+it('addCategory rejects an invalid route', async () => {
+  const { app, user } = await plain('cat-fed-badroute');
+  await designate(user.did, app.did, 'self');
+  const res = await dualCall(ADDCATEGORY, app, user, { id: 'wh', route: 'nope!' });
+  expect(res.status).toBe(400);
+});
+
+it('setCategories full-sync + getCategories over XRPC (only this app’s)', async () => {
+  const { app, user } = await plain('cat-fed-sync');
+  await designate(user.did, app.did, 'self');
+
+  await dualCall(SETCATEGORIES, app, user, {
+    categories: [
+      { id: 'a', title: 'A' },
+      { id: 'b', title: 'B', route: 'push' },
+    ],
+  });
+  let data = (await (await dualCall(GETCATEGORIES, app, user)).json()) as CategoryList;
+  expect(data.categories.map((c) => c.id).sort()).toEqual(['a', 'b']);
+
+  await dualCall(SETCATEGORIES, app, user, { categories: [{ id: 'a', title: 'A2' }] });
+  data = (await (await dualCall(GETCATEGORIES, app, user)).json()) as CategoryList;
+  expect(data.categories.map((c) => c.id)).toEqual(['a']);
+  expect(data.categories[0]?.title).toBe('A2');
+});
+
+it('removeCategory over XRPC', async () => {
+  const { app, user } = await plain('cat-fed-remove');
+  await designate(user.did, app.did, 'self');
+  await dualCall(ADDCATEGORY, app, user, { id: 'gone', title: 'G' });
+  const res = await dualCall(REMOVECATEGORY, app, user, { id: 'gone' });
+  expect(res.status).toBe(200);
+  expect((await (await dualCall(GETCATEGORIES, app, user)).json()) as CategoryList).toEqual({
+    categories: [],
+  });
 });
 
 it('getRouting returns the target catalog with privacy-safe labels', async () => {

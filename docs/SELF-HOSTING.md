@@ -1,8 +1,9 @@
 # Run your own relay
 
 Want notifications for your own app(s) without depending on atmo.pub? Run the
-relay yourself. You get web push, Telegram, an inbox, and per-app/category
-routing — for whatever apps you register. **It runs on Cloudflare Workers** (D1 +
+relay yourself. You get web push, Telegram, email, Bluesky DM, webhooks, an inbox,
+and per-app/category routing — for whatever apps you register. **It runs on
+Cloudflare Workers** (D1 +
 KV + Queues); that's the only supported target for now.
 
 For deeper details see [DEVELOPMENT.md](DEVELOPMENT.md).
@@ -53,8 +54,15 @@ For deeper details see [DEVELOPMENT.md](DEVELOPMENT.md).
    # Telegram (optional — skip if you only want web push):
    pnpm exec wrangler secret put TELEGRAM_BOT_TOKEN
    pnpm exec wrangler secret put TELEGRAM_WEBHOOK_SECRET
+   # Email (optional — via comail.at):
+   pnpm exec wrangler secret put COMAIL_API_KEY        # atmos_… from comail.at
    ```
-   If you use Telegram, also set `BOT_USERNAME` in `[vars]`.
+   If you use Telegram, also set `BOT_USERNAME` in `[vars]`. If you use email, set
+   `COMAIL_DID` (the account DID for the `X-Atmos-DID` header) and `COMAIL_FROM` (an
+   enrolled sender address) in `[vars]`; the `EMAIL_DAILY_*` caps there default to
+   10 / recipient / day and 100 global / day — keep them under your comail plan.
+   Bluesky DM and webhook channels need no extra config (DM uses the relay's own
+   identity; webhooks are user-supplied URLs).
 
 6. **Apply migrations & deploy**
    ```bash

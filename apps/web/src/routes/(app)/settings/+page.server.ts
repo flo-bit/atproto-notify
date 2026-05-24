@@ -1,5 +1,6 @@
 import { emptyRouteInstances } from '@atmo/notifs-lexicons';
 
+import { emailEnabledFor } from '$lib/server/featureAccess';
 import { relayFor } from '$lib/server/relay';
 
 import type { PageServerLoad } from './$types';
@@ -23,9 +24,11 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 		emails: all.filter((t) => t.channel === 'email'),
 		dms: all.filter((t) => t.channel === 'dm'),
 		webhooks: all.filter((t) => t.channel === 'webhook'),
-		notifyPendingViaTelegram: settings?.notifyPendingViaTelegram ?? false,
+		// Email is allowlisted for now (hidden + blocked for everyone else).
+		emailEnabled: emailEnabledFor(locals.did),
+		pendingRoute: settings?.pendingRoute ?? 'off',
 		autoAllow: settings?.autoAllow ?? 'trusted',
-		defaultRoute: routing?.defaultRoute ?? 'push',
+		defaultRoute: routing?.defaultRoute ?? 'inbox',
 		// Catalog of routable instances per channel, for the routing picker.
 		channels: routing?.channels ?? emptyRouteInstances()
 	};

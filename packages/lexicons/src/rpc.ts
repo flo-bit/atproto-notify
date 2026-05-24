@@ -108,8 +108,8 @@ export interface RouteToken {
   instance?: string;
 }
 
-/** Instance-id format: lowercase hex/alphanumeric, kept short. */
-const INSTANCE_ID_RE = /^[a-z0-9]+$/i;
+/** Instance-id format: nanoid's url-safe alphabet (A–Z a–z 0–9 _ -); see lib/ids newTargetId. */
+const INSTANCE_ID_RE = /^[A-Za-z0-9_-]+$/;
 
 /** True for routes that carry no channel tokens: the inherit sentinels, plus
  *  'off' (drop entirely) and 'inbox' (inbox only, no alerts), and ''. */
@@ -202,11 +202,23 @@ export function isConcreteRoute(route: string): boolean {
   });
 }
 
+/** Valid app-wide route value: a concrete route, or 'default' (inherit account default). */
+export function isAppRoute(route: string): boolean {
+  return route === 'default' || isConcreteRoute(route);
+}
+
+/** Valid per-category route value: a concrete route, or 'app' (inherit app-wide). */
+export function isCategoryRoute(route: string): boolean {
+  return route === 'app' || isConcreteRoute(route);
+}
+
 /** Management capability the user designated for an app. See MANAGEMENT-AUTH.md. */
 export type Capability = 'none' | 'self' | 'full';
 
 export interface RoutingCategory {
   category: string;
+  /** Human display name (e.g. a webhook's name), if the app set one. */
+  title?: string;
   description?: string;
   route: CategoryRoute;
 }

@@ -10,7 +10,10 @@
         "schema": {
           "type": "object",
           "properties": {
-            "notifyPendingViaTelegram": { "type": "boolean" },
+            "pendingRoute": {
+              "type": "string",
+              "description": "Where permission-request alerts go: a '+'-joined token set or 'off'."
+            },
             "autoAllow": {
               "type": "string",
               "enum": ["all", "trusted", "none"],
@@ -23,9 +26,9 @@
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["notifyPendingViaTelegram"],
+          "required": ["pendingRoute"],
           "properties": {
-            "notifyPendingViaTelegram": { "type": "boolean" }
+            "pendingRoute": { "type": "string" }
           }
         }
       }

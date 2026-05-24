@@ -1,11 +1,12 @@
-import { PubAtmoNotifyRequestPermission } from '@atmo/notifs-lexicons';
+import { PubAtmoNotifyRequestPermission, routeSelection } from '@atmo/notifs-lexicons';
 import type { Did } from '@atcute/lexicons';
 import { isDid } from '@atcute/lexicons/syntax';
 import { InvalidRequestError, json, type ProcedureConfig } from '@atcute/xrpc-server';
 
 import { verifyUserRequest } from '../auth/user';
 import * as q from '../db/queries';
-import type { AppContext } from '../env';
+import { deliveryChannelFor, selectTargets } from '../delivery/channel';
+import type { AppContext, DispatchJob } from '../env';
 import { rateLimited } from '../lib/errors';
 import { newId } from '../lib/ids';
 import { addDays, now } from '../lib/time';
@@ -124,9 +125,13 @@ function pseudoGrantId(recipient: Did, senderDid: Did): string {
   return `granted:${recipient}:${senderDid}`;
 }
 
+/** Where users review/approve permission requests. */
+const PENDING_URL = 'https://atmo.pub/apps';
+
 /**
- * If the recipient linked Telegram and opted into pending-request alerts, enqueue
- * a `pendingRequest` job so they can approve/deny from the chat.
+ * Alert the recipient about a new permission request, on whichever channels they
+ * chose (`users.pending_route`). Telegram gets an inline approve/deny prompt; any
+ * other channel gets a plain notification linking to the dashboard.
  */
 async function maybeNotifyPending(
   app: AppContext,
@@ -138,23 +143,38 @@ async function maybeNotifyPending(
   iconUrl: string | null,
 ): Promise<void> {
   const user = await q.getUser(app.env.DB, recipient);
-  if (user === null || user.notify_pending_via_telegram !== 1) {
-    return;
-  }
-  const telegram = (await q.listDeliveryTargets(app.env.DB, recipient)).find(
-    (target) => target.channel === 'telegram',
-  );
-  if (telegram === undefined) {
+  const route = user?.pending_route ?? 'off';
+  if (route === 'off' || route === '') {
     return;
   }
 
-  await app.env.DISPATCH_QUEUE.send({
-    kind: 'pendingRequest',
-    channel: { platform: 'telegram', platformUserId: telegram.ref },
-    requestId,
-    senderTitle: title,
-    senderDescription: description ?? undefined,
-    senderIconUrl: iconUrl ?? undefined,
-    senderDid,
-  });
+  const targets = selectTargets(
+    await q.listDeliveryTargets(app.env.DB, recipient),
+    routeSelection(route),
+  );
+  if (targets.length === 0) return;
+
+  const body = `${title} wants to send you notifications — review it in atmo.pub.`;
+  const jobs = targets.map((t) => ({
+    body:
+      t.channel === 'telegram'
+        ? ({
+            kind: 'pendingRequest' as const,
+            channel: { platform: 'telegram' as const, platformUserId: t.chatId },
+            requestId,
+            senderTitle: title,
+            senderDescription: description ?? undefined,
+            senderIconUrl: iconUrl ?? undefined,
+            senderDid,
+          } satisfies DispatchJob)
+        : ({
+            kind: 'notification' as const,
+            channel: deliveryChannelFor(t),
+            title: 'Permission request',
+            body,
+            uri: PENDING_URL,
+            senderDid,
+          } satisfies DispatchJob),
+  }));
+  await app.env.DISPATCH_QUEUE.sendBatch(jobs);
 }

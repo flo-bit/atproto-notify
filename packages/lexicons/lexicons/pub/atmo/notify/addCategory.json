@@ -1,0 +1,39 @@
+{
+  "lexicon": 1,
+  "id": "pub.atmo.notify.addCategory",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Declare (add or update) one of the calling app's categories for a user, without disturbing the others. Self-scoped management write (app JWT + a fresh `userToken`, like setRouting). Requires an active grant.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["userToken", "id"],
+          "properties": {
+            "userToken": {
+              "type": "string",
+              "description": "A user-issued service-auth JWT (aud = relay DID, lxm = pub.atmo.notify.addCategory)."
+            },
+            "id": { "type": "string", "maxLength": 64, "description": "The category key (matches `category` in send)." },
+            "title": { "type": "string", "maxLength": 128, "description": "Human display name (e.g. a webhook's name)." },
+            "description": { "type": "string", "maxLength": 200 },
+            "route": {
+              "type": "string",
+              "description": "Optional initial route: a '+'-joined token set, 'off', 'inbox', or 'app' to inherit the app-wide route. Omit to leave routing unchanged."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["ok"],
+          "properties": { "ok": { "type": "boolean" } }
+        }
+      },
+      "errors": [{ "name": "NotAuthorized" }]
+    }
+  }
+}

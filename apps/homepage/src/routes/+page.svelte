@@ -4,7 +4,10 @@
 
 	const features = [
 		{ t: 'Permission first', d: 'Apps request access; nothing is sent until you approve.' },
-		{ t: 'Delivered to Telegram', d: 'Link your Telegram once and get notifications in chat.' },
+		{
+			t: 'Your channels',
+			d: 'Route alerts to web push, Telegram, email, Bluesky DM, or a webhook — per app and per category.'
+		},
 		{ t: 'Revoke anytime', d: 'Mute or revoke any app from your dashboard.' }
 	];
 </script>
@@ -22,8 +25,9 @@
 		{PROJECT_NAME}
 	</h1>
 	<p class="mt-4 max-w-prose text-base leading-relaxed text-muted">
-		Lets any AT&nbsp;Protocol app send you notifications via Telegram (and soon more). You stay in
-		control: every app must ask permission, and you can revoke any time.
+		Lets any AT&nbsp;Protocol app send you notifications — delivered via web push, Telegram, email,
+		Bluesky DM, or a webhook, with everything kept in an inbox. You stay in control: every app must
+		ask permission, and you can revoke any time.
 	</p>
 
 	<div class="mt-8 flex flex-wrap gap-3">

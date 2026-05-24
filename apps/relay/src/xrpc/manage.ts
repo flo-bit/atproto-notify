@@ -29,6 +29,11 @@ const LXM = 'pub.atmo.notify.manage';
 // gate (`verifyManagementCall` at `scope: 'full'`) runs before any op.
 type OpFn = (env: Env, did: Did, params: unknown) => Promise<unknown>;
 
+// NOTE: category management (setCategories/addCategory/removeCategory/getCategories)
+// and addWebhook are deliberately NOT exposed here. They are inherently per-app
+// self-scope (an app declares ITS OWN categories / adds a webhook), so they belong
+// on the self surface; a `full` account-manager has no business mutating another
+// app's categories. setGrantManage is likewise user-only.
 const OPS: Record<string, OpFn> = {
   // reads
   listGrants: (env, did) => ops.listGrants(env, did),

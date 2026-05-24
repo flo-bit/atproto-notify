@@ -45,8 +45,9 @@
 	<header>
 		<h1 class="text-2xl font-semibold tracking-tight text-fg">Developer docs</h1>
 		<p class="mt-2 max-w-prose text-sm leading-relaxed text-muted">
-			Any atproto app can ask users to receive notifications via {PROJECT_NAME}. Users approve in
-			the dashboard; the relay delivers via Telegram.
+			Any atproto app can ask users to receive notifications via {PROJECT_NAME}. Users approve in the
+			dashboard and choose where alerts go — web push, Telegram, email, Bluesky DM, or a webhook —
+			while everything also lands in their inbox.
 		</p>
 		<p class="mt-3 max-w-prose rounded-card border border-line bg-surface p-3 text-sm text-muted">
 			<strong class="text-fg">Two endpoints, two auth mechanisms.</strong>
@@ -113,8 +114,8 @@
 		<p class="max-w-prose text-sm leading-relaxed text-muted">
 			Returns <code class="font-mono text-fg">&#123; id, status &#125;</code>
 			(<code class="font-mono text-fg">pending</code> or
-			<code class="font-mono text-fg">alreadyGranted</code>). The user approves in their dashboard or
-			via Telegram. <code class="font-mono text-fg">title</code> ≤ 50 chars,
+			<code class="font-mono text-fg">alreadyGranted</code>). The user approves in their dashboard.
+			<code class="font-mono text-fg">title</code> ≤ 50 chars,
 			<code class="font-mono text-fg">description</code> ≤ 200 chars, optional
 			<code class="font-mono text-fg">iconUrl</code>.
 		</p>
@@ -126,7 +127,13 @@
 			Once granted, sign with your app's own key (no user involved) and send. Field limits:
 			<code class="font-mono text-fg">title</code> ≤ 100, <code class="font-mono text-fg">body</code>
 			≤ 500, optional <code class="font-mono text-fg">uri</code> and
-			<code class="font-mono text-fg">threadKey</code>.
+			<code class="font-mono text-fg">threadKey</code>. Optional
+			<code class="font-mono text-fg">category</code> (≤ 64) tags the notification so the user can
+			route that category separately; <code class="font-mono text-fg">categoryDescription</code> labels
+			it in their settings. The response is
+			<code class="font-mono text-fg">&#123; id, delivered &#125;</code> —
+			<code class="font-mono text-fg">delivered: 0</code> is normal (saved to the inbox, but the user
+			may have muted you, routed you to “off”, or connected no channels).
 		</p>
 		{@render codeblock(data.code.sendJwt)}
 		<p class="max-w-prose text-sm leading-relaxed text-muted">
@@ -178,7 +185,52 @@
 	</section>
 
 	<section class="space-y-3">
-		<h2 class="text-lg font-semibold text-fg">6. Rate limits</h2>
+		<h2 class="text-lg font-semibold text-fg">6. Let users tune your app (optional)</h2>
+		<p class="max-w-prose text-sm leading-relaxed text-muted">
+			If the user grants your app “manage its own settings”, it can read and adjust how
+			<em>its own</em> notifications reach them — over <strong class="text-fg">dual-auth</strong> XRPC
+			(your app token in the header + a fresh user token in the body
+			<code class="font-mono text-fg">userToken</code>, both scoped to the method). These only ever
+			touch your app's slice for that user.
+		</p>
+		<ul class="ml-5 list-disc space-y-1 text-sm text-muted">
+			<li>
+				<code class="font-mono text-fg">getRouting</code> /
+				<code class="font-mono text-fg">setRouting</code> — read the user's routable targets (to render
+				a picker) and set which channels your notifications use, app-wide and per-category.
+			</li>
+			<li>
+				<code class="font-mono text-fg">getCategories</code> /
+				<code class="font-mono text-fg">setCategories</code> /
+				<code class="font-mono text-fg">addCategory</code> /
+				<code class="font-mono text-fg">removeCategory</code> — declare your categories up front (e.g.
+				one per webhook the user configures), each with a display title, so they show in routing
+				before the first send.
+			</li>
+			<li>
+				<code class="font-mono text-fg">listNotifications</code> /
+				<code class="font-mono text-fg">markRead</code>,
+				<code class="font-mono text-fg">muteSelf</code>,
+				<code class="font-mono text-fg">revokeSelf</code> — read/ack your inbox slice; mute or remove
+				yourself.
+			</li>
+		</ul>
+		<p class="max-w-prose text-sm leading-relaxed text-muted">
+			A <strong class="text-fg">route</strong> is a <code class="font-mono text-fg">+</code>-joined set
+			of channel tokens (<code class="font-mono text-fg">push</code>,
+			<code class="font-mono text-fg">telegram</code>, <code class="font-mono text-fg">email</code>,
+			<code class="font-mono text-fg">dm</code>, <code class="font-mono text-fg">webhook</code>; or
+			<code class="font-mono text-fg">channel:&lt;id&gt;</code> for one specific device/chat), plus
+			<code class="font-mono text-fg">off</code>, <code class="font-mono text-fg">inbox</code> (inbox
+			only), and the inherit sentinels <code class="font-mono text-fg">default</code> /
+			<code class="font-mono text-fg">app</code>. Full method reference: the
+			<a class="text-accent hover:underline" href="/llms.txt">LLM integration guide</a> or each lexicon
+			at <code class="font-mono text-fg">/lexicons/&lt;nsid&gt;</code>.
+		</p>
+	</section>
+
+	<section class="space-y-3">
+		<h2 class="text-lg font-semibold text-fg">7. Rate limits</h2>
 		<ul class="ml-5 list-disc space-y-1 text-sm text-muted">
 			<li>At most <strong class="text-fg">1 outstanding pending request</strong> per (sender, recipient).</li>
 			<li><code class="font-mono text-fg">requestPermission</code>: <strong class="text-fg">50 / hour</strong> per recipient and <strong class="text-fg">100 / hour</strong> per sender.</li>
@@ -187,7 +239,7 @@
 	</section>
 
 	<section class="space-y-3">
-		<h2 class="text-lg font-semibold text-fg">7. Error handling</h2>
+		<h2 class="text-lg font-semibold text-fg">8. Error handling</h2>
 		<p class="max-w-prose text-sm leading-relaxed text-muted">Common XRPC errors:</p>
 		<ul class="ml-5 list-disc space-y-1 text-sm text-muted">
 			<li><code class="font-mono text-fg">AuthenticationRequired</code> — missing/invalid JWT.</li>

@@ -14,7 +14,7 @@ export const load: PageServerLoad = async ({ locals, platform, params }) => {
 
 	return {
 		app,
-		defaultRoute: routing?.defaultRoute ?? 'push',
+		defaultRoute: routing?.defaultRoute ?? 'inbox',
 		channels: routing?.channels ?? emptyRouteInstances()
 	};
 };

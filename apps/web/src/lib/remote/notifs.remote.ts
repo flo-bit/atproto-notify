@@ -2,11 +2,12 @@
 // `load` functions; after a command runs, the client calls `invalidateAll()` to
 // refresh the page data.
 import type { Did } from '@atcute/lexicons';
-import { isConcreteRoute } from '@atmo/notifs-lexicons';
+import { isAppRoute, isCategoryRoute, isConcreteRoute } from '@atmo/notifs-lexicons';
 import { command, getRequestEvent } from '$app/server';
 import { error } from '@sveltejs/kit';
 import * as v from 'valibot';
 
+import { emailEnabledFor } from '$lib/server/featureAccess';
 import { relayFor } from '$lib/server/relay';
 
 /** Resolve the relay bound to the signed-in user, or 401. */
@@ -42,10 +43,6 @@ export const setMuted = command(
 	}
 );
 
-export const setNotifyPending = command(v.object({ value: v.boolean() }), async ({ value }) => {
-	await requireRelay().updateSettings({ notifyPendingViaTelegram: value });
-});
-
 const optionalLabel = v.optional(v.pipe(v.string(), v.trim(), v.maxLength(64)));
 
 /** Returns the Telegram deep link; the client navigates to it. Optional `label`
@@ -61,6 +58,10 @@ export const linkTelegram = command(
 export const linkEmail = command(
 	v.object({ address: v.pipe(v.string(), v.email()), label: optionalLabel }),
 	async ({ address, label }) => {
+		// Email is allowlisted; reject non-whitelisted DIDs (the UI is hidden for them
+		// too, so this only fires on a crafted request).
+		const { locals } = getRequestEvent();
+		if (!emailEnabledFor(locals.did)) error(403, 'Email is not available for your account');
 		await requireRelay().linkEmail(address, label);
 	}
 );
@@ -131,17 +132,16 @@ export const clearAppNotifications = command(
 
 // A route is a `+`-joined channel set or 'off'; app/category add an inherit sentinel.
 const concreteRoute = v.pipe(v.string(), v.check(isConcreteRoute, 'Invalid route'));
-const appRoute = v.pipe(
-	v.string(),
-	v.check((s) => s === 'default' || isConcreteRoute(s), 'Invalid route')
-);
-const categoryRoute = v.pipe(
-	v.string(),
-	v.check((s) => s === 'app' || isConcreteRoute(s), 'Invalid route')
-);
+const appRoute = v.pipe(v.string(), v.check(isAppRoute, 'Invalid route'));
+const categoryRoute = v.pipe(v.string(), v.check(isCategoryRoute, 'Invalid route'));
 
 export const setDefaultRoute = command(v.object({ route: concreteRoute }), async ({ route }) => {
 	await requireRelay().setDefaultRoute(route);
+});
+
+/** Where permission-request alerts are sent (a concrete route, or 'off'). */
+export const setPendingRoute = command(v.object({ route: concreteRoute }), async ({ route }) => {
+	await requireRelay().updateSettings({ pendingRoute: route });
 });
 
 export const setRouting = command(

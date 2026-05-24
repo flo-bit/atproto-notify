@@ -33,6 +33,7 @@ export const APPS: readonly RegisteredApp[] = [
     did: 'did:web:example.atmo.pub',
     title: 'Example Sender',
     description: 'Demo app showing the atmo.pub integration.',
+    iconUrl: 'https://example.atmo.pub/icon.svg',
     // For local end-to-end testing, point this at your local example-sender.
     callbackUrl: 'https://example.atmo.pub',
     // Relay-allowlisted for self-management so the example's "Step 3" demo works
@@ -54,6 +55,11 @@ export function relayManageFor(did: string): 'self' | 'full' | undefined {
 /** The registered app for `did`, if it has a callback URL configured. */
 export function callbackAppFor(did: string): RegisteredApp | undefined {
   return APPS.find((app) => app.did === did && app.callbackUrl !== undefined);
+}
+
+/** The registered catalog entry for `did`, if any (for grant display metadata). */
+export function registeredApp(did: string): RegisteredApp | undefined {
+  return APPS.find((app) => app.did === did);
 }
 
 /** Public catalog metadata for the web "enable apps" UI (no callback URLs). */

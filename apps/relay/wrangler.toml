@@ -10,7 +10,7 @@ routes = [{ pattern = "relay.atmo.pub", custom_domain = true }]
 [[d1_databases]]
 binding = "DB"
 database_name = "notifs-relay"
-database_id = "c83e2e03-0081-4fc4-b25f-6897a614e169"
+database_id = "53f56b8c-d25e-468a-9d02-e8575bf8964f"
 migrations_dir = "migrations"
 
 [[kv_namespaces]]
@@ -44,12 +44,22 @@ VAPID_PUBLIC_KEY = "BF4pVUiFeh9wltn6Rj151RHA4WfidcRRv8kXp2aKcRATi_2gUgq0uGX8jVY1
 VAPID_SUBJECT = "https://atmo.pub"
 # Email via comail (https://comail.at). COMAIL_DID = the account DID for the
 # X-Atmos-DID header; COMAIL_FROM = an enrolled sender address.
-COMAIL_DID = "did:web:relay.atmo.pub"
+COMAIL_DID = "did:plc:jf3acz4zktzkaptswh5so43u"
 COMAIL_FROM = "atmo.pub <notify@atmo.pub>"
+# Daily email caps (rolling 24h). Per-recipient = anti-spam/cost; global = keep
+# under the comail plan. Omit to use the defaults (10 / 100). See delivery/limits.ts.
+EMAIL_DAILY_PER_RECIPIENT = "10"
+EMAIL_DAILY_GLOBAL = "10"
+# Bluesky DM via a bot account. BLUESKY_DM_IDENTIFIER = the bot's handle or DID
+# (used for createSession); BLUESKY_DM_SERVICE = its PDS (defaults to
+# https://bsky.social if omitted). The app password is the BLUESKY_DM_APP_PASSWORD secret.
+BLUESKY_DM_IDENTIFIER = "did:plc:jf3acz4zktzkaptswh5so43u"
+BLUESKY_DM_SERVICE = "https://bsky.social"
 
 # Secrets set via `wrangler secret put`:
 # - TELEGRAM_BOT_TOKEN
 # - TELEGRAM_WEBHOOK_SECRET
-# - VAPID_PRIVATE_JWK   (the private JWK from `pnpm vapid:keygen`)
-# - RELAY_PRIVATE_KEY   (the private multikey from `pnpm relay:keygen`)
-# - COMAIL_API_KEY      (atmos_… from comail.at)
+# - VAPID_PRIVATE_JWK        (the private JWK from `pnpm vapid:keygen`)
+# - RELAY_PRIVATE_KEY        (the private multikey from `pnpm relay:keygen`)
+# - COMAIL_API_KEY           (atmos_… from comail.at)
+# - BLUESKY_DM_APP_PASSWORD  (an app password from the bot's Bluesky account)

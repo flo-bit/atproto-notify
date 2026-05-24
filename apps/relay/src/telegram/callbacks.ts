@@ -5,7 +5,6 @@ import type { Env } from '../env';
 import { answerCallbackQuery, editMessageText } from '../delivery/telegram';
 import { now } from '../lib/time';
 
-import { settingsKeyboard, settingsText } from './commands';
 import type { TelegramCallbackQuery } from './webhook';
 
 const PLATFORM = 'telegram';
@@ -32,10 +31,6 @@ export async function handleCallback(env: Env, query: TelegramCallbackQuery): Pr
   }
   if (data.startsWith('deny:')) {
     await handleDeny(env, query, channel.did, data.slice('deny:'.length), messageId);
-    return;
-  }
-  if (data === 'toggle:notifyPending') {
-    await handleToggle(env, query, channel.did, messageId);
     return;
   }
 
@@ -96,32 +91,6 @@ async function handleDeny(
     }
   }
   await answerCallbackQuery(env, { callback_query_id: query.id, text: 'Denied' });
-}
-
-async function handleToggle(
-  env: Env,
-  query: TelegramCallbackQuery,
-  recipientDid: Did,
-  messageId: number | undefined,
-): Promise<void> {
-  await q.ensureUser(env.DB, recipientDid, now());
-  const user = await q.getUser(env.DB, recipientDid);
-  const next = (user?.notify_pending_via_telegram ?? 0) === 0;
-  await q.setNotifyPending(env.DB, recipientDid, next);
-
-  if (messageId !== undefined) {
-    await editMessageText(env, {
-      chat_id: query.from.id,
-      message_id: messageId,
-      text: settingsText(next),
-      parse_mode: 'MarkdownV2',
-      reply_markup: settingsKeyboard(next),
-    });
-  }
-  await answerCallbackQuery(env, {
-    callback_query_id: query.id,
-    text: next ? 'Enabled' : 'Disabled',
-  });
 }
 
 /** A human-friendly label for a sender (cached handle, falling back to DID). */

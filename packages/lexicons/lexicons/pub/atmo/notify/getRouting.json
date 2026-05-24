@@ -67,6 +67,10 @@
       "required": ["id", "route"],
       "properties": {
         "id": { "type": "string", "description": "The category key." },
+        "title": {
+          "type": "string",
+          "description": "Human display name for this category, if the app set one."
+        },
         "description": {
           "type": "string",
           "description": "Human description last seen for this category, if any."

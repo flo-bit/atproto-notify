@@ -2,6 +2,7 @@ import {
   deleteExpiredLinkTokens,
   deleteExpiredPending,
   deleteOldDeliveryLog,
+  deleteOldNotifications,
 } from './db/queries';
 import { handleQueue } from './delivery/dispatcher';
 import type { DispatchJob, Env } from './env';
@@ -16,6 +17,9 @@ export { RelayRpc } from './rpc/entrypoint';
 
 const TELEGRAM_WEBHOOK_RE = /^\/telegram\/webhook\/(.+)$/;
 const DELIVERY_LOG_RETENTION_MS = 30 * DAY_MS;
+// Inbox backstop so `notifications` can't grow without bound. Generous; the inbox
+// is the canonical history, but very old entries are dropped.
+const NOTIFICATION_RETENTION_MS = 90 * DAY_MS;
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -49,5 +53,6 @@ export default {
     await deleteExpiredPending(env.DB, ts);
     await deleteExpiredLinkTokens(env.DB, ts);
     await deleteOldDeliveryLog(env.DB, ts - DELIVERY_LOG_RETENTION_MS);
+    await deleteOldNotifications(env.DB, ts - NOTIFICATION_RETENTION_MS);
   },
 } satisfies ExportedHandler<Env, DispatchJob>;

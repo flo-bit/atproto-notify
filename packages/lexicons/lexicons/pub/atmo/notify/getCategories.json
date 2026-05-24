@@ -1,0 +1,50 @@
+{
+  "lexicon": 1,
+  "id": "pub.atmo.notify.getCategories",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "List the calling app's categories for a user (its own catalog only — never another app's, never another user's), with each category's current route. Self-scoped management read (app JWT + a fresh `userToken`). Requires an active grant.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["userToken"],
+          "properties": {
+            "userToken": {
+              "type": "string",
+              "description": "A user-issued service-auth JWT (aud = relay DID, lxm = pub.atmo.notify.getCategories)."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["categories"],
+          "properties": {
+            "categories": {
+              "type": "array",
+              "items": { "type": "ref", "ref": "#category" }
+            }
+          }
+        }
+      },
+      "errors": [{ "name": "NotAuthorized" }]
+    },
+    "category": {
+      "type": "object",
+      "required": ["id", "route"],
+      "properties": {
+        "id": { "type": "string", "description": "The category key." },
+        "title": { "type": "string", "description": "Human display name, if set." },
+        "description": { "type": "string", "description": "Description, if set." },
+        "route": {
+          "type": "string",
+          "description": "Current route for this category: a '+'-joined token set, 'off', 'inbox', or 'app' (inherit the app-wide route)."
+        }
+      }
+    }
+  }
+}

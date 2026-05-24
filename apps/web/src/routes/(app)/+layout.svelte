@@ -4,7 +4,6 @@
 	import { page } from '$app/state';
 	import { oauthLogout } from '$lib/atproto/oauth.remote';
 	import Icon from '$lib/components/Icon.svelte';
-	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import Wordmark from '$lib/components/Wordmark.svelte';
 	import { DOCS_URL } from '$lib/config';
 	import type { LayoutData } from './$types';
@@ -44,9 +43,7 @@
 
 <div class="md:grid md:h-screen md:grid-cols-[15.5rem_1fr]">
 	<!-- Desktop sidebar -->
-	<aside
-		class="sticky top-0 hidden h-screen flex-col gap-1 border-r border-line bg-bg p-3 md:flex"
-	>
+	<aside class="sticky top-0 hidden h-screen flex-col gap-1 border-r border-line bg-bg p-3 md:flex">
 		<div class="px-2 pt-2 pb-4">
 			<Wordmark size={15} />
 		</div>
@@ -81,7 +78,7 @@
 			<span>Developer docs</span>
 		</a>
 
-		<!-- Account / theme / sign out -->
+		<!-- Account / sign out -->
 		<div class="mt-1 flex flex-col gap-2 border-t border-line pt-3">
 			<div class="px-2" title={data.did}>
 				{#if data.handle}
@@ -90,18 +87,15 @@
 					<div class="truncate font-mono text-xs text-muted-2">{shortDid}</div>
 				{/if}
 			</div>
-			<div class="flex items-center gap-2">
-				<ThemeToggle />
-				<button
-					type="button"
-					onclick={signOut}
-					disabled={signingOut}
-					class="flex flex-1 items-center justify-start gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-surface-2 hover:text-fg disabled:opacity-50"
-				>
-					<Icon name="logout" size={16} />
-					<span>{signingOut ? 'Signing out…' : 'Sign out'}</span>
-				</button>
-			</div>
+			<button
+				type="button"
+				onclick={signOut}
+				disabled={signingOut}
+				class="flex items-center justify-start gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-surface-2 hover:text-fg disabled:opacity-50"
+			>
+				<Icon name="logout" size={16} />
+				<span>{signingOut ? 'Signing out…' : 'Sign out'}</span>
+			</button>
 		</div>
 	</aside>
 
@@ -109,11 +103,8 @@
 	     pinned and only the content scrolls), the grid's 2nd cell on desktop. -->
 	<div class="flex h-dvh min-w-0 flex-col md:h-screen">
 		<!-- Mobile top bar -->
-		<header
-			class="flex h-14 shrink-0 items-center justify-between border-b border-line bg-bg px-4 md:hidden"
-		>
+		<header class="flex h-14 shrink-0 items-center border-b border-line bg-bg px-4 md:hidden">
 			<Wordmark size={15} />
-			<ThemeToggle />
 		</header>
 
 		<main bind:this={mainEl} class="min-h-0 flex-1 overflow-y-auto">
@@ -122,9 +113,7 @@
 
 		<!-- Mobile bottom tab bar — in-flow, so it always sits at the column's
 		     bottom (no `fixed`, which is unreliable with iOS scrolling). -->
-		<nav
-			class="flex shrink-0 justify-around border-t border-line bg-bg pt-2 pb-6 md:hidden"
-		>
+		<nav class="flex shrink-0 justify-around border-t border-line bg-bg pt-2 pb-6 md:hidden">
 			{#each nav as item (item.id)}
 				{@const isActive = active === item.id}
 				<a

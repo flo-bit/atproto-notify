@@ -76,6 +76,11 @@
 		});
 	}
 
+	// Temporarily hidden: the per-app management-access control. The capability
+	// still exists end-to-end (new grants default to 'self'); we just don't expose
+	// the picker yet. Flip to `true` to bring the section back.
+	const SHOW_MANAGEMENT_ACCESS = false;
+
 	const CAPABILITIES: Capability[] = ['none', 'self', 'full'];
 	const CAP_LABELS: Record<Capability, string> = {
 		none: 'No access',
@@ -183,7 +188,10 @@
 								: ''}"
 						>
 							<div class="min-w-0">
-								<div class="text-sm font-semibold text-fg">{c.category}</div>
+								<div class="text-sm font-semibold text-fg">{c.title ?? c.category}</div>
+								{#if c.title}
+									<div class="truncate font-mono text-[0.65rem] text-muted-2">{c.category}</div>
+								{/if}
 								{#if c.description}<div class="text-xs text-muted">{c.description}</div>{/if}
 							</div>
 							<ChannelRoutePicker
@@ -199,36 +207,39 @@
 			{/if}
 		</section>
 
-		<!-- Management access (capability designation; see MANAGEMENT-AUTH.md) -->
-		<section class="mt-8 max-w-2xl">
-			<h2 class="mb-3 font-mono text-[0.7rem] tracking-wide text-muted-2 uppercase">
-				Management access
-			</h2>
-			<div class="rounded-card border border-line bg-surface p-4">
-				<div class="flex items-center justify-between gap-4">
-					<div class="min-w-0">
-						<div class="text-sm font-medium text-fg">Let this app change your settings</div>
-						<p class="mt-1 text-xs text-muted">
-							<span class="font-medium text-fg">Manage its own settings</span> lets the app adjust
-							how
-							<em>its</em> notifications reach you, from inside the app.
-							<span class="font-medium text-fg">Manage your whole account</span> lets it act as a full
-							dashboard — every app, channel and setting. Grant full access only to apps you trust.
-						</p>
+		<!-- Management access (capability designation; see MANAGEMENT-AUTH.md).
+		     Temporarily hidden via SHOW_MANAGEMENT_ACCESS; backend still works. -->
+		{#if SHOW_MANAGEMENT_ACCESS}
+			<section class="mt-8 max-w-2xl">
+				<h2 class="mb-3 font-mono text-[0.7rem] tracking-wide text-muted-2 uppercase">
+					Management access
+				</h2>
+				<div class="rounded-card border border-line bg-surface p-4">
+					<div class="flex items-center justify-between gap-4">
+						<div class="min-w-0">
+							<div class="text-sm font-medium text-fg">Let this app change your settings</div>
+							<p class="mt-1 text-xs text-muted">
+								<span class="font-medium text-fg">Manage its own settings</span> lets the app adjust
+								how
+								<em>its</em> notifications reach you, from inside the app.
+								<span class="font-medium text-fg">Manage your whole account</span> lets it act as a full
+								dashboard — every app, channel and setting. Grant full access only to apps you trust.
+							</p>
+						</div>
+						<select
+							class={selectClass}
+							value={data.app.manage}
+							disabled={busy['__manage']}
+							onchange={(e) => changeManage(e.currentTarget.value as Capability)}
+						>
+							{#each CAPABILITIES as c (c)}
+								<option value={c}>{CAP_LABELS[c]}</option>
+							{/each}
+						</select>
 					</div>
-					<select
-						class={selectClass}
-						value={data.app.manage}
-						disabled={busy['__manage']}
-						onchange={(e) => changeManage(e.currentTarget.value as Capability)}
-					>
-						{#each CAPABILITIES as c (c)}
-							<option value={c}>{CAP_LABELS[c]}</option>
-						{/each}
-					</select>
 				</div>
-			</div>
-		</section>
+			</section>
+		{/if}
 
 		<!-- Notifications -->
 		<section class="mt-8 max-w-2xl">

@@ -2,12 +2,14 @@ import { PubAtmoNotifyRevokeSelf } from '@atmo/notifs-lexicons';
 import { json, type ProcedureConfig } from '@atcute/xrpc-server';
 
 import { verifyManagementCall } from '../auth/management';
-import * as q from '../db/queries';
 import type { AppContext } from '../env';
+import * as ops from '../rpc/ops';
 
 const LXM = 'pub.atmo.notify.revokeSelf';
 
-/** An app removes its own grant for a user (turns itself off). Self-scoped. */
+/** An app removes its own grant for a user (turns itself off). Self-scoped.
+ *  Delegates to `ops.revoke` so it also cascades routing/categories + fires the
+ *  subscriberChanged callback. */
 export function makeRevokeSelf(
   app: AppContext,
 ): ProcedureConfig<PubAtmoNotifyRevokeSelf.mainSchema> {
@@ -18,7 +20,7 @@ export function makeRevokeSelf(
         write: true,
         lxm: LXM,
       });
-      await q.deleteGrant(app.env.DB, userDid, appDid);
+      await ops.revoke(app.env, userDid, { sender: appDid });
       return json({ ok: true });
     },
   };

@@ -1,10 +1,10 @@
-import { isConcreteRoute, PubAtmoNotifySetRouting } from '@atmo/notifs-lexicons';
+import { isAppRoute, isCategoryRoute, PubAtmoNotifySetRouting } from '@atmo/notifs-lexicons';
 import { json, type ProcedureConfig } from '@atcute/xrpc-server';
 
 import { verifyManagementCall } from '../auth/management';
-import * as q from '../db/queries';
 import type { AppContext } from '../env';
 import { invalidRequest } from '../lib/errors';
+import * as ops from '../rpc/ops';
 
 const LXM = 'pub.atmo.notify.setRouting';
 
@@ -14,8 +14,8 @@ const LXM = 'pub.atmo.notify.setRouting';
  * A self-scoped management write (see MANAGEMENT-AUTH.md): the app is
  * authenticated by its service-auth bearer and the user by the body `userToken`;
  * `verifyManagementCall` enforces the (user, app) capability + self-write policy.
- * Only ever touches routing rows keyed by (userDid, senderDid) — never the
- * account default, other apps, or channels.
+ * Delegates to the same `ops.*` the binding uses (one implementation), always
+ * scoped to (userDid, senderDid) — never the account default, other apps, or channels.
  */
 export function makeSetRouting(
   app: AppContext,
@@ -28,30 +28,21 @@ export function makeSetRouting(
         lxm: LXM,
       });
 
-      // The lexicon route fields are free strings; validate the channel-set format.
-      if (input.route !== undefined && input.route !== 'default' && !isConcreteRoute(input.route)) {
+      // The lexicon route fields are free strings; validate the token-set format.
+      if (input.route !== undefined && !isAppRoute(input.route)) {
         throw invalidRequest('Invalid route');
       }
       for (const c of input.categories ?? []) {
-        if (c.route !== 'app' && !isConcreteRoute(c.route)) {
+        if (!isCategoryRoute(c.route)) {
           throw invalidRequest('Invalid category route');
         }
       }
 
       if (input.route !== undefined) {
-        if (input.route === 'default') {
-          await q.deleteAppRoute(app.env.DB, userDid, senderDid);
-        } else {
-          await q.upsertAppRoute(app.env.DB, userDid, senderDid, input.route);
-        }
+        await ops.setAppRouting(app.env, userDid, senderDid, input.route);
       }
-
       for (const c of input.categories ?? []) {
-        if (c.route === 'app') {
-          await q.deleteRouting(app.env.DB, userDid, senderDid, c.id);
-        } else {
-          await q.upsertRouting(app.env.DB, userDid, senderDid, c.id, c.route);
-        }
+        await ops.setRouting(app.env, userDid, senderDid, c.id, c.route);
       }
 
       return json({ ok: true });

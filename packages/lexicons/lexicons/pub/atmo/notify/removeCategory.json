@@ -1,0 +1,33 @@
+{
+  "lexicon": 1,
+  "id": "pub.atmo.notify.removeCategory",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Remove one of the calling app's categories for a user, along with its per-category routing. Self-scoped management write (app JWT + a fresh `userToken`). Requires an active grant. Past notifications keep their category string (they are historical).",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["userToken", "id"],
+          "properties": {
+            "userToken": {
+              "type": "string",
+              "description": "A user-issued service-auth JWT (aud = relay DID, lxm = pub.atmo.notify.removeCategory)."
+            },
+            "id": { "type": "string", "maxLength": 64, "description": "The category key to remove." }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["removed"],
+          "properties": { "removed": { "type": "boolean" } }
+        }
+      },
+      "errors": [{ "name": "NotAuthorized" }]
+    }
+  }
+}

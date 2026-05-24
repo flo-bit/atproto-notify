@@ -4,6 +4,8 @@ import { json, type ProcedureConfig } from '@atcute/xrpc-server';
 
 import { verifySenderRequest } from '../auth/sender';
 import * as q from '../db/queries';
+import { deliveryChannelFor, selectTargets } from '../delivery/channel';
+import { withinChannelLimits } from '../delivery/limits';
 import type { AppContext, DispatchJob } from '../env';
 import { notAuthorized, rateLimited } from '../lib/errors';
 import { newId } from '../lib/ids';
@@ -31,6 +33,27 @@ export function makeSend(app: AppContext): ProcedureConfig<PubAtmoNotifySend.mai
         throw notAuthorized();
       }
 
+      // 3. Rate limits (per recipient+sender pair) — checked before any write so a
+      //    rate-limited send has no side effects (no inbox row, no category).
+      const perSecond = await checkAndIncrement(
+        app.env.CACHE,
+        `rl:send:1s:${senderDid}:${recipient}`,
+        PER_SECOND_LIMIT,
+        PER_SECOND_WINDOW,
+      );
+      if (!perSecond.allowed) {
+        throw rateLimited(perSecond.resetIn, 'Sending too fast');
+      }
+      const perDay = await checkAndIncrement(
+        app.env.CACHE,
+        `rl:send:1d:${senderDid}:${recipient}`,
+        PER_DAY_LIMIT,
+        PER_DAY_WINDOW,
+      );
+      if (!perDay.allowed) {
+        throw rateLimited(perDay.resetIn, 'Daily notification limit reached for this recipient');
+      }
+
       // Register the category up front so it stays configurable in the routing UI
       // even when this notification is dropped (route 'off').
       if (input.category != null) {
@@ -54,7 +77,7 @@ export function makeSend(app: AppContext): ProcedureConfig<PubAtmoNotifySend.mai
         route = (await q.getAppRoute(app.env.DB, recipient, senderDid))?.route;
       }
       if (route === undefined) {
-        route = (await q.getUser(app.env.DB, recipient))?.default_route ?? 'push';
+        route = (await q.getUser(app.env.DB, recipient))?.default_route ?? 'inbox';
       }
 
       // 'off' → dropped entirely: not recorded, not delivered.
@@ -81,36 +104,23 @@ export function makeSend(app: AppContext): ProcedureConfig<PubAtmoNotifySend.mai
         return json({ id, delivered: 0 });
       }
 
-      // 4. Rate limits (per recipient+sender pair) — only for actual alert delivery.
-      const perSecond = await checkAndIncrement(
-        app.env.CACHE,
-        `rl:send:1s:${senderDid}:${recipient}`,
-        PER_SECOND_LIMIT,
-        PER_SECOND_WINDOW,
-      );
-      if (!perSecond.allowed) {
-        throw rateLimited(perSecond.resetIn, 'Sending too fast');
-      }
-      const perDay = await checkAndIncrement(
-        app.env.CACHE,
-        `rl:send:1d:${senderDid}:${recipient}`,
-        PER_DAY_LIMIT,
-        PER_DAY_WINDOW,
-      );
-      if (!perDay.allowed) {
-        throw rateLimited(perDay.resetIn, 'Daily notification limit reached for this recipient');
-      }
-
-      // 5. Resolve the token set against the user's deliverable targets. A bare
+      // 4. Resolve the token set against the user's deliverable targets. A bare
       //    channel ('push') fires all its instances; 'push:<id>' fires just one.
-      const selection = routeSelection(route);
-      const targets = (await q.listDeliveryTargets(app.env.DB, recipient))
-        .map(q.toDeliveryInstance)
-        .filter((t): t is q.DeliveryInstance => t !== null && t.verified)
-        .filter((t) => {
-          const sel = selection[t.channel];
-          return sel !== undefined && (sel.all || sel.ids.includes(t.id));
-        });
+      const matched = selectTargets(
+        await q.listDeliveryTargets(app.env.DB, recipient),
+        routeSelection(route),
+      );
+
+      // 5. Apply per-channel daily caps (per-recipient + relay-global, e.g. email).
+      //    A channel over its cap is skipped for this notification — it's still
+      //    recorded in the inbox above; uncapped channels pass without touching the
+      //    limiter. Sequential so the relay-global counter is consumed accurately.
+      const targets: typeof matched = [];
+      for (const target of matched) {
+        if (await withinChannelLimits(app.env, target.channel, recipient)) {
+          targets.push(target);
+        }
+      }
       const deliveredCount = targets.length;
 
       // No targets → accept but deliver to nobody.
@@ -121,7 +131,14 @@ export function makeSend(app: AppContext): ProcedureConfig<PubAtmoNotifySend.mai
 
       // 5. Enqueue one dispatch job per matched target.
       const jobs = targets.map((target) => ({
-        body: toNotificationJob(target, input, senderDid),
+        body: {
+          kind: 'notification' as const,
+          channel: deliveryChannelFor(target),
+          title: input.title,
+          body: input.body,
+          uri: input.uri,
+          senderDid,
+        } satisfies DispatchJob,
       }));
       await app.env.DISPATCH_QUEUE.sendBatch(jobs);
 
@@ -130,42 +147,6 @@ export function makeSend(app: AppContext): ProcedureConfig<PubAtmoNotifySend.mai
       return json({ id, delivered: deliveredCount });
     },
   };
-}
-
-/** Build a notification dispatch job for one resolved delivery instance. */
-function toNotificationJob(
-  target: q.DeliveryInstance,
-  input: { title: string; body: string; uri?: string },
-  senderDid: string,
-): DispatchJob {
-  const common = {
-    kind: 'notification' as const,
-    title: input.title,
-    body: input.body,
-    uri: input.uri,
-    senderDid,
-  };
-  if (target.channel === 'push') {
-    return {
-      ...common,
-      channel: {
-        platform: 'webpush',
-        endpoint: target.endpoint,
-        p256dh: target.p256dh,
-        auth: target.auth,
-      },
-    };
-  }
-  if (target.channel === 'telegram') {
-    return { ...common, channel: { platform: 'telegram', platformUserId: target.chatId } };
-  }
-  if (target.channel === 'email') {
-    return { ...common, channel: { platform: 'email', address: target.address } };
-  }
-  if (target.channel === 'dm') {
-    return { ...common, channel: { platform: 'dm', recipientDid: target.recipientDid } };
-  }
-  return { ...common, channel: { platform: 'webhook', url: target.url } };
 }
 
 function logDelivery(

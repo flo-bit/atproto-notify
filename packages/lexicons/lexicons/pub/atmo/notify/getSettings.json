@@ -9,9 +9,12 @@
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["notifyPendingViaTelegram", "autoAllow", "pushDevices"],
+          "required": ["pendingRoute", "autoAllow", "pushDevices"],
           "properties": {
-            "notifyPendingViaTelegram": { "type": "boolean" },
+            "pendingRoute": {
+              "type": "string",
+              "description": "Where permission-request alerts go: a '+'-joined token set (push|telegram|email|dm|webhook, optionally channel:<id>) or 'off'."
+            },
             "autoAllow": {
               "type": "string",
               "enum": ["all", "trusted", "none"],
