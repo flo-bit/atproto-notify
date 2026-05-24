@@ -6,6 +6,9 @@ export const PROJECT_NAME = 'atmo.pub';
 /** GitHub repo link in the footer. */
 export const GITHUB_URL = 'https://github.com/flo-bit/atproto-notify';
 
+/** Developer docs site (the homepage app at docs.atmo.pub). */
+export const DOCS_URL = 'https://docs.atmo.pub/docs';
+
 /**
  * OAuth scope: identity only. The webapp talks to the relay's management methods
  * over a private Cloudflare service binding (see src/lib/server/relay.ts) and

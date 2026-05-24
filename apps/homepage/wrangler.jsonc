@@ -1,0 +1,12 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "atmo-homepage",
+	"compatibility_date": "2026-04-01",
+
+	// Static-only: `assets` with no `main` serves the prerendered site directly.
+	// Asset requests don't invoke a Worker, so static serving is free.
+	"assets": { "directory": "./build" },
+
+	// Custom domain — uncomment once the zone is ready (wrangler provisions it):
+	"routes": [{ "pattern": "docs.atmo.pub", "custom_domain": true }]
+}

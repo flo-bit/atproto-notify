@@ -18,6 +18,7 @@
 		unlinkTelegram,
 		unregisterPush
 	} from '$lib/remote/notifs.remote';
+	import { DOCS_URL } from '$lib/config';
 	import { ALERT_ROUTES, ROUTE_LABELS } from '$lib/routes';
 	import type { PageData } from './$types';
 
@@ -32,7 +33,8 @@
 		{ id: 'channels', label: 'Channels' },
 		{ id: 'routing', label: 'Routing' },
 		{ id: 'auto-allow', label: 'Auto-allow' },
-		{ id: 'appearance', label: 'Appearance' }
+		{ id: 'appearance', label: 'Appearance' },
+		{ id: 'developer', label: 'Developer docs' }
 	] as const;
 	const initialTab = page.url.searchParams.get('tab') ?? 'channels';
 	let tab = $state(TABS.some((t) => t.id === initialTab) ? initialTab : 'channels');
@@ -170,7 +172,7 @@
 <div class="px-5 py-6 md:px-9 md:py-7">
 	<header>
 		<h1 class="text-2xl font-bold tracking-tight text-fg">Settings</h1>
-		<nav class="mt-4 flex gap-1 overflow-x-auto border-b border-line">
+		<nav class="mt-4 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line">
 			{#each TABS as t (t.id)}
 				<button
 					type="button"
@@ -451,6 +453,27 @@
 						{/if}
 					</button>
 				{/each}
+			</div>
+		</section>
+	{:else if tab === 'developer'}
+		<!-- Developer docs -->
+		<section class="mt-6 max-w-2xl">
+			<h2 class={sectionLabel}>Developer docs</h2>
+			<div class={card}>
+				<p class="text-sm text-muted">
+					Building an app? Send notifications through atmo.pub — request permission, send, and let
+					users manage routing — over a small XRPC API. The full guide, with code, lives on the docs
+					site.
+				</p>
+				<a
+					href={DOCS_URL}
+					target="_blank"
+					rel="noreferrer"
+					class="mt-4 inline-flex items-center gap-2 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90"
+				>
+					Open developer docs
+					<Icon name="arrow-right" size={16} stroke={2} />
+				</a>
 			</div>
 		</section>
 	{/if}

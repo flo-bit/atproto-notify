@@ -1,10 +1,12 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { oauthLogout } from '$lib/atproto/oauth.remote';
 	import Icon from '$lib/components/Icon.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import Wordmark from '$lib/components/Wordmark.svelte';
+	import { DOCS_URL } from '$lib/config';
 	import type { LayoutData } from './$types';
 
 	let { children, data }: { children: Snippet; data: LayoutData } = $props();
@@ -23,6 +25,11 @@
 		data.did && data.did.length > 24 ? `${data.did.slice(0, 16)}…${data.did.slice(-4)}` : data.did
 	);
 
+	// The content scroller is a persistent element (not the window), so reset it to
+	// the top on each navigation — otherwise scroll position carries between pages.
+	let mainEl = $state<HTMLElement>();
+	afterNavigate(() => mainEl?.scrollTo({ top: 0 }));
+
 	let signingOut = $state(false);
 	async function signOut() {
 		signingOut = true;
@@ -35,7 +42,7 @@
 	}
 </script>
 
-<div class="min-h-screen md:grid md:grid-cols-[15.5rem_1fr]">
+<div class="md:grid md:h-screen md:grid-cols-[15.5rem_1fr]">
 	<!-- Desktop sidebar -->
 	<aside
 		class="sticky top-0 hidden h-screen flex-col gap-1 border-r border-line bg-bg p-3 md:flex"
@@ -63,8 +70,19 @@
 
 		<div class="flex-1"></div>
 
+		<!-- Developer docs (external) -->
+		<a
+			href={DOCS_URL}
+			target="_blank"
+			rel="noreferrer"
+			class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-surface-2 hover:text-fg"
+		>
+			<Icon name="arrow-right" size={18} stroke={1.7} />
+			<span>Developer docs</span>
+		</a>
+
 		<!-- Account / theme / sign out -->
-		<div class="flex flex-col gap-2 border-t border-line pt-3">
+		<div class="mt-1 flex flex-col gap-2 border-t border-line pt-3">
 			<div class="px-2" title={data.did}>
 				{#if data.handle}
 					<div class="truncate text-xs font-medium text-fg">@{data.handle}</div>
@@ -87,36 +105,38 @@
 		</div>
 	</aside>
 
-	<!-- Main content -->
-	<div class="flex min-w-0 flex-col">
+	<!-- App column: a full-viewport flex column on mobile (so the tab bar stays
+	     pinned and only the content scrolls), the grid's 2nd cell on desktop. -->
+	<div class="flex h-dvh min-w-0 flex-col md:h-screen">
 		<!-- Mobile top bar -->
 		<header
-			class="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-line bg-bg/80 px-4 backdrop-blur md:hidden"
+			class="flex h-14 shrink-0 items-center justify-between border-b border-line bg-bg px-4 md:hidden"
 		>
 			<Wordmark size={15} />
 			<ThemeToggle />
 		</header>
 
-		<main class="flex-1 pb-24 md:pb-0">
+		<main bind:this={mainEl} class="min-h-0 flex-1 overflow-y-auto">
 			{@render children()}
 		</main>
+
+		<!-- Mobile bottom tab bar — in-flow, so it always sits at the column's
+		     bottom (no `fixed`, which is unreliable with iOS scrolling). -->
+		<nav
+			class="flex shrink-0 justify-around border-t border-line bg-bg pt-2 pb-6 md:hidden"
+		>
+			{#each nav as item (item.id)}
+				{@const isActive = active === item.id}
+				<a
+					href={item.href}
+					aria-current={isActive ? 'page' : undefined}
+					class="flex flex-col items-center gap-1 px-4 text-[0.65rem] font-semibold transition-colors
+						{isActive ? 'text-accent' : 'text-muted-2'}"
+				>
+					<Icon name={item.icon} size={24} stroke={isActive ? 2 : 1.7} />
+					<span>{item.label}</span>
+				</a>
+			{/each}
+		</nav>
 	</div>
 </div>
-
-<!-- Mobile bottom tab bar -->
-<nav
-	class="fixed inset-x-0 bottom-0 z-20 flex justify-around border-t border-line bg-bg/90 pt-2 pb-6 backdrop-blur md:hidden"
->
-	{#each nav as item (item.id)}
-		{@const isActive = active === item.id}
-		<a
-			href={item.href}
-			aria-current={isActive ? 'page' : undefined}
-			class="flex flex-col items-center gap-1 px-4 text-[0.65rem] font-semibold transition-colors
-				{isActive ? 'text-accent' : 'text-muted-2'}"
-		>
-			<Icon name={item.icon} size={24} stroke={isActive ? 2 : 1.7} />
-			<span>{item.label}</span>
-		</a>
-	{/each}
-</nav>

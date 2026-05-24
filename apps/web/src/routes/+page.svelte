@@ -3,7 +3,7 @@
 	import { oauthLogin } from '$lib/atproto/oauth.remote';
 	import Icon from '$lib/components/Icon.svelte';
 	import Logomark from '$lib/components/Logomark.svelte';
-	import { PROJECT_NAME } from '$lib/config';
+	import { DOCS_URL, PROJECT_NAME } from '$lib/config';
 
 	let handle = $state('');
 	let busy = $state(false);
@@ -98,5 +98,15 @@
 				<p class="mt-3 text-sm text-danger" role="alert">{errorMsg}</p>
 			{/if}
 		</form>
+
+		<p class="mt-6 text-center text-sm text-muted">
+			Building an app?
+			<a
+				href={DOCS_URL}
+				target="_blank"
+				rel="noreferrer"
+				class="font-medium text-accent hover:underline">Developer docs</a
+			>
+		</p>
 	</div>
 </div>
