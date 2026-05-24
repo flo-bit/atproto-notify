@@ -68,17 +68,25 @@ sw.addEventListener('push', (event) => {
 	);
 });
 
-// Focus an existing tab (navigating it to the notification's link) or open one.
+// A click goes to the PWA (the SW can only open in-scope pages). For an external
+// link we open the in-scope `/go` handoff page, which then bounces to the user's
+// default browser (a PWA can't render an out-of-scope URL); links to nowhere just
+// open the inbox. Routing through `/go` also keeps `client.navigate` same-origin
+// (it can't navigate an existing window to a cross-origin URL).
 sw.addEventListener('notificationclick', (event) => {
 	event.notification.close();
 	const uri = (event.notification.data as { uri?: string } | null)?.uri;
-	const target = uri && /^https?:/.test(uri) ? uri : new URL('/inbox', sw.location.origin).href;
+	const origin = sw.location.origin;
+	const target =
+		uri && /^https?:/.test(uri)
+			? new URL(`/go?to=${encodeURIComponent(uri)}`, origin).href
+			: new URL('/inbox', origin).href;
 	event.waitUntil(
 		(async () => {
 			const clients = await sw.clients.matchAll({ type: 'window', includeUncontrolled: true });
 			for (const client of clients) {
 				await client.focus();
-				if (uri) await client.navigate(target);
+				await client.navigate(target);
 				return;
 			}
 			await sw.clients.openWindow(target);

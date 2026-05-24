@@ -6,7 +6,6 @@ import { command, getRequestEvent } from '$app/server';
 import { error } from '@sveltejs/kit';
 import * as v from 'valibot';
 
-import { APP_DOMAIN } from '$lib/config';
 import {
 	listNotificationsForUser,
 	markAllReadForUser,
@@ -60,7 +59,9 @@ export const sendTest = command(
 				recipient: locals.did,
 				title: title?.trim() || 'Hello from the example sender',
 				body: body?.trim() || 'If you can read this, the integration works end to end.',
-				uri: `https://${APP_DOMAIN}`,
+				// A cross-site URL so PWA inbox links open in the default browser (an
+				// atmo.pub subdomain would be treated as same-site and stay in-app on iOS).
+				uri: 'https://bsky.app',
 				category: category?.trim() || undefined
 			});
 			return { ok: true, ...result };

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import AppMark from '$lib/components/AppMark.svelte';
 	import Icon from '$lib/components/Icon.svelte';
@@ -10,6 +11,19 @@
 
 	let busy = $state(false);
 
+	// In an installed PWA, `target="_blank"` opens an in-app browser (and iOS
+	// keeps it Safari-only). A plain same-window navigation to an out-of-scope URL
+	// (notification uris are cross-origin → outside our scope) is the only thing
+	// iOS hands to the user's *default* browser. So: drop `target` when running
+	// standalone, keep new-tab in a normal browser. Detected after mount so SSR/
+	// hydration render the same thing first (no mismatch).
+	let standalone = $state(false);
+	onMount(() => {
+		standalone =
+			window.matchMedia('(display-mode: standalone)').matches ||
+			(navigator as Navigator & { standalone?: boolean }).standalone === true;
+	});
+
 	async function markAll() {
 		busy = true;
 		try {
@@ -20,17 +34,20 @@
 		}
 	}
 
-	async function open(n: PageData['notifications'][number]) {
-		if (!n.read) {
-			try {
-				await markNotificationsRead({ ids: [n.id] });
-				await invalidateAll();
-			} catch {
+	// Mark read in the background (fire-and-forget). We DON'T open the link here —
+	// notifications with a `uri` are real <a target="_blank"> anchors so the OS hands
+	// the link to the default browser (a standalone PWA keeps `window.open` in-app).
+	function markRead(n: PageData['notifications'][number]) {
+		if (n.read) return;
+		markNotificationsRead({ ids: [n.id] })
+			.then(() => invalidateAll())
+			.catch(() => {
 				/* ignore — opening still proceeds */
-			}
-		}
-		if (n.uri) window.open(n.uri, '_blank', 'noopener');
+			});
 	}
+
+	const rowClass =
+		'flex w-full items-start gap-3 rounded-md px-2 py-3 text-left transition-colors hover:bg-surface-2';
 </script>
 
 <svelte:head><title>Inbox · atmo.pub</title></svelte:head>
@@ -75,33 +92,44 @@
 		<ul class="mt-2 divide-y divide-line-2">
 			{#each data.notifications as n (n.id)}
 				<li>
-					<button
-						type="button"
-						onclick={() => open(n)}
-						class="flex w-full items-start gap-3 rounded-md px-2 py-3 text-left transition-colors hover:bg-surface-2"
-					>
-						<AppMark id={n.sender} size={40} />
-						<div class="min-w-0 flex-1">
-							<div class="flex items-center gap-2">
-								<span class="truncate text-sm font-semibold text-fg">{n.title}</span>
-								{#if !n.read}
-									<span
-										class="size-2 shrink-0 rounded-full bg-accent"
-										aria-label="unread"
-									></span>
-								{/if}
-							</div>
-							{#if n.body}
-								<p class="mt-0.5 line-clamp-2 text-sm text-muted">{n.body}</p>
-							{/if}
-							<div class="mt-1 flex items-center gap-2 font-mono text-xs text-muted-2">
-								<RelativeTime date={n.createdAt} />
-								{#if n.category}<span>· {n.category}</span>{/if}
-							</div>
-						</div>
-					</button>
+					{#if n.uri}
+						<!-- Open in the default browser. Standalone PWA: no target → out-of-scope nav
+						     hands off to the default browser. Normal browser: new tab. -->
+						<a
+							href={n.uri}
+							target={standalone ? undefined : '_blank'}
+							rel="noopener noreferrer"
+							onclick={() => markRead(n)}
+							class={rowClass}
+						>
+							{@render item(n)}
+						</a>
+					{:else}
+						<button type="button" onclick={() => markRead(n)} class={rowClass}>
+							{@render item(n)}
+						</button>
+					{/if}
 				</li>
 			{/each}
 		</ul>
 	{/if}
 </div>
+
+{#snippet item(n: PageData['notifications'][number])}
+	<AppMark id={n.sender} size={40} />
+	<div class="min-w-0 flex-1">
+		<div class="flex items-center gap-2">
+			<span class="truncate text-sm font-semibold text-fg">{n.title}</span>
+			{#if !n.read}
+				<span class="size-2 shrink-0 rounded-full bg-accent" aria-label="unread"></span>
+			{/if}
+		</div>
+		{#if n.body}
+			<p class="mt-0.5 line-clamp-2 text-sm text-muted">{n.body}</p>
+		{/if}
+		<div class="mt-1 flex items-center gap-2 font-mono text-xs text-muted-2">
+			<RelativeTime date={n.createdAt} />
+			{#if n.category}<span>· {n.category}</span>{/if}
+		</div>
+	</div>
+{/snippet}
