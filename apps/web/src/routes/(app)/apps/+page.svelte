@@ -4,22 +4,21 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import RelativeTime from '$lib/components/RelativeTime.svelte';
 	import { approve, deny } from '$lib/remote/notifs.remote';
+	import { toast } from '$lib/toast.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
 	let busy = $state<Record<string, boolean>>({});
-	let errorMsg = $state('');
 
 	/** Run a mutation, refresh page data, and surface errors. */
 	async function run(key: string, fn: () => Promise<unknown>) {
 		busy[key] = true;
-		errorMsg = '';
 		try {
 			await fn();
 			await invalidateAll();
 		} catch (err) {
-			errorMsg = err instanceof Error ? err.message : 'Something went wrong';
+			toast.error(err instanceof Error ? err.message : 'Something went wrong');
 		} finally {
 			busy[key] = false;
 		}
@@ -40,16 +39,6 @@
 				· {data.pending.length} pending{/if}
 		</p>
 	</header>
-
-	{#if errorMsg}
-		<p
-			class="mt-4 rounded-card border border-line bg-danger/10 px-3 py-2 text-sm text-danger"
-			role="alert"
-		>
-			{errorMsg}
-		</p>
-	{/if}
-	<div aria-live="polite" class="sr-only">{errorMsg}</div>
 
 	<!-- Pending requests (hidden when there are none) -->
 	{#if data.pending.length > 0}

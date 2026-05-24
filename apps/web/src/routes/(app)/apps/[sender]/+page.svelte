@@ -13,24 +13,22 @@
 		setRouting
 	} from '$lib/remote/notifs.remote';
 	import { routeLabel } from '$lib/routes';
+	import { toast } from '$lib/toast.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
 	let busy = $state<Record<string, boolean>>({});
-	let errorMsg = $state('');
-	let notice = $state('');
 	let confirmingRevoke = $state(false);
 	let confirmingClear = $state(false);
 
 	async function run(key: string, fn: () => Promise<unknown>) {
 		busy[key] = true;
-		errorMsg = '';
 		try {
 			await fn();
 			await invalidateAll();
 		} catch (err) {
-			errorMsg = err instanceof Error ? err.message : 'Could not update routing';
+			toast.error(err instanceof Error ? err.message : 'Could not update routing');
 		} finally {
 			busy[key] = false;
 		}
@@ -68,11 +66,10 @@
 	function clearNotifs() {
 		const sender = data.app?.sender;
 		if (!sender) return;
-		notice = '';
 		run('__clear', async () => {
 			const { deleted } = await clearAppNotifications({ sender });
 			confirmingClear = false;
-			notice = `Cleared ${deleted} notification${deleted === 1 ? '' : 's'}.`;
+			toast.success(`Cleared ${deleted} notification${deleted === 1 ? '' : 's'}.`);
 		});
 	}
 
@@ -131,15 +128,6 @@
 				/>
 			</label>
 		</header>
-
-		{#if errorMsg}
-			<p
-				class="mt-4 rounded-card border border-line bg-danger/10 px-3 py-2 text-sm text-danger"
-				role="alert"
-			>
-				{errorMsg}
-			</p>
-		{/if}
 
 		<!-- App defaults -->
 		<section class="mt-6 max-w-2xl">
@@ -252,12 +240,8 @@
 				<div class="min-w-0">
 					<div class="text-sm font-medium text-fg">Clear notifications from this app</div>
 					<p class="mt-1 text-xs text-muted">
-						{#if notice}
-							<span class="text-accent">{notice}</span>
-						{:else}
-							Permanently deletes every notification this app sent you from your inbox. This can't
-							be undone.
-						{/if}
+						Permanently deletes every notification this app sent you from your inbox. This can't be
+						undone.
 					</p>
 				</div>
 				{#if confirmingClear}
@@ -279,10 +263,7 @@
 				{:else}
 					<button
 						class="shrink-0 rounded-md px-3 py-1.5 text-sm font-medium text-danger transition-colors hover:bg-danger/10"
-						onclick={() => {
-							notice = '';
-							confirmingClear = true;
-						}}
+						onclick={() => (confirmingClear = true)}
 					>
 						Clear all
 					</button>
