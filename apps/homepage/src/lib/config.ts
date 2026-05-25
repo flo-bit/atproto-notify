@@ -4,6 +4,18 @@
 /** Product name shown in the UI. */
 export const PROJECT_NAME = 'atmo.pub';
 
+/** Short tagline used in titles and social cards. */
+export const TAGLINE = 'notifications for the atmosphere';
+
+/** One-line product description for SEO / social cards (meta + Open Graph). */
+export const DESCRIPTION =
+	'Let any AT Protocol app send you notifications — via web push, Telegram, email, Bluesky DM, or a webhook — all kept in one inbox. Every app asks permission; revoke anytime.';
+
+/** This site's own canonical origin (deployed at docs.atmo.pub). Used to build
+ *  absolute Open Graph URLs — the site is prerendered, so `page.url.origin` is a
+ *  build-time placeholder and can't be used. */
+export const SITE_URL = 'https://docs.atmo.pub';
+
 /** The webapp (PWA) — where the header/landing "Sign in" buttons send users. */
 export const WEBAPP_URL = 'https://atmo.pub';
 

@@ -3,6 +3,13 @@
 /** Product name shown in the UI. */
 export const PROJECT_NAME = 'atmo.pub';
 
+/** Short tagline used in titles and social cards. */
+export const TAGLINE = 'notifications for the atmosphere';
+
+/** One-line product description for SEO / social cards (meta + Open Graph). */
+export const DESCRIPTION =
+	'Let any AT Protocol app send you notifications — via web push, Telegram, email, Bluesky DM, or a webhook — all kept in one inbox. Every app asks permission; revoke anytime.';
+
 /** GitHub repo link in the footer. */
 export const GITHUB_URL = 'https://github.com/flo-bit/atproto-notify';
 
