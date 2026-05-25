@@ -52,7 +52,7 @@ sw.addEventListener('fetch', (event) => {
 
 // Web push: show the notification the relay delivered.
 sw.addEventListener('push', (event) => {
-	let data: { title?: string; body?: string; uri?: string } = {};
+	let data: { title?: string; body?: string; uri?: string; notificationId?: string } = {};
 	try {
 		data = event.data?.json() ?? {};
 	} catch {
@@ -63,7 +63,8 @@ sw.addEventListener('push', (event) => {
 			body: data.body ?? '',
 			icon: '/icon.svg',
 			badge: '/icon.svg',
-			data: { uri: data.uri }
+			// `n` lets the click handler mark this inbox notification read on open.
+			data: { uri: data.uri, n: data.notificationId }
 		})
 	);
 });
@@ -71,16 +72,19 @@ sw.addEventListener('push', (event) => {
 // A click goes to the PWA (the SW can only open in-scope pages). For an external
 // link we open the in-scope `/go` handoff page, which then bounces to the user's
 // default browser (a PWA can't render an out-of-scope URL); links to nowhere just
-// open the inbox. Routing through `/go` also keeps `client.navigate` same-origin
-// (it can't navigate an existing window to a cross-origin URL).
+// open the inbox. Either way we carry `n` (the notification id) so the opened page
+// can mark it read — iOS doesn't do that just because the app came to the front.
+// Routing through `/go` also keeps `client.navigate` same-origin (it can't navigate
+// an existing window to a cross-origin URL).
 sw.addEventListener('notificationclick', (event) => {
 	event.notification.close();
-	const uri = (event.notification.data as { uri?: string } | null)?.uri;
+	const { uri, n } = (event.notification.data as { uri?: string; n?: string } | null) ?? {};
 	const origin = sw.location.origin;
+	const nParam = n ? `&n=${encodeURIComponent(n)}` : '';
 	const target =
 		uri && /^https?:/.test(uri)
-			? new URL(`/go?to=${encodeURIComponent(uri)}`, origin).href
-			: new URL('/inbox', origin).href;
+			? new URL(`/go?to=${encodeURIComponent(uri)}${nParam}`, origin).href
+			: new URL(`/inbox${n ? `?n=${encodeURIComponent(n)}` : ''}`, origin).href;
 	event.waitUntil(
 		(async () => {
 			const clients = await sw.clients.matchAll({ type: 'window', includeUncontrolled: true });

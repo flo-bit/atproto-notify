@@ -35,8 +35,8 @@
             "actors": {
               "type": "array",
               "maxLength": 8,
-              "items": { "type": "string" },
-              "description": "Optional handles/DIDs of the people behind this notification (for avatar stacks)."
+              "items": { "type": "ref", "ref": "#actor" },
+              "description": "Optional people behind this notification (for the avatar stack)."
             }
           }
         }
@@ -59,6 +59,22 @@
         { "name": "NotAuthorized" },
         { "name": "RateLimitExceeded" }
       ]
+    },
+    "actor": {
+      "type": "object",
+      "required": ["did"],
+      "properties": {
+        "did": { "type": "string", "format": "did", "description": "The actor's DID (the stable identifier)." },
+        "handle": { "type": "string", "description": "The actor's handle, for display." },
+        "avatarImage": {
+          "type": "string",
+          "description": "Direct avatar image URL. When omitted, the relay resolves one from the DID's Bluesky profile."
+        },
+        "url": {
+          "type": "string",
+          "description": "Optional link for the actor (e.g. their profile), to make the avatar clickable."
+        }
+      }
     }
   }
 }

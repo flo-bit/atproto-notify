@@ -167,6 +167,7 @@ async function dispatch(env: Env, job: DispatchJob): Promise<void> {
         body: job.body,
         uri: job.uri,
         senderDid: job.senderDid,
+        notificationId: job.notificationId,
       });
       return;
     }

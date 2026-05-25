@@ -8,4 +8,11 @@
 	let { children }: { children: Snippet } = $props();
 </script>
 
-{@render children()}
+<!-- MOBILE: the document is locked (layout.css) so this is the scroll owner — it
+     stays put for the app shell (which scrolls its own <main>) and scrolls the
+     public pages if they overflow. DESKTOP: plain wrapper (no overflow) so it
+     doesn't intercept overscroll — that chains up to the document and lets macOS
+     do its native root rubber-band. -->
+<div class="max-md:h-dvh max-md:overflow-y-auto">
+	{@render children()}
+</div>

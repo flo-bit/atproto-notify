@@ -21,7 +21,9 @@
 		| 'mute'
 		| 'arrow-right'
 		| 'info'
-		| 'send';
+		| 'send'
+		| 'refresh'
+		| 'share';
 
 	interface Props {
 		name: IconName;
@@ -108,5 +110,15 @@
 	{:else if name === 'send'}
 		<path d="M21 4L3 11l7 2 2 7 9-16z" />
 		<path d="M21 4l-11 9" />
+	{:else if name === 'refresh'}
+		<path d="M3 12a9 9 0 0 1 15.5-6.2L21 8" />
+		<path d="M21 3v5h-5" />
+		<path d="M21 12a9 9 0 0 1-15.5 6.2L3 16" />
+		<path d="M3 21v-5h5" />
+	{:else if name === 'share'}
+		<!-- iOS-style share: a box with an upward arrow out of the top. -->
+		<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+		<path d="M16 6l-4-4-4 4" />
+		<path d="M12 2v13" />
 	{/if}
 </svg>

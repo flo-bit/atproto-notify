@@ -108,6 +108,10 @@
 			<Wordmark size={15} />
 		</header>
 
+		<!-- The document is locked (layout.css) so this is the scroller. No
+		     `overscroll-contain`: the locked body already blocks scroll-chaining, and
+		     leaving it default keeps the native edge bounce on long lists (some iOS
+		     versions suppress the bounce under `contain`). -->
 		<main bind:this={mainEl} class="min-h-0 flex-1 overflow-y-auto">
 			{@render children()}
 		</main>

@@ -5,7 +5,13 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import RelativeTime from '$lib/components/RelativeTime.svelte';
 	import RouteChip from '$lib/components/RouteChip.svelte';
-	import { currentSubscription, pushSupported, subscribe, unsubscribe } from '$lib/push';
+	import {
+		currentSubscription,
+		iosNeedsInstallForPush,
+		pushSupported,
+		subscribe,
+		unsubscribe
+	} from '$lib/push';
 	import {
 		addWebhook,
 		enableDM,
@@ -134,6 +140,8 @@
 	let pushState = $state<PushState>('loading');
 	let currentEndpoint = $state<string | null>(null);
 	let deviceName = $state('');
+	// iOS Safari tab: push needs the app installed to the Home Screen first.
+	let iosNeedsInstall = $state(false);
 
 	const thisDeviceConnected = $derived(
 		currentEndpoint !== null && data.devices.some((d) => d.endpoint === currentEndpoint)
@@ -141,6 +149,7 @@
 
 	onMount(async () => {
 		if (!pushSupported()) {
+			iosNeedsInstall = iosNeedsInstallForPush();
 			pushState = 'unsupported';
 			return;
 		}
@@ -303,7 +312,23 @@
 		{#if pushState === 'loading'}
 			<p class="text-xs text-muted-2">Checking this browser…</p>
 		{:else if pushState === 'unsupported'}
-			<p class="text-xs text-muted">Push isn't available in this browser.</p>
+			{#if iosNeedsInstall}
+				<div class="rounded-md border border-line bg-surface-2 px-3 py-2.5 text-xs text-muted">
+					<p class="font-medium text-fg">Add atmo.pub to your Home Screen to enable push</p>
+					<p class="mt-1 leading-relaxed">
+						On iPhone &amp; iPad, web push only works from an installed app. In Safari, tap
+						<span class="inline-flex translate-y-0.5 items-center text-fg"
+							><Icon name="share" size={13} /></span
+						>
+						<span class="font-medium text-fg">Share</span>, then
+						<span class="font-medium text-fg">Add to Home Screen</span> — scroll down, or tap
+						<span class="font-medium text-fg">More</span> if you don't see it. Then open atmo.pub
+						from your Home Screen and turn on push here.
+					</p>
+				</div>
+			{:else}
+				<p class="text-xs text-muted">Push isn't available in this browser.</p>
+			{/if}
 		{:else if !thisDeviceConnected}
 			{@const reconnect = currentEndpoint !== null}
 			<div class={data.devices.length > 0 ? 'mt-3 border-t border-line-2 pt-3' : ''}>

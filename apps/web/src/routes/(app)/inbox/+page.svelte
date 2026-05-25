@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
-	import AppMark from '$lib/components/AppMark.svelte';
+	import { page } from '$app/state';
 	import Icon from '$lib/components/Icon.svelte';
+	import NotificationAvatar from '$lib/components/NotificationAvatar.svelte';
 	import RelativeTime from '$lib/components/RelativeTime.svelte';
 	import { markNotificationsRead } from '$lib/remote/notifs.remote';
 	import type { PageData } from './$types';
@@ -10,6 +11,16 @@
 	let { data }: { data: PageData } = $props();
 
 	let busy = $state(false);
+	let refreshing = $state(false);
+
+	async function refresh() {
+		refreshing = true;
+		try {
+			await invalidateAll();
+		} finally {
+			refreshing = false;
+		}
+	}
 
 	// In an installed PWA, `target="_blank"` opens an in-app browser (and iOS
 	// keeps it Safari-only). A plain same-window navigation to an out-of-scope URL
@@ -22,6 +33,15 @@
 		standalone =
 			window.matchMedia('(display-mode: standalone)').matches ||
 			(navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+		// A push click with no link lands here as `/inbox?n=<id>`. iOS doesn't mark
+		// the notification read just because the app opened, so do it explicitly.
+		const n = page.url.searchParams.get('n');
+		if (n) {
+			markNotificationsRead({ ids: [n] })
+				.then(() => invalidateAll())
+				.catch(() => {});
+		}
 	});
 
 	async function markAll() {
@@ -46,8 +66,11 @@
 			});
 	}
 
+	// The row is a flex container; the avatar (which may hold its own actor links)
+	// sits beside the notification's link/button so we never nest anchors.
 	const rowClass =
-		'flex w-full items-start gap-3 rounded-md px-2 py-3 text-left transition-colors hover:bg-surface-2';
+		'flex items-start gap-3 rounded-md px-2 py-3 transition-colors hover:bg-surface-2';
+	const openClass = 'block min-w-0 flex-1 text-left';
 </script>
 
 <svelte:head><title>Inbox · atmo.pub</title></svelte:head>
@@ -64,15 +87,26 @@
 				</span>
 			{/if}
 		</div>
-		{#if data.unread > 0}
+		<div class="flex items-center gap-2">
+			{#if data.unread > 0}
+				<button
+					class="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-fg transition-colors hover:bg-surface-2 disabled:opacity-50"
+					disabled={busy}
+					onclick={markAll}
+				>
+					{busy ? '…' : 'Mark all read'}
+				</button>
+			{/if}
 			<button
-				class="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-fg transition-colors hover:bg-surface-2 disabled:opacity-50"
-				disabled={busy}
-				onclick={markAll}
+				class="grid size-9 place-items-center rounded-md border border-line text-fg transition-colors hover:bg-surface-2 disabled:opacity-50"
+				disabled={refreshing}
+				onclick={refresh}
+				aria-label="Refresh"
+				title="Refresh"
 			>
-				{busy ? '…' : 'Mark all read'}
+				<Icon name="refresh" size={16} class={refreshing ? 'animate-spin' : ''} />
 			</button>
-		{/if}
+		</div>
 	</header>
 
 	{#if data.notifications.length === 0}
@@ -91,7 +125,14 @@
 	{:else}
 		<ul class="mt-2 divide-y divide-line-2">
 			{#each data.notifications as n (n.id)}
-				<li>
+				<li class={rowClass}>
+					<NotificationAvatar
+						sender={n.sender}
+						senderTitle={n.senderTitle}
+						iconUrl={n.iconUrl}
+						actors={n.actors}
+						{standalone}
+					/>
 					{#if n.uri}
 						<!-- Open in the default browser. Standalone PWA: no target → out-of-scope nav
 						     hands off to the default browser. Normal browser: new tab. -->
@@ -100,13 +141,13 @@
 							target={standalone ? undefined : '_blank'}
 							rel="noopener noreferrer"
 							onclick={() => markRead(n)}
-							class={rowClass}
+							class={openClass}
 						>
-							{@render item(n)}
+							{@render itemText(n)}
 						</a>
 					{:else}
-						<button type="button" onclick={() => markRead(n)} class={rowClass}>
-							{@render item(n)}
+						<button type="button" onclick={() => markRead(n)} class={openClass}>
+							{@render itemText(n)}
 						</button>
 					{/if}
 				</li>
@@ -115,21 +156,25 @@
 	{/if}
 </div>
 
-{#snippet item(n: PageData['notifications'][number])}
-	<AppMark id={n.sender} size={40} />
-	<div class="min-w-0 flex-1">
-		<div class="flex items-center gap-2">
-			<span class="truncate text-sm font-semibold text-fg">{n.title}</span>
-			{#if !n.read}
-				<span class="size-2 shrink-0 rounded-full bg-accent" aria-label="unread"></span>
-			{/if}
-		</div>
-		{#if n.body}
-			<p class="mt-0.5 line-clamp-2 text-sm text-muted">{n.body}</p>
+{#snippet itemText(n: PageData['notifications'][number])}
+	<div class="flex items-center gap-2">
+		<span class="min-w-0 truncate text-sm font-semibold text-fg">{n.title}</span>
+		{#if !n.read}
+			<span class="size-2 shrink-0 rounded-full bg-accent" aria-label="unread"></span>
 		{/if}
-		<div class="mt-1 flex items-center gap-2 font-mono text-xs text-muted-2">
-			<RelativeTime date={n.createdAt} />
-			{#if n.category}<span>· {n.category}</span>{/if}
-		</div>
+		{#if n.category}
+			<span
+				class="shrink-0 rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[0.65rem] text-muted-2"
+			>
+				{n.category}
+			</span>
+		{/if}
+		<RelativeTime
+			date={n.createdAt}
+			class="ml-auto shrink-0 font-mono text-xs whitespace-nowrap text-muted-2"
+		/>
 	</div>
+	{#if n.body}
+		<p class="mt-0.5 line-clamp-2 text-sm text-muted">{n.body}</p>
+	{/if}
 {/snippet}

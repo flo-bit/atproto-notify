@@ -1,13 +1,26 @@
 import type { Did } from '@atcute/lexicons';
 import { env } from 'cloudflare:test';
-import { expect, it } from 'vitest';
+import { beforeEach, expect, it } from 'vitest';
 
 import * as q from '../src/db/queries';
 import * as ops from '../src/rpc/ops';
 
+import { installFetchMock, makeBskyProfileMock } from './helpers';
+
 const SENDER = 'did:plc:inboxsender' as Did;
 
-async function seed(user: Did, id: string, createdAt: number, actors: string[] | null): Promise<void> {
+beforeEach(() => {
+  // Actor avatars resolve via the Bluesky AppView; keep it offline + deterministic.
+  installFetchMock();
+  makeBskyProfileMock({ handle: 'alice.test', avatar: 'https://cdn.test/alice.jpg' });
+});
+
+async function seed(
+  user: Did,
+  id: string,
+  createdAt: number,
+  actors: q.NotificationActorRecord[] | null,
+): Promise<void> {
   await q.insertNotification(env.DB, {
     id,
     recipientDid: user,
@@ -21,17 +34,32 @@ async function seed(user: Did, id: string, createdAt: number, actors: string[] |
   });
 }
 
-it('listNotifications returns newest-first with actors and an unread count', async () => {
+it('listNotifications returns newest-first; actors resolve avatar + handle from the DID', async () => {
   const user = 'did:plc:inbox1' as Did;
-  await seed(user, 'n-a', 1000, ['alice.test']);
+  await seed(user, 'n-a', 1000, [{ did: 'did:plc:alice' }]);
   await seed(user, 'n-b', 2000, null);
 
   const res = await ops.listNotifications(env, user);
 
   expect(res.notifications.map((n) => n.id)).toEqual(['n-b', 'n-a']);
-  expect(res.notifications[1]?.actors).toEqual(['alice.test']);
+  expect(res.notifications[1]?.actors).toEqual([
+    { did: 'did:plc:alice', handle: 'alice.test', avatar: 'https://cdn.test/alice.jpg', url: undefined },
+  ]);
   expect(res.notifications[0]?.read).toBe(false);
   expect(res.unread).toBe(2);
+});
+
+it('a sender-supplied avatarImage/handle is used as-is (no profile fetch)', async () => {
+  const user = 'did:plc:inbox-av' as Did;
+  await seed(user, 'n-c', 1000, [
+    { did: 'did:plc:bob', handle: 'bob.custom', avatarImage: 'https://img.test/bob.png', url: 'https://bob.example' },
+  ]);
+
+  const res = await ops.listNotifications(env, user);
+
+  expect(res.notifications[0]?.actors).toEqual([
+    { did: 'did:plc:bob', handle: 'bob.custom', avatar: 'https://img.test/bob.png', url: 'https://bob.example' },
+  ]);
 });
 
 it('markRead({ ids }) marks those; markRead({ all }) clears the rest', async () => {

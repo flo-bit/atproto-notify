@@ -7,12 +7,75 @@ import * as q from '../db/queries';
 import { deliveryChannelFor, selectTargets } from '../delivery/channel';
 import { withinChannelLimits } from '../delivery/limits';
 import type { AppContext, DispatchJob } from '../env';
-import { notAuthorized, rateLimited } from '../lib/errors';
+import { invalidRequest, notAuthorized, rateLimited } from '../lib/errors';
 import { newId } from '../lib/ids';
 import { now } from '../lib/time';
 import { checkAndIncrement } from '../ratelimit';
 
 const LXM = 'pub.atmo.notify.send';
+
+// The lexicon leaves `uri` an unconstrained string, but it crosses a trust
+// boundary: it's rendered as an inbox anchor href, a Telegram "Open" button URL,
+// and a Bluesky DM link facet. An unvalidated value lets a granted sender inject
+// a `javascript:` URI (stored XSS in the atmo.pub origin) or a `tg:`/other-scheme
+// link delivered through the relay's own trusted channels (phishing). So require
+// a real http(s) URL with a sane length cap here, at the single send boundary —
+// covering every downstream channel at once.
+const URI_MAX_LENGTH = 2048;
+
+/**
+ * Validate a sender-supplied notification link. Returns the value unchanged when
+ * it's a valid http(s) URL within the length cap, undefined when none was given;
+ * throws InvalidRequest otherwise. Allows both http and https to match the
+ * client-side guards (the inbox `/go` page and the service worker accept
+ * `^https?://`).
+ */
+function validateUri(uri: string | undefined): string | undefined {
+  if (uri === undefined) return undefined;
+  if (uri.length > URI_MAX_LENGTH) {
+    throw invalidRequest('uri exceeds maximum length');
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(uri);
+  } catch {
+    throw invalidRequest('uri must be a valid absolute URL');
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw invalidRequest('uri must use http(s)');
+  }
+  return uri;
+}
+
+/**
+ * Return `value` only if it's a valid http(s) URL within the length cap, else
+ * undefined. Used for actor `avatarImage`/`url`: both become an inbox `<img src>`
+ * / `<a href>`, so the same trust boundary as {@link validateUri} applies (a
+ * `javascript:` href would be stored XSS). Unlike the link, a bad actor field is
+ * just dropped — it's decoration, not worth failing the whole send over.
+ */
+function safeHttpUrl(value: string | undefined): string | undefined {
+  if (value === undefined || value.length > URI_MAX_LENGTH) return undefined;
+  try {
+    const { protocol } = new URL(value);
+    return protocol === 'https:' || protocol === 'http:' ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Sanitize sender-supplied actors for storage: drop unsafe avatar/profile URLs. */
+function sanitizeActors(
+  actors: PubAtmoNotifySend.$input['actors'],
+): q.NotificationActorRecord[] | null {
+  if (!actors) return null;
+  return actors.map((a) => ({
+    did: a.did,
+    handle: a.handle,
+    avatarImage: safeHttpUrl(a.avatarImage),
+    url: safeHttpUrl(a.url),
+  }));
+}
 
 // Per-pair limits: at most 1 notification/second and 100/day.
 const PER_SECOND_LIMIT = 1;
@@ -32,6 +95,11 @@ export function makeSend(app: AppContext): ProcedureConfig<PubAtmoNotifySend.mai
       if (grant === null) {
         throw notAuthorized();
       }
+
+      // Validate the optional link before any side effects (no inbox row, no
+      // rate-limit slot consumed for a malformed request). See validateUri.
+      const uri = validateUri(input.uri);
+      const actors = sanitizeActors(input.actors);
 
       // 3. Rate limits (per recipient+sender pair) — checked before any write so a
       //    rate-limited send has no side effects (no inbox row, no category).
@@ -93,8 +161,8 @@ export function makeSend(app: AppContext): ProcedureConfig<PubAtmoNotifySend.mai
         category: input.category ?? null,
         title: input.title,
         body: input.body,
-        uri: input.uri ?? null,
-        actors: input.actors ?? null,
+        uri: uri ?? null,
+        actors,
         createdAt: now(),
       });
 
@@ -134,9 +202,10 @@ export function makeSend(app: AppContext): ProcedureConfig<PubAtmoNotifySend.mai
         body: {
           kind: 'notification' as const,
           channel: deliveryChannelFor(target),
+          notificationId: id,
           title: input.title,
           body: input.body,
-          uri: input.uri,
+          uri,
           senderDid,
         } satisfies DispatchJob,
       }));

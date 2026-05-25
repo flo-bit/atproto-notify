@@ -11,6 +11,8 @@ import {
 	markAllReadForUser,
 	mintAppLoginUrl,
 	requestPermissionForUser,
+	resolveActor,
+	type SendActor,
 	sendAsSender,
 	setRoutingForUser
 } from '$lib/server/relay';
@@ -47,13 +49,23 @@ export const sendTest = command(
 	v.object({
 		title: v.optional(v.string()),
 		body: v.optional(v.string()),
-		category: v.optional(v.string())
+		category: v.optional(v.string()),
+		/** Comma-separated handles/DIDs to show as the notification's actors. */
+		actors: v.optional(v.string())
 	}),
-	async ({ title, body, category }): Promise<SendResult> => {
+	async ({ title, body, category, actors }): Promise<SendResult> => {
 		const { locals } = getRequestEvent();
 		if (!locals.did) {
 			error(401, 'Not signed in');
 		}
+		// Resolve each typed handle/DID to a `send` actor (the lexicon needs a DID).
+		const ids = (actors ?? '')
+			.split(',')
+			.map((s) => s.trim())
+			.filter(Boolean);
+		const resolved = (await Promise.all(ids.map(resolveActor))).filter(
+			(a): a is SendActor => a !== null
+		);
 		try {
 			const result = await sendAsSender({
 				recipient: locals.did,
@@ -62,7 +74,8 @@ export const sendTest = command(
 				// A cross-site URL so PWA inbox links open in the default browser (an
 				// atmo.pub subdomain would be treated as same-site and stay in-app on iOS).
 				uri: 'https://bsky.app',
-				category: category?.trim() || undefined
+				category: category?.trim() || undefined,
+				actors: resolved.length > 0 ? resolved : undefined
 			});
 			return { ok: true, ...result };
 		} catch (e) {

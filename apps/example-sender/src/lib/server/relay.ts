@@ -99,6 +99,14 @@ export async function mintAppLoginUrl(
  * Sender-DID path. Sign with this app's own key (no user OAuth) and send a
  * notification to `recipient`.
  */
+/** A person behind a notification (for the recipient's avatar stack). */
+export interface SendActor {
+	did: string;
+	handle?: string;
+	avatarImage?: string;
+	url?: string;
+}
+
 export async function sendAsSender(input: {
 	recipient: string;
 	title: string;
@@ -106,10 +114,34 @@ export async function sendAsSender(input: {
 	uri?: string;
 	/** Optional routing category (one of the app's declared categories). */
 	category?: string;
+	/** Optional people behind the notification (avatar stack). */
+	actors?: SendActor[];
 }): Promise<{ id: string; delivered: number }> {
 	const lxm = 'pub.atmo.notify.send';
 	const jwt = await mintSenderJwt(lxm);
 	return postRelay(jwt, lxm, input) as Promise<{ id: string; delivered: number }>;
+}
+
+/**
+ * Resolve a typed handle/DID to a `send` actor. The lexicon requires a DID, so a
+ * handle is looked up via the public Bluesky AppView; we pass the resolved handle
+ * along and leave the avatar for the relay to resolve from the DID. Returns null
+ * if the actor can't be resolved.
+ */
+export async function resolveActor(handleOrDid: string): Promise<SendActor | null> {
+	try {
+		const res = await fetch(
+			`https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(handleOrDid)}`
+		);
+		if (!res.ok) return null;
+		const profile = (await res.json()) as { did?: unknown; handle?: unknown };
+		if (typeof profile.did !== 'string') return null;
+		const handle = typeof profile.handle === 'string' ? profile.handle : undefined;
+		// Link the avatar to the actor's Bluesky profile (handle or DID both resolve).
+		return { did: profile.did, handle, url: `https://bsky.app/profile/${handle ?? profile.did}` };
+	} catch {
+		return null;
+	}
 }
 
 /**

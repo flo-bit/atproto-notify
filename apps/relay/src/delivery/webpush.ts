@@ -28,6 +28,8 @@ export interface PushPayload {
   body: string;
   uri?: string;
   senderDid: string;
+  /** The inbox notification's id, so clicking the push can mark it read. */
+  notificationId?: string;
 }
 
 /** Thrown on a non-2xx push response; `statusCode` 404/410 means the subscription is dead. */

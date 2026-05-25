@@ -50,6 +50,9 @@ export type DispatchJob =
   | {
       kind: 'notification';
       channel: DeliveryChannel;
+      /** The inbox notification's id, so a push click can mark it read on open.
+       *  Absent for alerts with no inbox row (test sends, pending-request prompts). */
+      notificationId?: string;
       title: string;
       body: string;
       uri?: string;

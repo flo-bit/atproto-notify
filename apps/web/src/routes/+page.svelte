@@ -34,7 +34,7 @@
 	<title>{PROJECT_NAME} — notifications for the atmosphere</title>
 </svelte:head>
 
-<div class="flex min-h-screen flex-col items-center justify-center px-6 py-12">
+<div class="flex min-h-dvh flex-col items-center justify-center px-6 py-12">
 	<div class="w-full max-w-sm">
 		<div class="mb-8 flex flex-col items-center text-center">
 			<div

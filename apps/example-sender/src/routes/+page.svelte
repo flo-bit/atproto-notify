@@ -113,6 +113,7 @@
 	let title = $state('');
 	let body = $state('');
 	let testCategory = $state('');
+	let testActors = $state('');
 	let sendResult = $state<SendResult | null>(null);
 
 	async function send(event: SubmitEvent) {
@@ -121,7 +122,12 @@
 		errorMsg = '';
 		sendResult = null;
 		try {
-			sendResult = await sendTest({ title, body, category: testCategory || undefined });
+			sendResult = await sendTest({
+				title,
+				body,
+				category: testCategory || undefined,
+				actors: testActors || undefined
+			});
 			await invalidateAll();
 		} catch (err) {
 			errorMsg = errMsg(err, 'Send failed');
@@ -339,6 +345,14 @@
 							<option value={c.id}>{c.title}</option>
 						{/each}
 					</select>
+					<input
+						bind:value={testActors}
+						placeholder="Actors — handles or DIDs, comma-separated (optional)"
+						autocapitalize="none"
+						autocorrect="off"
+						spellcheck="false"
+						class={inputCls}
+					/>
 					<button type="submit" disabled={busy['send']} class={btnPrimary}>
 						{busy['send'] ? 'Sending…' : 'Send test notification'}
 					</button>

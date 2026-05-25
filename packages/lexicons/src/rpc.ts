@@ -58,15 +58,31 @@ export type TargetView =
   | { id: string; channel: 'dm'; label: string; createdAt: string }
   | { id: string; channel: 'webhook'; label: string; url: string; createdAt: string };
 
+/** One person behind a notification (for the avatar stack). */
+export interface NotificationActor {
+  /** The actor's DID (stable identifier). */
+  did: string;
+  /** The actor's handle, for display — sender-supplied or resolved. */
+  handle?: string;
+  /** Resolved avatar image URL — sender-supplied `avatarImage` or fetched from the DID. */
+  avatar?: string;
+  /** Optional link for the actor (e.g. their profile), for clickable avatars. */
+  url?: string;
+}
+
 /** A notification as shown in the inbox (binding-only; no public lexicon). */
 export interface NotificationView {
   id: string;
   sender: Did;
+  /** Display name for the sending app (the icon's alt + its fallback initial). */
+  senderTitle: string;
+  /** Best-effort app icon: app-supplied icon → catalog → the sender's Bluesky avatar. */
+  iconUrl?: string;
   category?: string;
   title: string;
   body: string;
   uri?: string;
-  actors: string[];
+  actors: NotificationActor[];
   createdAt: string;
   read: boolean;
 }

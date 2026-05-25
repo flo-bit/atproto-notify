@@ -7,6 +7,7 @@ import { DAY_MS, now } from '../lib/time';
 
 const APPVIEW_URL = 'https://public.api.bsky.app';
 const PROFILE_TTL_MS = DAY_MS; // 24h (see README "Configuration")
+const ACTOR_AVATAR_TTL_SECONDS = 24 * 60 * 60; // KV cache for resolved actor avatars
 
 interface NormalizedProfile {
   handle: string | null;
@@ -42,12 +43,13 @@ export async function ensureSenderProfile(env: Env, senderDid: Did): Promise<voi
   });
 }
 
-async function fetchBskyProfile(did: Did): Promise<NormalizedProfile | null> {
+async function fetchBskyProfile(actor: string): Promise<NormalizedProfile | null> {
   try {
     // Unauthenticated AppView query via @atcute/client's fetch handler.
+    // `actor` accepts a handle or a DID.
     const handler = simpleFetchHandler({ service: APPVIEW_URL });
     const res = await handler(
-      `/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(did)}`,
+      `/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(actor)}`,
       { method: 'GET' },
     );
     if (!res.ok) {
@@ -67,4 +69,47 @@ async function fetchBskyProfile(did: Did): Promise<NormalizedProfile | null> {
   } catch {
     return null;
   }
+}
+
+/** The avatar + handle resolved for a notification actor's DID. */
+export interface ResolvedActor {
+  avatar?: string;
+  handle?: string;
+}
+
+/**
+ * Resolve one actor DID to its Bluesky avatar + handle, cached in KV (24h,
+ * including misses) so a busy inbox doesn't refetch on every load. Senders that
+ * supply their own `avatarImage`/`handle` never reach here.
+ */
+async function resolveActorProfile(env: Env, did: string): Promise<ResolvedActor> {
+  const key = `actorprofile:${did}`;
+  const cached = await env.CACHE.get(key);
+  if (cached !== null) {
+    return JSON.parse(cached) as ResolvedActor;
+  }
+  const profile = await fetchBskyProfile(did);
+  const resolved: ResolvedActor = {
+    avatar: profile?.avatar ?? undefined,
+    handle: profile?.handle ?? undefined,
+  };
+  await env.CACHE.put(key, JSON.stringify(resolved), { expirationTtl: ACTOR_AVATAR_TTL_SECONDS });
+  return resolved;
+}
+
+/**
+ * Resolve a batch of distinct actor DIDs to their avatar + handle, in parallel.
+ * Returns a map from DID → resolved profile.
+ */
+export async function resolveActorProfiles(
+  env: Env,
+  dids: string[],
+): Promise<Map<string, ResolvedActor>> {
+  const out = new Map<string, ResolvedActor>();
+  await Promise.all(
+    [...new Set(dids)].map(async (did) => {
+      out.set(did, await resolveActorProfile(env, did));
+    }),
+  );
+  return out;
 }

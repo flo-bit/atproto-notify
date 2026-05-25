@@ -621,6 +621,16 @@ export async function deleteOldDeliveryLog(db: D1Database, beforeMs: number): Pr
 // notifications (inbox)
 // ---------------------------------------------------------------------------
 
+/** One person behind a notification, as stored in `notifications.actors` (JSON). */
+export interface NotificationActorRecord {
+  did: string;
+  handle?: string;
+  /** Direct avatar image URL; when absent the relay resolves one from the DID. */
+  avatarImage?: string;
+  /** Optional link (e.g. the actor's profile) for future clickable avatars. */
+  url?: string;
+}
+
 export interface NotificationRow {
   id: string;
   recipient_did: Did;
@@ -629,7 +639,7 @@ export interface NotificationRow {
   title: string;
   body: string;
   uri: string | null;
-  actors: string | null; // JSON array
+  actors: string | null; // JSON array of NotificationActorRecord
   created_at: number;
   read_at: number | null;
 }
@@ -642,7 +652,7 @@ export interface InsertNotificationInput {
   title: string;
   body: string;
   uri: string | null;
-  actors: string[] | null;
+  actors: NotificationActorRecord[] | null;
   createdAt: number;
 }
 

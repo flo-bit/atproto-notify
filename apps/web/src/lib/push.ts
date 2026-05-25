@@ -51,6 +51,27 @@ export function pushSupported(): boolean {
 	);
 }
 
+/**
+ * True on iOS Safari running in a normal tab: web push there only works once the
+ * site is installed to the Home Screen, so the UI can show an "Add to Home Screen"
+ * hint instead of a generic "unsupported" message. Returns false when push is
+ * already supported (e.g. an installed PWA), when not on iOS, or when no VAPID key
+ * is configured (installing wouldn't help then).
+ */
+export function iosNeedsInstallForPush(): boolean {
+	if (typeof window === 'undefined' || VAPID_PUBLIC_KEY === '') return false;
+	const ua = navigator.userAgent;
+	const isIOS =
+		/iPhone|iPad|iPod/.test(ua) ||
+		// iPadOS 13+ reports a desktop "Macintosh" UA; distinguish it by touch.
+		(/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+	if (!isIOS) return false;
+	const standalone =
+		window.matchMedia('(display-mode: standalone)').matches ||
+		(navigator as Navigator & { standalone?: boolean }).standalone === true;
+	return !standalone;
+}
+
 function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
 	const padded = (base64 + '='.repeat((4 - (base64.length % 4)) % 4))
 		.replace(/-/g, '+')

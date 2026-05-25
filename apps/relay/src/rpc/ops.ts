@@ -42,6 +42,7 @@ import { appCatalog, callbackAppFor, registeredApp } from '../lib/apps';
 import { invalidRequest } from '../lib/errors';
 import { newLinkToken, newTargetId } from '../lib/ids';
 import { addMinutes, now, toIsoDatetime } from '../lib/time';
+import { type ResolvedActor, resolveActorProfiles } from '../profile/fetch';
 
 export async function grant(
   env: Env,
@@ -374,15 +375,44 @@ export async function unregisterWebPush(
 
 const INBOX_PAGE_SIZE = 30;
 
-function toNotificationView(row: q.NotificationRow): NotificationView {
+/** App branding (icon + display name) for one sender, used by the inbox. */
+interface SenderBrand {
+  iconUrl?: string;
+  title: string;
+}
+
+function parseActors(json: string | null): q.NotificationActorRecord[] {
+  if (json === null) return [];
+  const parsed = JSON.parse(json) as unknown;
+  if (!Array.isArray(parsed)) return [];
+  return parsed.filter(
+    (a): a is q.NotificationActorRecord =>
+      typeof a === 'object' && a !== null && typeof (a as { did?: unknown }).did === 'string',
+  );
+}
+
+function toNotificationView(
+  row: q.NotificationRow,
+  brands: Map<string, SenderBrand>,
+  resolved: Map<string, ResolvedActor>,
+): NotificationView {
+  const brand = brands.get(row.sender_did);
   return {
     id: row.id,
     sender: row.sender_did,
+    senderTitle: brand?.title ?? registeredApp(row.sender_did)?.title ?? row.sender_did,
+    iconUrl: brand?.iconUrl ?? registeredApp(row.sender_did)?.iconUrl ?? undefined,
     category: row.category ?? undefined,
     title: row.title,
     body: row.body,
     uri: row.uri ?? undefined,
-    actors: row.actors ? (JSON.parse(row.actors) as string[]) : [],
+    actors: parseActors(row.actors).map((a) => ({
+      did: a.did,
+      // Sender-supplied values win; otherwise fall back to the resolved profile.
+      handle: a.handle ?? resolved.get(a.did)?.handle,
+      avatar: a.avatarImage ?? resolved.get(a.did)?.avatar,
+      url: a.url,
+    })),
     createdAt: toIsoDatetime(row.created_at),
     read: row.read_at !== null,
   };
@@ -396,9 +426,29 @@ export async function listNotifications(
   const before = cursor !== undefined ? Number(cursor) : undefined;
   const rows = await q.listNotificationsForRecipient(env.DB, did, INBOX_PAGE_SIZE, before);
   const unread = (await q.countUnreadNotifications(env.DB, did))?.c ?? 0;
+
+  // App branding for the sending app: grant metadata → registered catalog →
+  // Bluesky profile → the DID (mirrors listGrants). One query covers every sender.
+  const brands = new Map<string, SenderBrand>();
+  for (const g of await q.listGrantsForRecipient(env.DB, did)) {
+    const app = registeredApp(g.sender_did);
+    brands.set(g.sender_did, {
+      iconUrl: g.icon_url ?? app?.iconUrl ?? g.avatar_url ?? undefined,
+      title: g.title ?? app?.title ?? g.display_name ?? g.handle ?? g.sender_did,
+    });
+  }
+
+  // Resolve actor avatars/handles from their DIDs — but only those the sender
+  // didn't already supply an avatarImage for (no point fetching those).
+  const needResolution = rows
+    .flatMap((r) => parseActors(r.actors))
+    .filter((a) => a.avatarImage === undefined)
+    .map((a) => a.did);
+  const resolved = await resolveActorProfiles(env, needResolution);
+
   const last = rows.at(-1);
   return {
-    notifications: rows.map(toNotificationView),
+    notifications: rows.map((row) => toNotificationView(row, brands, resolved)),
     unread,
     cursor: rows.length === INBOX_PAGE_SIZE && last ? String(last.created_at) : undefined,
   };
